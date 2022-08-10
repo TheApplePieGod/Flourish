@@ -1,0 +1,8 @@
+[submodule "Flourish/lib/glm"]
+	path = Flourish/lib/glm
+	url = https://github.com/g-truc/glm.git
+	branch = master
+[submodule "FlourishTesting/lib/spdlog"]
+	path = FlourishTesting/lib/spdlog
+	url = https://github.com/gabime/spdlog.git
+	branch = v1.x
