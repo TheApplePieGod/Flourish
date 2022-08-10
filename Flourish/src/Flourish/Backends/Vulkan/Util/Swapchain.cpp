@@ -5,5 +5,13 @@
 
 namespace Flourish::Vulkan
 {
+    void Swapchain::Initialize(const RenderContextCreateInfo& createInfo)
+    {
+        
+    }
 
+    void Swapchain::Shutdown()
+    {
+
+    }
 }

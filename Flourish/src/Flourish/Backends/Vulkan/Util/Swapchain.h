@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/RenderContext.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
@@ -14,6 +15,9 @@ namespace Flourish::Vulkan
     class Swapchain
     {
     public:
+        // TS
+        void Initialize(const RenderContextCreateInfo& createInfo);
+        void Shutdown();
 
     public:
         // TS
@@ -21,5 +25,8 @@ namespace Flourish::Vulkan
 
     private:
         
+
+        // Copied from RenderContext so we don't need to delete
+        VkSurfaceKHR m_Surface;
     };
 }

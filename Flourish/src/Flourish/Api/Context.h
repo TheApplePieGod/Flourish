@@ -19,19 +19,11 @@ namespace Flourish
         u32 FrameBufferCount = 2;
     };
 
-    struct ContextCreateInfo
-    {
-
-    };
-
     class Context
     {
     public:
         static void Initialize(const ContextInitializeInfo& initInfo);
         static void Shutdown();
-
-        // TS
-        static std::shared_ptr<Context> Create(const ContextCreateInfo& createInfo);
 
         // TS
         inline static BackendType GetBackendType() { return s_BackendType; }

@@ -28,6 +28,7 @@ namespace Flourish::Vulkan
         s_Devices.Initialize(initInfo);
         s_Queues.Initialize();
         s_Commands.Initialize();
+        s_DeleteQueue.Initialize();
 
         FL_LOG_DEBUG("Vulkan context ready");
     }
@@ -36,6 +37,7 @@ namespace Flourish::Vulkan
     {
         Sync();
 
+        s_DeleteQueue.Shutdown();
         s_Commands.Shutdown();
         s_Queues.Shutdown();
         s_Devices.Shutdown();
@@ -54,6 +56,11 @@ namespace Flourish::Vulkan
     void Context::BeginFrame()
     {
         s_FrameIndex = (s_FrameIndex + 1) % Flourish::Context::GetFrameBufferCount();
+    }
+
+    void Context::EndFrame()
+    {
+        s_DeleteQueue.Iterate();
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
@@ -83,8 +90,6 @@ namespace Flourish::Vulkan
                 "VK_KHR_win32_surface",
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
-            #else
-                "VK_EXT_metal_surface",
             #endif
         };
 
