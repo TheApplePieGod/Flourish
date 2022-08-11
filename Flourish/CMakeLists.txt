@@ -2,6 +2,7 @@ project(Core)
 
 # Build dependencies
 add_subdirectory("lib/glm")
+add_subdirectory("lib/vma")
 
 # Build main
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h" "src/flpch.h")
@@ -15,6 +16,7 @@ target_include_directories(
   PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/glm>"
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/vma/include>"
   "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
 )
 

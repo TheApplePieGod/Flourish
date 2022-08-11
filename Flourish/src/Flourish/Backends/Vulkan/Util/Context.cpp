@@ -26,6 +26,7 @@ namespace Flourish::Vulkan
     {
         SetupInstance(initInfo);
         s_Devices.Initialize(initInfo);
+        SetupAllocator();
         s_Queues.Initialize();
         s_Commands.Initialize();
         s_DeleteQueue.Initialize();
@@ -40,6 +41,7 @@ namespace Flourish::Vulkan
         s_DeleteQueue.Shutdown();
         s_Commands.Shutdown();
         s_Queues.Shutdown();
+        vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG
             // Find func and destroy debug instance
@@ -75,7 +77,7 @@ namespace Flourish::Vulkan
         );
         appInfo.pEngineName = "Flourish";
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_2;
+        appInfo.apiVersion = VulkanApiVersion;
 
         // Get api extension support
         u32 supportedExtensionCount = 0;
@@ -143,6 +145,17 @@ namespace Flourish::Vulkan
                     FL_LOG_WARN("Unable to initialize debug utilities") ;
             }   
         #endif
+    }
+
+    void Context::SetupAllocator()
+    {
+        VmaAllocatorCreateInfo createInfo{};
+        createInfo.instance = s_Instance;
+        createInfo.physicalDevice = s_Devices.PhysicalDevice();
+        createInfo.device = s_Devices.Device();
+        createInfo.vulkanApiVersion = VulkanApiVersion;
+
+        vmaCreateAllocator(&createInfo, &s_Allocator);
     }
 
     void Context::ConfigureValidationLayers()

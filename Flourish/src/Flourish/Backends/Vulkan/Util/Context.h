@@ -24,12 +24,15 @@ namespace Flourish::Vulkan
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
         inline static u32 FrameIndex() { return s_FrameIndex; }
 
+        inline static constexpr u32 VulkanApiVersion = VK_API_VERSION_1_2;
+
     private:
         static void Initialize(const ContextInitializeInfo& initInfo);
         static void Shutdown();
         static void BeginFrame();
         static void EndFrame();
         static void SetupInstance(const ContextInitializeInfo& initInfo);
+        static void SetupAllocator();
         static void ConfigureValidationLayers();
 
     private:
@@ -38,6 +41,7 @@ namespace Flourish::Vulkan
         inline static Vulkan::Queues s_Queues;
         inline static Vulkan::Commands s_Commands;
         inline static Vulkan::DeleteQueue s_DeleteQueue;
+        inline static VmaAllocator s_Allocator;
         inline static VkDebugUtilsMessengerEXT s_DebugMessenger = nullptr;
         inline static std::vector<const char*> s_ValidationLayers;
         inline static u32 s_FrameIndex = 0;

@@ -1,6 +1,9 @@
 #include "flpch.h"
 #include "Common.h"
 
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 namespace Flourish::Vulkan
 {
     bool Common::SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension)

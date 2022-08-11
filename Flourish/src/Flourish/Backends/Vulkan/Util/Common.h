@@ -2,6 +2,7 @@
 
 #include "Flourish/Api/Context.h"
 #include "vulkan/vulkan.h"
+#include "vk_mem_alloc.h"
 #ifdef FL_PLATFORM_WINDOWS
     #include "vulkan/vulkan_win32.h"
 #elif defined(FL_PLATFORM_LINUX)
