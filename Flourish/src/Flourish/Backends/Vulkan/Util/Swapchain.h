@@ -5,26 +5,31 @@
 
 namespace Flourish::Vulkan
 {
-    struct SwapChainSupportDetails
+    struct SwapchainInfo
     {
-        VkSurfaceCapabilitiesKHR Capabilities;
-        std::vector<VkSurfaceFormatKHR> Formats;
-        std::vector<VkPresentModeKHR> PresentModes;
+        VkSurfaceFormatKHR SurfaceFormat = { VK_FORMAT_UNDEFINED };
+        VkPresentModeKHR PresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
     };
 
     class Swapchain
     {
     public:
         // TS
-        void Initialize(const RenderContextCreateInfo& createInfo);
+        void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface);
         void Shutdown();
 
-    public:
-        // TS
-        static SwapChainSupportDetails GetSwapChainSupport(VkPhysicalDevice device);
+    private:
+        void PopulateSwapchainInfo();
+        void RecreateSwapchain();
+        void CleanupSwapchain();
 
     private:
-        
+        VkSwapchainKHR m_Swapchain = nullptr;
+        bool m_Invalid = false;
+        u32 m_CurrentWidth, m_CurrentHeight = 0;
+        std::vector<VkImage> m_ChainImages;
+        std::vector<VkImageView> m_ChainImageViews;
+        SwapchainInfo m_Info;
 
         // Copied from RenderContext so we don't need to delete
         VkSurfaceKHR m_Surface;

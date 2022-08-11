@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
         FL_ASSERT(m_Surface, "Unable to create window surface");
         if (!m_Surface) return;
 
-        m_Swapchain.Initialize(createInfo);
+        m_Swapchain.Initialize(createInfo, m_Surface);
     }
 
     RenderContext::~RenderContext()

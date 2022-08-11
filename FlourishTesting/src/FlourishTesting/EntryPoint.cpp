@@ -1,6 +1,7 @@
 #include "flpch.h"
 
 #include "Flourish/Api/Context.h"
+#include "Flourish/Api/RenderContext.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -27,6 +28,34 @@ int main(int argc, char** argv)
     contextInitInfo.Backend = Flourish::BackendType::Vulkan;
     contextInitInfo.ApplicationName = "FlourishTesting";
     Flourish::Context::Initialize(contextInitInfo);
+
+    Flourish::RenderContextCreateInfo contextCreateInfo;
+    contextCreateInfo.Width = 1920;
+    contextCreateInfo.Height = 1080;
+    #ifdef FL_PLATFORM_WINDOWS
+        HINSTANCE instance = GetModuleHandle(NULL);
+        WNDCLASS wc{};
+        wc.lpfnWndProc = DefWindowProc;
+        wc.hInstance = instance;
+        wc.lpszClassName = "MainWindow";
+        RegisterClass(&wc);
+        HWND hwnd = CreateWindow(
+            "MainWindow",
+            "Flourish",
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT, CW_USEDEFAULT,
+            (int)contextCreateInfo.Width, (int)contextCreateInfo.Height,
+            NULL,
+            NULL,
+            instance,
+            NULL
+        );
+        ShowWindow(hwnd, SW_SHOW);
+
+        contextCreateInfo.Instance = instance;
+        contextCreateInfo.Window = hwnd;
+    #endif
+    auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
 
     Flourish::Context::Shutdown();
 
