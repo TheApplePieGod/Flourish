@@ -24,7 +24,7 @@ namespace Flourish::Vulkan
     public:
         // TS
         void Push(std::function<void()>&& executeFunc);
-        void Iterate();
+        void Iterate(bool force = false);
         
         // TS
         inline bool IsEmpty() const { return m_Queue.empty(); }

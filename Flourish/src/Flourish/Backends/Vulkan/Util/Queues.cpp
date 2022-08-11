@@ -25,9 +25,29 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
-
+        
     }
     
+    void Queues::PushTransferCommand(VkCommandBuffer buffer)
+    {
+        m_TransferCommandQueueLock.lock();
+        m_TransferCommandQueue.push_back(buffer);
+        m_TransferCommandQueueLock.unlock();
+    }
+
+    void Queues::IterateTransferCommands()
+    {
+        m_TransferCommandQueueLock.lock();
+        for (u32 i = 0; i < m_TransferCommandQueue.size(); i++)
+        {
+            auto& value = m_TransferCommandQueue.front();
+            m_TransferCommandQueue.pop_front();
+            
+            
+        }
+        m_TransferCommandQueueLock.unlock();
+    }
+
     QueueFamilyIndices Queues::GetQueueFamilies(VkPhysicalDevice device)
     {
         QueueFamilyIndices indices;

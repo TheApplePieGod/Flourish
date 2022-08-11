@@ -182,10 +182,17 @@ namespace Flourish::Vulkan
 
     void Swapchain::CleanupSwapchain()
     {
-        auto device = Context::Devices().Device();
-        for (auto view : m_ChainImageViews)
-            vkDestroyImageView(device, view, nullptr);
+        auto chainImageViews = m_ChainImageViews;
+        auto swapchain = m_Swapchain;
+        Context::DeleteQueue().Push([=]()
+        {
+            auto device = Context::Devices().Device();
+            for (auto view : chainImageViews)
+                vkDestroyImageView(device, view, nullptr);
+            
+            vkDestroySwapchainKHR(device, swapchain, nullptr);
+        });
+
         m_ChainImageViews.clear();
-        vkDestroySwapchainKHR(device, m_Swapchain, nullptr);
     }
 }

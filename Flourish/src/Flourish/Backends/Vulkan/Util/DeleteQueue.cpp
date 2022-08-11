@@ -12,7 +12,7 @@ namespace Flourish::Vulkan
 
     void DeleteQueue::Shutdown()
     {
-        Iterate();
+        Iterate(true);
     }
 
     void DeleteQueue::Push(std::function<void()>&& executeFunc)
@@ -25,13 +25,13 @@ namespace Flourish::Vulkan
         m_QueueLock.unlock();
     }
 
-    void DeleteQueue::Iterate()
+    void DeleteQueue::Iterate(bool force)
     {
         m_QueueLock.lock();
         for (u32 i = 0; i < m_Queue.size(); i++)
         {
             auto& value = m_Queue.front();
-            if (value.Lifetime > 0)
+            if (!force && value.Lifetime > 0)
                 value.Lifetime -= 1;
             else
             {

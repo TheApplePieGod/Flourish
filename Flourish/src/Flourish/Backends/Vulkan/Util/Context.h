@@ -18,9 +18,10 @@ namespace Flourish::Vulkan
         // TS
         inline static VkInstance Instance() { return s_Instance; }
         inline static const Devices& Devices() { return s_Devices; }
-        inline static const Queues& Queues() { return s_Queues; }
-        inline static const Commands& Commands() { return s_Commands; }
+        inline static Queues& Queues() { return s_Queues; }
+        inline static Commands& Commands() { return s_Commands; }
         inline static DeleteQueue& DeleteQueue() { return s_DeleteQueue; }
+        inline static VmaAllocator Allocator() { return s_Allocator; }
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
         inline static u32 FrameIndex() { return s_FrameIndex; }
 
@@ -34,6 +35,8 @@ namespace Flourish::Vulkan
         static void SetupInstance(const ContextInitializeInfo& initInfo);
         static void SetupAllocator();
         static void ConfigureValidationLayers();
+        static void RegisterThread();
+        static void UnregisterThread();
 
     private:
         inline static VkInstance s_Instance = nullptr;

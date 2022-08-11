@@ -12,8 +12,6 @@ namespace Flourish
 
         switch (Context::GetBackendType())
         {
-            case BackendType::None:
-            { FL_ASSERT(false, "Must initialize Context before creating a RenderContext"); } return nullptr;
             case BackendType::Vulkan: { return std::make_shared<Vulkan::RenderContext>(createInfo); }
         }
 

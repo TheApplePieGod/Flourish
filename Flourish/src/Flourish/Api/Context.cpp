@@ -7,11 +7,7 @@ namespace Flourish
 {
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
-        if (s_BackendType != BackendType::None)
-        {
-            FL_ASSERT(false, "Cannot initialize, context has already been initialized");
-            return;
-        }
+        FL_ASSERT(s_BackendType == BackendType::None, "Cannot initialize, context has already been initialized");
 
         s_FrameBufferCount = initInfo.FrameBufferCount;
         if (s_FrameBufferCount > MaxFrameBufferCount)
@@ -23,19 +19,17 @@ namespace Flourish
         s_BackendType = initInfo.Backend;
         switch (s_BackendType)
         {
-            case BackendType::Vulkan: { Vulkan::Context::Initialize(initInfo); } return;
+            default: { FL_ASSERT(false, "Context initialization is missing for selected api type"); } return;
+            case BackendType::Vulkan: { Vulkan::Context::Initialize(initInfo); } break;
         }
 
-        FL_ASSERT(false, "Context initialization is missing for selected api type");
+        // Register main thread
+        RegisterThread();
     }
 
     void Context::Shutdown()
     {
-        if (s_BackendType == BackendType::None)
-        {
-            FL_ASSERT(false, "Cannot shutdown, context has not been initialized");
-            return;
-        }
+        FL_ASSERT(s_BackendType != BackendType::None, "Cannot shutdown, context has not been initialized");
 
         switch (s_BackendType)
         {
@@ -43,5 +37,45 @@ namespace Flourish
         }
 
         FL_ASSERT(false, "Context shutdown is missing for selected api type");
+    }
+
+    bool Context::IsThreadRegistered(std::thread::id thread)
+    {
+        s_RegisteredThreadsLock.lock();
+        bool found = s_RegisteredThreads.find(thread) != s_RegisteredThreads.end();
+        s_RegisteredThreadsLock.unlock();
+        return found;
+    }
+
+    void Context::RegisterThread()
+    {
+        FL_ASSERT(s_BackendType != BackendType::None, "Cannot register thread, context has not been initialized");        
+
+        auto thread = std::this_thread::get_id();
+        s_RegisteredThreadsLock.lock();
+        FL_ASSERT(s_RegisteredThreads.find(thread) == s_RegisteredThreads.end(), "Cannot register thread that has already been registered");
+        s_RegisteredThreads.emplace(thread);
+        s_RegisteredThreadsLock.unlock();
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::RegisterThread(); } return;
+        }
+    }
+
+    void Context::UnregisterThread()
+    {
+        FL_ASSERT(s_BackendType != BackendType::None, "Cannot unregister thread, context has not been initialized");
+
+        auto thread = std::this_thread::get_id();
+        s_RegisteredThreadsLock.lock();
+        FL_ASSERT(s_RegisteredThreads.find(thread) != s_RegisteredThreads.end(), "Cannot unregister thread that has not been registered");
+        s_RegisteredThreads.erase(thread);
+        s_RegisteredThreadsLock.unlock();
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::UnregisterThread(); } return;
+        }
     }
 }

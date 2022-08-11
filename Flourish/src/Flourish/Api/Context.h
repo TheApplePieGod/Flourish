@@ -26,6 +26,11 @@ namespace Flourish
         static void Shutdown();
 
         // TS
+        static bool IsThreadRegistered(std::thread::id thread = std::this_thread::get_id());
+        static void RegisterThread();
+        static void UnregisterThread();
+
+        // TS
         inline static BackendType GetBackendType() { return s_BackendType; }
         inline static u32 GetFrameBufferCount() { return s_FrameBufferCount; }
 
@@ -34,5 +39,7 @@ namespace Flourish
     private:
         inline static BackendType s_BackendType = BackendType::None;
         inline static u32 s_FrameBufferCount = 0;
+        inline static std::unordered_set<std::thread::id> s_RegisteredThreads;
+        inline static std::mutex s_RegisteredThreadsLock;
     };
 }

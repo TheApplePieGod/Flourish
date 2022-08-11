@@ -27,11 +27,21 @@ namespace Flourish::Vulkan
         }
     };
 
+    struct QueueCommandEntry
+    {
+        VkCommandBuffer Buffer;
+        std::function<void()> CompletionCallback;
+    };
+
     class Queues
     {
     public:
         void Initialize();
         void Shutdown();
+
+        // TS
+        void PushTransferCommand(const QueueCommandEntry& entry);
+        void IterateTransferCommands();
 
         // TS
         inline VkQueue PresentQueue(u32 frameIndex) const { return m_PresentQueues[frameIndex]; }
@@ -50,5 +60,7 @@ namespace Flourish::Vulkan
     private:
         std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> m_GraphicsQueues, m_ComputeQueues, m_TransferQueues, m_PresentQueues;
         u32 m_GraphicsQueueIndex, m_PresentQueueIndex, m_ComputeQueueIndex, m_TransferQueueIndex;
+        std::deque<QueueCommandEntry> m_TransferCommandQueue;
+        std::mutex m_TransferCommandQueueLock;
     };
 }

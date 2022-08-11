@@ -2,6 +2,7 @@
 
 #include "Flourish/Api/Context.h"
 #include "Flourish/Api/RenderContext.h"
+#include "Flourish/Api/CommandBuffer.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -37,10 +38,10 @@ int main(int argc, char** argv)
         WNDCLASS wc{};
         wc.lpfnWndProc = DefWindowProc;
         wc.hInstance = instance;
-        wc.lpszClassName = "MainWindow";
+        wc.lpszClassName = "Window";
         RegisterClass(&wc);
         HWND hwnd = CreateWindow(
-            "MainWindow",
+            "Window",
             "Flourish",
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT, CW_USEDEFAULT,
@@ -57,6 +58,12 @@ int main(int argc, char** argv)
     #endif
     auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
 
+    Flourish::CommandBufferCreateInfo cmdCreateInfo;
+    cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
+    auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
+
+    cmdBuffer.reset();
+    renderContext.reset();
     Flourish::Context::Shutdown();
 
     return 0;
