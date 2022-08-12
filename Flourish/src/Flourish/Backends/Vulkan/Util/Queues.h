@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Api/CommandBuffer.h"
 
 namespace Flourish::Vulkan
 {
@@ -27,12 +28,6 @@ namespace Flourish::Vulkan
         }
     };
 
-    struct QueueCommandEntry
-    {
-        VkCommandBuffer Buffer;
-        std::function<void()> CompletionCallback;
-    };
-
     class Queues
     {
     public:
@@ -40,27 +35,52 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        void PushTransferCommand(const QueueCommandEntry& entry);
-        void IterateTransferCommands();
+        void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback);
+        void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
+        void IterateCommands(GPUWorkloadType workloadType);
 
         // TS
-        inline VkQueue PresentQueue(u32 frameIndex) const { return m_PresentQueues[frameIndex]; }
-        inline VkQueue GraphicsQueue(u32 frameIndex) const { return m_GraphicsQueues[frameIndex]; }
-        inline VkQueue ComputeQueue(u32 frameIndex) const { return m_ComputeQueues[frameIndex]; }
-        inline VkQueue TransferQueue(u32 frameIndex) const { return m_TransferQueues[frameIndex]; }
-        inline u32 GraphicsQueueIndex() const { return m_GraphicsQueueIndex; }
-        inline u32 PresentQueueIndex() const { return m_PresentQueueIndex; }
-        inline u32 ComputeQueueIndex() const { return m_ComputeQueueIndex; }
-        inline u32 TransferQueueIndex() const { return m_TransferQueueIndex; }
+        VkQueue GraphicsQueue() const;
+        VkQueue PresentQueue() const;
+        VkQueue ComputeQueue() const;
+        VkQueue TransferQueue() const;
+        inline u32 GraphicsQueueIndex() const { return m_GraphicsQueue.QueueIndex; }
+        inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
+        inline u32 ComputeQueueIndex() const { return m_ComputeQueue.QueueIndex; }
+        inline u32 TransferQueueIndex() const { return m_TransferQueue.QueueIndex; }
 
     public:
         // TS
         static QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device);
 
     private:
-        std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> m_GraphicsQueues, m_ComputeQueues, m_TransferQueues, m_PresentQueues;
-        u32 m_GraphicsQueueIndex, m_PresentQueueIndex, m_ComputeQueueIndex, m_TransferQueueIndex;
-        std::deque<QueueCommandEntry> m_TransferCommandQueue;
-        std::mutex m_TransferCommandQueueLock;
+        struct QueueCommandEntry
+        {
+            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore)
+                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore)
+            {}
+
+            VkCommandBuffer Buffer;
+            std::function<void()> Callback;
+            VkSemaphore WaitSemaphore;
+            bool Submitted = false;
+        };
+
+        struct QueueData
+        {
+            std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> Queues;
+            u32 QueueIndex;
+            std::deque<QueueCommandEntry> CommandQueue;
+            std::mutex CommandQueueLock;
+        };
+
+    private:
+        QueueData& GetQueueData(GPUWorkloadType workloadType);
+        VkSemaphore RetrieveSemaphore();
+
+    private:
+        QueueData m_GraphicsQueue, m_ComputeQueue, m_TransferQueue, m_PresentQueue;
+        std::vector<VkSemaphore> m_UnusedSemaphores;
+        std::mutex m_UnusedSemaphoresLock;
     };
 }

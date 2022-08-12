@@ -5,26 +5,6 @@
 
 namespace Flourish::Vulkan
 {
-    struct ThreadCommandPools
-    {
-        ThreadCommandPools() = default;
-        ThreadCommandPools(const ThreadCommandPools& other)
-            : GraphicsPool(other.GraphicsPool),
-              ComputePool(other.ComputePool),
-              TransferPool(other.TransferPool)
-        {}
-        void operator=(const ThreadCommandPools& other)
-        {
-            GraphicsPool = other.GraphicsPool;
-            ComputePool = other.ComputePool;
-            TransferPool = other.TransferPool;
-        }
-
-        VkCommandPool GraphicsPool;
-        VkCommandPool ComputePool;
-        VkCommandPool TransferPool;
-    };
-
     class Commands
     {
     public:
@@ -48,6 +28,27 @@ namespace Flourish::Vulkan
             u32 bufferCount,
             std::thread::id thread = std::this_thread::get_id()
         );
+
+    private:
+        struct ThreadCommandPools
+        {
+            ThreadCommandPools() = default;
+            ThreadCommandPools(const ThreadCommandPools& other)
+                : GraphicsPool(other.GraphicsPool),
+                ComputePool(other.ComputePool),
+                TransferPool(other.TransferPool)
+            {}
+            void operator=(const ThreadCommandPools& other)
+            {
+                GraphicsPool = other.GraphicsPool;
+                ComputePool = other.ComputePool;
+                TransferPool = other.TransferPool;
+            }
+
+            VkCommandPool GraphicsPool;
+            VkCommandPool ComputePool;
+            VkCommandPool TransferPool;
+        };
 
     private:
         void DestroyPools(const ThreadCommandPools& pools);

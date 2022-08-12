@@ -2,6 +2,7 @@
 #include "Queues.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Util/Semaphore.h"
 
 namespace Flourish::Vulkan
 {
@@ -9,17 +10,17 @@ namespace Flourish::Vulkan
     {
         auto indices = GetQueueFamilies(Context::Devices().PhysicalDevice());
 
-        m_GraphicsQueueIndex = indices.GraphicsFamily.value();
-        m_PresentQueueIndex = indices.PresentFamily.value();
-        m_ComputeQueueIndex = indices.ComputeFamily.value();
-        m_TransferQueueIndex = indices.TransferFamily.value();
+        m_GraphicsQueue.QueueIndex = indices.GraphicsFamily.value();
+        m_PresentQueue.QueueIndex = indices.PresentFamily.value();
+        m_ComputeQueue.QueueIndex = indices.ComputeFamily.value();
+        m_TransferQueue.QueueIndex = indices.TransferFamily.value();
 
         for (u32 i = 0; i < Flourish::Context::GetFrameBufferCount(); i++)
         {
-            vkGetDeviceQueue(Context::Devices().Device(), m_PresentQueueIndex, std::min(i, indices.PresentQueueCount - 1), &m_PresentQueues[i]);
-            vkGetDeviceQueue(Context::Devices().Device(), m_GraphicsQueueIndex, std::min(i, indices.GraphicsQueueCount - 1), &m_GraphicsQueues[i]);
-            vkGetDeviceQueue(Context::Devices().Device(), m_ComputeQueueIndex, std::min(i, indices.ComputeQueueCount - 1), &m_ComputeQueues[i]);
-            vkGetDeviceQueue(Context::Devices().Device(), m_TransferQueueIndex, std::min(i, indices.TransferQueueCount - 1), &m_TransferQueues[i]);
+            vkGetDeviceQueue(Context::Devices().Device(), m_PresentQueue.QueueIndex, std::min(i, indices.PresentQueueCount - 1), &m_PresentQueue.Queues[i]);
+            vkGetDeviceQueue(Context::Devices().Device(), m_GraphicsQueue.QueueIndex, std::min(i, indices.GraphicsQueueCount - 1), &m_GraphicsQueue.Queues[i]);
+            vkGetDeviceQueue(Context::Devices().Device(), m_ComputeQueue.QueueIndex, std::min(i, indices.ComputeQueueCount - 1), &m_ComputeQueue.Queues[i]);
+            vkGetDeviceQueue(Context::Devices().Device(), m_TransferQueue.QueueIndex, std::min(i, indices.TransferQueueCount - 1), &m_TransferQueue.Queues[i]);
         }
     }
 
@@ -28,26 +29,81 @@ namespace Flourish::Vulkan
         
     }
     
-    void Queues::PushTransferCommand(VkCommandBuffer buffer)
+    void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback)
     {
-        m_TransferCommandQueueLock.lock();
-        m_TransferCommandQueue.push_back(buffer);
-        m_TransferCommandQueueLock.unlock();
+        auto& queueData = GetQueueData(workloadType);
+        queueData.CommandQueueLock.lock();
+        queueData.CommandQueue.emplace_back(buffer, completionCallback, RetrieveSemaphore());
+        queueData.CommandQueueLock.unlock();
     }
 
-    void Queues::IterateTransferCommands()
+    void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
-        m_TransferCommandQueueLock.lock();
-        for (u32 i = 0; i < m_TransferCommandQueue.size(); i++)
+
+    }
+
+    void Queues::IterateCommands(GPUWorkloadType workloadType)
+    {
+        std::vector<VkCommandBuffer> buffers;
+        std::vector<VkSemaphore> semaphores;
+        auto& queueData = GetQueueData(workloadType);
+        queueData.CommandQueueLock.lock();
+        for (u32 i = 0; i < queueData.CommandQueue.size(); i++)
         {
-            auto& value = m_TransferCommandQueue.front();
-            m_TransferCommandQueue.pop_front();
-            
-            
+            auto& value = queueData.CommandQueue.front();
+            if (value.Submitted)
+            {
+                u64 semaphoreVal;
+                vkGetSemaphoreCounterValue(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
+                if (semaphoreVal > 0) // Completed
+                {
+                    value.Callback();
+                    m_UnusedSemaphoresLock.lock();
+                    m_UnusedSemaphores.push_back(value.WaitSemaphore);
+                    m_UnusedSemaphoresLock.unlock();
+                    queueData.CommandQueue.pop_front();
+                    i--;
+                }
+            }
+            else
+            {
+                buffers.push_back(value.Buffer);
+                semaphores.push_back(value.WaitSemaphore);
+                value.Submitted = true;
+            }
         }
-        m_TransferCommandQueueLock.unlock();
+        queueData.CommandQueueLock.unlock();
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.signalSemaphoreCount = semaphores.size();
+        submitInfo.pSignalSemaphores = semaphores.data();
+        submitInfo.commandBufferCount = buffers.size();
+        submitInfo.pCommandBuffers = buffers.data();
+
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Context::Queues().TransferQueue(), 1, &submitInfo, nullptr));
     }
 
+    VkQueue Queues::GraphicsQueue() const
+    {
+        return m_GraphicsQueue.Queues[Context::FrameIndex()];
+    }
+
+    VkQueue Queues::PresentQueue() const
+    {
+        return m_PresentQueue.Queues[Context::FrameIndex()];
+    }
+
+    VkQueue Queues::ComputeQueue() const
+    {
+        return m_ComputeQueue.Queues[Context::FrameIndex()];
+    }
+
+    VkQueue Queues::TransferQueue() const
+    {
+        return m_TransferQueue.Queues[Context::FrameIndex()];
+    }
+    
     QueueFamilyIndices Queues::GetQueueFamilies(VkPhysicalDevice device)
     {
         QueueFamilyIndices indices;
@@ -120,5 +176,35 @@ namespace Flourish::Vulkan
         }
 
         return indices;
+    }
+
+    Queues::QueueData& Queues::GetQueueData(GPUWorkloadType workloadType)
+    {
+        switch (workloadType)
+        {
+            case GPUWorkloadType::Graphics:
+            { return m_GraphicsQueue; }
+            case GPUWorkloadType::Transfer:
+            { return m_TransferQueue; }
+            case GPUWorkloadType::Compute:
+            { return m_ComputeQueue; }
+        }
+
+        FL_ASSERT(false, "Command pool for workload not supported");
+        return m_GraphicsQueue;
+    }
+
+    VkSemaphore Queues::RetrieveSemaphore()
+    {
+        if (m_UnusedSemaphores.size() > 0)
+        {
+            m_UnusedSemaphoresLock.lock();
+            auto semaphore = m_UnusedSemaphores.back();
+            m_UnusedSemaphores.pop_back();
+            m_UnusedSemaphoresLock.unlock();
+            return semaphore;
+        }
+
+        return Semaphore::CreateTimelineSemaphore(0);
     }
 }

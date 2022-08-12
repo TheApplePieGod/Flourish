@@ -13,11 +13,28 @@ namespace Flourish::Vulkan
 
         void Flush() override;
 
+        // TS
+        VkBuffer GetBuffer() const;
+        VkBuffer GetStagingBuffer() const;
+
     private:
-        u32 m_BufferCount;
-        std::array<VkBuffer, Flourish::Context::MaxFrameBufferCount> m_Buffers;
-        std::array<VkBuffer, Flourish::Context::MaxFrameBufferCount> m_StagingBuffers;
-        std::array<VmaAllocation, Flourish::Context::MaxFrameBufferCount> m_BufferAllocations;
-        std::array<VmaAllocation, Flourish::Context::MaxFrameBufferCount> m_StagingBufferAllocations;
+        struct BufferData
+        {
+            VkBuffer Buffer;
+            VmaAllocation Allocation;
+            VmaAllocationInfo AllocationInfo;
+            bool HasComplement = false;
+        };
+
+    private:
+        void FlushInternal(VkBuffer src, VkBuffer dst, u64 size);
+        void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo allocInfo, u64 size);
+
+        const BufferData& GetBufferData() const;
+
+    private:
+        u32 m_BufferCount = 1;
+        std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_Buffers;
+        std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_StagingBuffers;
     };
 }
