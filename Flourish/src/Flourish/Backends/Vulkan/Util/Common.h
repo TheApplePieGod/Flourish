@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Flourish/Api/Context.h"
+#include "Flourish/Api/Framebuffer.h"
+#include "Flourish/Api/Pipeline.h"
+#include "Flourish/Api/Texture.h"
 #include "vulkan/vulkan.h"
 #include "vk_mem_alloc.h"
 #ifdef FL_PLATFORM_WINDOWS
@@ -14,6 +17,19 @@ namespace Flourish::Vulkan
     struct Common
     {
         static bool SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension);
+        static VkFormat ConvertColorFormat(ColorFormat format);
+        static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
+        static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);
+        static VkFormat ConvertBufferDataType(BufferDataType type);
+        static VkCullModeFlagBits ConvertCullMode(CullMode mode);
+        static VkFrontFace ConvertWindingOrder(WindingOrder order);
+        static VkDescriptorType ConvertShaderResourceType(ShaderResourceType type);
+        static VkShaderStageFlags ConvertShaderResourceAccessType(ShaderResourceAccessType type);
+        static VkBlendFactor ConvertBlendFactor(BlendFactor factor);
+        static VkBlendOp ConvertBlendOperation(BlendOperation op);
+        static VkFilter ConvertSamplerFilter(SamplerFilter filter);
+        static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
+        static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);
     };
 }
 

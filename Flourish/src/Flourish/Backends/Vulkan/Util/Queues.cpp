@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
         m_ComputeQueue.QueueIndex = indices.ComputeFamily.value();
         m_TransferQueue.QueueIndex = indices.TransferFamily.value();
 
-        for (u32 i = 0; i < Flourish::Context::GetFrameBufferCount(); i++)
+        for (u32 i = 0; i < Flourish::Context::FrameBufferCount(); i++)
         {
             vkGetDeviceQueue(Context::Devices().Device(), m_PresentQueue.QueueIndex, std::min(i, indices.PresentQueueCount - 1), &m_PresentQueue.Queues[i]);
             vkGetDeviceQueue(Context::Devices().Device(), m_GraphicsQueue.QueueIndex, std::min(i, indices.GraphicsQueueCount - 1), &m_GraphicsQueue.Queues[i]);

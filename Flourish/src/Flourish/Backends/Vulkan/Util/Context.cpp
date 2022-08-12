@@ -57,7 +57,7 @@ namespace Flourish::Vulkan
 
     void Context::BeginFrame()
     {
-        s_FrameIndex = (s_FrameIndex + 1) % Flourish::Context::GetFrameBufferCount();
+        s_FrameIndex = (s_FrameIndex + 1) % Flourish::Context::FrameBufferCount();
     }
 
     void Context::EndFrame()

@@ -10,7 +10,7 @@ namespace Flourish::Vulkan
     {
         // Dynamic buffers need a separate buffer for each frame buffer
         if (m_Info.Usage == BufferUsageType::Dynamic)
-            m_BufferCount = Flourish::Context::GetFrameBufferCount();
+            m_BufferCount = Flourish::Context::FrameBufferCount();
 
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
         if (GetAllocatedSize() == 0)

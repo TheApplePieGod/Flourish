@@ -19,7 +19,7 @@ namespace Flourish::Vulkan
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
-            Flourish::Context::GetFrameBufferCount() + 1,
+            Flourish::Context::FrameBufferCount() + 1,
             executeFunc
         );
         m_QueueLock.unlock();

@@ -8,9 +8,9 @@ namespace Flourish
 {
     std::shared_ptr<CommandBuffer> CommandBuffer::Create(const CommandBufferCreateInfo& createInfo)
     {
-        FL_ASSERT(Context::GetBackendType() != BackendType::None, "Must initialize Context before creating a CommandBuffer");
+        FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a CommandBuffer");
 
-        switch (Context::GetBackendType())
+        switch (Context::BackendType())
         {
             case BackendType::Vulkan: { return std::make_shared<Vulkan::CommandBuffer>(createInfo); }
         }

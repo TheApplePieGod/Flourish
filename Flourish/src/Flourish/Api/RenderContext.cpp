@@ -8,9 +8,9 @@ namespace Flourish
 {
     std::shared_ptr<RenderContext> RenderContext::Create(const RenderContextCreateInfo& createInfo)
     {
-        FL_ASSERT(Context::GetBackendType() != BackendType::None, "Must initialize Context before creating a RenderContext");
+        FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a RenderContext");
 
-        switch (Context::GetBackendType())
+        switch (Context::BackendType())
         {
             case BackendType::Vulkan: { return std::make_shared<Vulkan::RenderContext>(createInfo); }
         }

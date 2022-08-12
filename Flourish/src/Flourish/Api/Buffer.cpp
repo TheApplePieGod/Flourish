@@ -30,9 +30,9 @@ namespace Flourish
 
     std::shared_ptr<Buffer> Buffer::Create(const BufferCreateInfo& createInfo)
     {
-        FL_ASSERT(Context::GetBackendType() != BackendType::None, "Must initialize Context before creating a Buffer");
+        FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a Buffer");
 
-        switch (Context::GetBackendType())
+        switch (Context::BackendType())
         {
             case BackendType::Vulkan: { return std::make_shared<Vulkan::Buffer>(createInfo); }
         }

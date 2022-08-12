@@ -13,7 +13,7 @@ namespace Flourish::Vulkan
             m_WorkloadType,
             true,
             m_CommandBuffers.data(),
-            Flourish::Context::GetFrameBufferCount(),
+            Flourish::Context::FrameBufferCount(),
             m_AllocatedThread
         );   
     }
@@ -37,7 +37,7 @@ namespace Flourish::Vulkan
             Context::Commands().FreeBuffers(
                 workloadType,
                 buffers.data(),
-                Flourish::Context::GetFrameBufferCount(),
+                Flourish::Context::FrameBufferCount(),
                 thread
             );
         });

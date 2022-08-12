@@ -39,7 +39,7 @@ namespace Flourish::Vulkan
         QueueFamilyIndices indices = Queues::GetQueueFamilies(m_PhysicalDevice);
         std::vector<float> queuePriorities;
         std::unordered_map<u32, u32> uniqueFamilies;
-        u32 bufferCount = Flourish::Context::GetFrameBufferCount();
+        u32 bufferCount = Flourish::Context::FrameBufferCount();
         queuePriorities.reserve(4 * bufferCount);
         uniqueFamilies[indices.PresentFamily.value()] = std::min(indices.PresentQueueCount, bufferCount);
         uniqueFamilies[indices.GraphicsFamily.value()] = std::min(indices.GraphicsQueueCount, bufferCount);

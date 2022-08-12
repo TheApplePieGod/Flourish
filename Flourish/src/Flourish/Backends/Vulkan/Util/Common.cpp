@@ -17,4 +17,218 @@ namespace Flourish::Vulkan
             }
         ) != extensions.end();
     }
+
+    VkFormat Common::ConvertColorFormat(ColorFormat format)
+    {
+        switch (format)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified ColorFormat"); } break;
+            case ColorFormat::RGBA8: return VK_FORMAT_R8G8B8A8_SRGB;
+            case ColorFormat::R16F: return VK_FORMAT_R16_SFLOAT;
+            case ColorFormat::RGBA16F: return VK_FORMAT_R16G16B16A16_SFLOAT;
+            case ColorFormat::R32F: return VK_FORMAT_R32_SFLOAT;
+            case ColorFormat::RGBA32F: return VK_FORMAT_R32G32B32A32_SFLOAT;
+        }
+
+        return VK_FORMAT_UNDEFINED;
+    }
+
+    VkSampleCountFlagBits Common::ConvertMsaaSampleCount(MsaaSampleCount sampleCount)
+    {
+        switch (sampleCount)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified MsaaSampleCount"); } break;
+            case MsaaSampleCount::None: return VK_SAMPLE_COUNT_1_BIT;
+            case MsaaSampleCount::Two: return VK_SAMPLE_COUNT_2_BIT;
+            case MsaaSampleCount::Four: return VK_SAMPLE_COUNT_4_BIT;
+            case MsaaSampleCount::Eight: return VK_SAMPLE_COUNT_8_BIT;
+            case MsaaSampleCount::Sixteen: return VK_SAMPLE_COUNT_16_BIT;
+            case MsaaSampleCount::Thirtytwo: return VK_SAMPLE_COUNT_32_BIT;
+            case MsaaSampleCount::Sixtyfour: return VK_SAMPLE_COUNT_64_BIT;
+        }
+
+        return VK_SAMPLE_COUNT_1_BIT;
+    }
+
+    VkPrimitiveTopology Common::ConvertVertexTopology(VertexTopology topology)
+    {
+        switch (topology)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified VertexTopology"); } break;
+            case VertexTopology::TriangleList: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+            case VertexTopology::TriangleStrip: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+            case VertexTopology::TriangleFan: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+            case VertexTopology::PointList: return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            case VertexTopology::LineList: return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+            case VertexTopology::LineStrip: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+        }
+
+        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    }
+
+    VkFormat Common::ConvertBufferDataType(BufferDataType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified BufferDataType"); } break;
+            case BufferDataType::Bool: return VK_FORMAT_R32_UINT;
+            case BufferDataType::UInt: return VK_FORMAT_R32_UINT;
+            case BufferDataType::Double: return VK_FORMAT_R64_SFLOAT;
+            case BufferDataType::Int: return VK_FORMAT_R32_SINT;
+            case BufferDataType::Int2: return VK_FORMAT_R32G32_SINT;
+            case BufferDataType::Int3: return VK_FORMAT_R32G32B32_SINT;
+            case BufferDataType::Int4: return VK_FORMAT_R32G32B32A32_SINT;
+            case BufferDataType::Float: return VK_FORMAT_R32_SFLOAT;
+            case BufferDataType::Float2: return VK_FORMAT_R32G32_SFLOAT;
+            case BufferDataType::Float3: return VK_FORMAT_R32G32B32_SFLOAT;
+            case BufferDataType::Float4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+            //case BufferDataType::Mat3: return VK_FORMAT_UNDEFINED;
+            //case BufferDataType::Mat4: return VK_FORMAT_UNDEFINED;
+        }
+
+        return VK_FORMAT_UNDEFINED;
+    }
+
+    VkCullModeFlagBits Common::ConvertCullMode(CullMode mode)
+    {
+        switch (mode)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified CullMode"); } break;
+            case CullMode::None: return VK_CULL_MODE_NONE;
+            case CullMode::Backface: return VK_CULL_MODE_BACK_BIT;
+            case CullMode::Frontface: return VK_CULL_MODE_FRONT_BIT;
+            case CullMode::BackAndFront: return VK_CULL_MODE_FRONT_AND_BACK;
+        }
+
+        return VK_CULL_MODE_NONE;
+    }
+
+    VkFrontFace Common::ConvertWindingOrder(WindingOrder order)
+    {
+        switch (order)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified WindingOrder"); } break;
+            case WindingOrder::Clockwise: return VK_FRONT_FACE_CLOCKWISE;
+            case WindingOrder::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        }
+
+        return VK_FRONT_FACE_MAX_ENUM;
+    }
+
+    VkDescriptorType Common::ConvertShaderResourceType(ShaderResourceType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
+            case ShaderResourceType::Texture: return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            case ShaderResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+            case ShaderResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+            case ShaderResourceType::SubpassInput: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        }
+
+        return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+    }
+
+    VkShaderStageFlags Common::ConvertShaderResourceAccessType(ShaderResourceAccessType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
+            case ShaderResourceAccessType::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
+            case ShaderResourceAccessType::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
+            case ShaderResourceAccessType::Both: return (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            case ShaderResourceAccessType::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
+        }
+
+        return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+    }
+
+    VkBlendFactor Common::ConvertBlendFactor(BlendFactor factor)
+    {
+        switch (factor)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified BlendFactor"); } break;
+            case BlendFactor::Zero: return VK_BLEND_FACTOR_ZERO;
+            case BlendFactor::One: return VK_BLEND_FACTOR_ONE;
+
+            case BlendFactor::SrcColor: return VK_BLEND_FACTOR_SRC_COLOR;
+            case BlendFactor::OneMinusSrcColor: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+            case BlendFactor::DstColor: return VK_BLEND_FACTOR_DST_COLOR;
+            case BlendFactor::OneMinusDstColor: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+
+            case BlendFactor::SrcAlpha: return VK_BLEND_FACTOR_SRC_ALPHA;
+            case BlendFactor::OneMinusSrcAlpha: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            case BlendFactor::DstAlpha: return VK_BLEND_FACTOR_DST_ALPHA;
+            case BlendFactor::OneMinusDstAlpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+        }
+
+        return VK_BLEND_FACTOR_MAX_ENUM;
+    }
+
+    VkBlendOp Common::ConvertBlendOperation(BlendOperation op)
+    {
+        switch (op)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified BlendOperation"); } break;
+            case BlendOperation::Add: return VK_BLEND_OP_ADD;
+            case BlendOperation::Subtract: return VK_BLEND_OP_SUBTRACT;
+            case BlendOperation::ReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
+            case BlendOperation::Min: return VK_BLEND_OP_MIN;
+            case BlendOperation::Max: return VK_BLEND_OP_MAX;
+        }
+
+        return VK_BLEND_OP_MAX_ENUM;
+    }
+
+    VkFilter Common::ConvertSamplerFilter(SamplerFilter filter)
+    {
+        switch (filter)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified SamplerFilter"); } break;
+            case SamplerFilter::Linear: return VK_FILTER_LINEAR;
+            case SamplerFilter::Nearest: return VK_FILTER_NEAREST;
+        }
+
+        return VK_FILTER_MAX_ENUM;
+    }
+
+    VkSamplerAddressMode Common::ConvertSamplerWrapMode(SamplerWrapMode mode)
+    {
+        switch (mode)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified SamplerWrapMode"); } break;
+            case SamplerWrapMode::ClampToBorder: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+            case SamplerWrapMode::ClampToEdge: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            case SamplerWrapMode::Repeat: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            case SamplerWrapMode::MirroredRepeat: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        }
+
+        return VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
+    }
+
+    VkSamplerReductionMode Common::ConvertSamplerReductionMode(SamplerReductionMode mode)
+    {
+        switch (mode)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified SamplerReductionMode"); } break;
+            case SamplerReductionMode::WeightedAverage: return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE;
+            case SamplerReductionMode::Min: return VK_SAMPLER_REDUCTION_MODE_MIN;
+            case SamplerReductionMode::Max: return VK_SAMPLER_REDUCTION_MODE_MAX;
+        }
+
+        return VK_SAMPLER_REDUCTION_MODE_MAX_ENUM;
+    }
 }

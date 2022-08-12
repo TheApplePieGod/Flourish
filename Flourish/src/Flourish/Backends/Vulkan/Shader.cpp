@@ -145,6 +145,26 @@ namespace Flourish::Vulkan
         });
     }
 
+    VkPipelineShaderStageCreateInfo Shader::DefineShaderStage(const char* entrypoint)
+    {
+        VkShaderStageFlagBits stage;
+        switch (m_Type)
+        {
+            case ShaderType::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
+            case ShaderType::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
+            case ShaderType::Compute: { stage = VK_SHADER_STAGE_COMPUTE_BIT; } break;
+        }
+
+        VkPipelineShaderStageCreateInfo shaderStageInfo{};
+        shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStageInfo.stage = stage;
+        shaderStageInfo.module = m_ShaderModule;
+        shaderStageInfo.pName = entrypoint;
+        shaderStageInfo.pSpecializationInfo = nullptr;
+
+        return shaderStageInfo;
+    }
+
     void Shader::Reflect(const std::vector<u32>& compiledData)
     {
         m_ReflectionData.clear();

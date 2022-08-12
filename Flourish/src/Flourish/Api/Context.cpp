@@ -9,6 +9,7 @@ namespace Flourish
     {
         FL_ASSERT(s_BackendType == BackendType::None, "Cannot initialize, context has already been initialized");
 
+        s_ReversedZBuffer = initInfo.UseReversedZBuffer;
         s_FrameBufferCount = initInfo.FrameBufferCount;
         if (s_FrameBufferCount > MaxFrameBufferCount)
         {

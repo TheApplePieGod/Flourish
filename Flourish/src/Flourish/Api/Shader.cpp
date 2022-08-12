@@ -8,9 +8,9 @@ namespace Flourish
 {
     std::shared_ptr<Shader> Shader::Create(const ShaderCreateInfo& createInfo)
     {
-        FL_ASSERT(Context::GetBackendType() != BackendType::None, "Must initialize Context before creating a Shader");
+        FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a Shader");
 
-        switch (Context::GetBackendType())
+        switch (Context::BackendType())
         {
             case BackendType::Vulkan: { return std::make_shared<Vulkan::Shader>(createInfo); }
         }

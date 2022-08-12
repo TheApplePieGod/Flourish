@@ -11,6 +11,10 @@ namespace Flourish::Vulkan
         Shader(const ShaderCreateInfo& createInfo);
         ~Shader() override;
 
+        // TS
+        VkPipelineShaderStageCreateInfo DefineShaderStage(const char* entrypoint = "main");
+
+        // TS
         inline VkShaderModule GetShaderModule() const { return m_ShaderModule; }
 
     private:

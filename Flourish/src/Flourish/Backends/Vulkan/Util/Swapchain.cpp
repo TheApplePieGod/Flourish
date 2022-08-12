@@ -129,7 +129,7 @@ namespace Flourish::Vulkan
         }
 
         // Choose an image count (this may differ from frame buffer count but optimally it is the same)
-        u32 imageCount = Flourish::Context::GetFrameBufferCount();
+        u32 imageCount = Flourish::Context::FrameBufferCount();
         if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount)
             imageCount = capabilities.maxImageCount;
 
