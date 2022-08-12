@@ -148,8 +148,15 @@ namespace Flourish
     class Buffer
     {
     public:
+        Buffer(const BufferCreateInfo& createInfo)
+            : m_Info(createInfo)
+        {}
         virtual ~Buffer() = default;
 
+        // TS
+        void SetElements(void* data, u32 elementCount, u32 elementOffset);
+        virtual void SetBytes(void* data, u32 byteCount, u32 byteOffset) = 0;
+        
         virtual void Flush() = 0;
 
         // TS

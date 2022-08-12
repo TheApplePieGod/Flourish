@@ -3,6 +3,7 @@
 #include "Flourish/Api/Context.h"
 #include "Flourish/Api/RenderContext.h"
 #include "Flourish/Api/CommandBuffer.h"
+#include "Flourish/Api/Buffer.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -62,6 +63,14 @@ int main(int argc, char** argv)
     cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
     auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
 
+    Flourish::BufferCreateInfo bufCreateInfo;
+    bufCreateInfo.Type = Flourish::BufferType::Uniform;
+    bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
+    bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
+    bufCreateInfo.ElementCount = 1;
+    auto buffer = Flourish::Buffer::Create(bufCreateInfo);
+
+    buffer.reset();
     cmdBuffer.reset();
     renderContext.reset();
     Flourish::Context::Shutdown();

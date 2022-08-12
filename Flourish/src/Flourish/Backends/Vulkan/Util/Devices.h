@@ -12,6 +12,7 @@ namespace Flourish::Vulkan
 
         // TS
         inline VkPhysicalDevice PhysicalDevice() const { return m_PhysicalDevice; }
+        inline const VkPhysicalDeviceProperties& PhysicalDeviceProperties() const { return m_PhysicalDeviceProperties; }
         inline VkDevice Device() const { return m_Device; }
         inline VkSampleCountFlagBits MaxMsaaSamples() const { return m_DeviceMaxSampleCount; }
 
@@ -21,6 +22,7 @@ namespace Flourish::Vulkan
 
     private:
         VkPhysicalDevice m_PhysicalDevice;
+        VkPhysicalDeviceProperties m_PhysicalDeviceProperties;
         VkSampleCountFlagBits m_DeviceMaxSampleCount;
         VkDevice m_Device;
     };

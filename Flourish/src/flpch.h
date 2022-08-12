@@ -19,6 +19,8 @@
 #include <optional>
 #include <deque>
 #include <mutex>
+#include <filesystem>
+#include <fstream>
 
 #include "Flourish/Core/Base.h"
 #include "Flourish/Core/Log.h"

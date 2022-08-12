@@ -17,6 +17,9 @@ namespace Flourish
     class CommandBuffer
     {
     public:
+        CommandBuffer(const CommandBufferCreateInfo& createInfo)
+            : m_WorkloadType(createInfo.WorkloadType)
+        {}
         virtual ~CommandBuffer() = default;
 
     public:

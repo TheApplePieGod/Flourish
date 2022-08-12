@@ -6,8 +6,8 @@
 namespace Flourish::Vulkan
 {
     Buffer::Buffer(const BufferCreateInfo& createInfo)
+        : Flourish::Buffer(createInfo)
     {
-        m_Info = createInfo;
         // Dynamic buffers need a separate buffer for each frame buffer
         if (m_Info.Usage == BufferUsageType::Dynamic)
             m_BufferCount = Flourish::Context::GetFrameBufferCount();
@@ -33,7 +33,17 @@ namespace Flourish::Vulkan
             default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
             case BufferType::Uniform:
             {
-                // Uniform bu
+                if (m_Info.ElementCount > 1)
+                {
+                    VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+                    FL_ASSERT(
+                        m_Info.Layout.GetStride() % minAlignment != 0,
+                        "Uniform buffer layout must be a multiple of {0} but is {1}",
+                        minAlignment,
+                        m_Info.Layout.GetStride()
+                    );
+                }
+
                 bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
                 allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
@@ -63,8 +73,12 @@ namespace Flourish::Vulkan
                             m_StagingBuffers[i].AllocationInfo,
                             bufSize
                         );
-                        memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
-                        FlushInternal(m_StagingBuffers[i].Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
+
+                        if (m_Info.InitialData && m_Info.InitialDataSize > 0)
+                        {
+                            memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+                            FlushInternal(m_StagingBuffers[i].Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
+                        }
                     }
                 }
             } break;
@@ -85,6 +99,17 @@ namespace Flourish::Vulkan
                 vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
             }
         });
+    }
+
+    void Buffer::SetBytes(void* data, u32 byteCount, u32 byteOffset)
+    {
+        FL_ASSERT(m_Info.Usage != BufferUsageType::Static, "Attempting to update buffer that is marked as static");
+
+        auto& bufferData = GetBufferData();
+        if (bufferData.HasComplement)
+            memcpy((char*)GetStagingBufferData().AllocationInfo.pMappedData + byteOffset, data, byteCount);
+        else
+            memcpy((char*)bufferData.AllocationInfo.pMappedData + byteOffset, data, byteCount);
     }
 
     void Buffer::Flush()
@@ -171,5 +196,11 @@ namespace Flourish::Vulkan
     const Buffer::BufferData& Buffer::GetBufferData() const
     {
         return m_BufferCount == 1 ? m_Buffers[0] : m_Buffers[Context::FrameIndex()];
+    }
+
+    const Buffer::BufferData& Buffer::GetStagingBufferData() const
+    {
+        // Buffer count will never be 1 with persistent staging buffers
+        return m_StagingBuffers[Context::FrameIndex()];
     }
 }

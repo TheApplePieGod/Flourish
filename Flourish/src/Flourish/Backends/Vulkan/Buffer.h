@@ -11,6 +11,7 @@ namespace Flourish::Vulkan
         Buffer(const BufferCreateInfo& createInfo);
         ~Buffer() override;
 
+        void SetBytes(void* data, u32 byteCount, u32 byteOffset) override;
         void Flush() override;
 
         // TS
@@ -31,6 +32,7 @@ namespace Flourish::Vulkan
         void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo allocInfo, u64 size);
 
         const BufferData& GetBufferData() const;
+        const BufferData& GetStagingBufferData() const;
 
     private:
         u32 m_BufferCount = 1;

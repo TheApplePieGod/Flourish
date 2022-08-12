@@ -6,6 +6,7 @@
 namespace Flourish::Vulkan
 {
     RenderContext::RenderContext(const RenderContextCreateInfo& createInfo)
+        : Flourish::RenderContext(createInfo)
     {
         auto instance = Context::Instance();
 

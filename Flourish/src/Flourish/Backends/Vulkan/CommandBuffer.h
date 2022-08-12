@@ -13,5 +13,6 @@ namespace Flourish::Vulkan
 
     private:
         std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
+        std::thread::id m_AllocatedThread;
     };
 }

@@ -20,6 +20,8 @@ namespace Flourish
     class RenderContext
     {
     public:
+        RenderContext(const RenderContextCreateInfo& createInfo)
+        {}
         virtual ~RenderContext() = default;
 
     public:
