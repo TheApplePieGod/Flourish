@@ -19,6 +19,7 @@
 #include <optional>
 #include <deque>
 #include <mutex>
+#include <shared_mutex>
 #include <filesystem>
 #include <fstream>
 

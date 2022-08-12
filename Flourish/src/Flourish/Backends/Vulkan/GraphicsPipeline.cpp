@@ -33,7 +33,7 @@ namespace Flourish::Vulkan
         return attributeDescriptions;
     }
 
-    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, u32 subpassIndex)
+    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, u32 subpassCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
         m_DescriptorSet.Initialize(m_ProgramReflectionData);
@@ -146,6 +146,7 @@ namespace Flourish::Vulkan
 
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
         pipelineInfo.pVertexInputState = &vertexInputInfo;
@@ -158,21 +159,33 @@ namespace Flourish::Vulkan
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = m_PipelineLayout;
         pipelineInfo.renderPass = renderPass;
-        pipelineInfo.subpass = subpassIndex;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
-        FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(Context::Devices().Device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline));
+
+        m_Pipelines.resize(subpassCount);
+        for (u32 i = 0; i < subpassCount; i++)
+        {
+            pipelineInfo.subpass = i;
+            if (i > 0)
+            {
+                pipelineInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+                pipelineInfo.basePipelineHandle = m_Pipelines[0];
+            }
+
+            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(Context::Devices().Device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipelines[i]));
+        }
     }
 
     GraphicsPipeline::~GraphicsPipeline()
     {
         m_DescriptorSet.Shutdown();
 
-        auto pipeline = m_Pipeline;
+        auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;
         Context::DeleteQueue().Push([=]()
         {
-            vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
+            for (auto pipeline : pipelines)
+                vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
             vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         });
     }

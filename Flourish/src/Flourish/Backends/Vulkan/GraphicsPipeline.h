@@ -12,18 +12,18 @@ namespace Flourish::Vulkan
             const GraphicsPipelineCreateInfo& createInfo,
             VkRenderPass renderPass,
             VkSampleCountFlagBits sampleCount,
-            u32 subpassIndex
+            u32 subpassCount
         );
         ~GraphicsPipeline() override;
 
         // TS
-        inline VkPipeline GetPipeline() const { return m_Pipeline; }
+        inline VkPipeline GetPipeline(u32 subpassIndex) const { return m_Pipelines[subpassIndex]; }
         inline VkPipelineLayout GetLayout() const { return m_PipelineLayout; }
         inline DescriptorSet& GetDescriptorSet() { return m_DescriptorSet; }
 
     private:
         DescriptorSet m_DescriptorSet;
         VkPipelineLayout m_PipelineLayout;
-        VkPipeline m_Pipeline;
+        std::vector<VkPipeline> m_Pipelines;
     };
 }

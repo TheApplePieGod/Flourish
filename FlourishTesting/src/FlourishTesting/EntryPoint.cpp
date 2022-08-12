@@ -31,48 +31,51 @@ int main(int argc, char** argv)
     contextInitInfo.ApplicationName = "FlourishTesting";
     Flourish::Context::Initialize(contextInitInfo);
 
-    Flourish::RenderContextCreateInfo contextCreateInfo;
-    contextCreateInfo.Width = 1920;
-    contextCreateInfo.Height = 1080;
-    #ifdef FL_PLATFORM_WINDOWS
-        HINSTANCE instance = GetModuleHandle(NULL);
-        WNDCLASS wc{};
-        wc.lpfnWndProc = DefWindowProc;
-        wc.hInstance = instance;
-        wc.lpszClassName = "Window";
-        RegisterClass(&wc);
-        HWND hwnd = CreateWindow(
-            "Window",
-            "Flourish",
-            WS_OVERLAPPEDWINDOW,
-            CW_USEDEFAULT, CW_USEDEFAULT,
-            (int)contextCreateInfo.Width, (int)contextCreateInfo.Height,
-            NULL,
-            NULL,
-            instance,
-            NULL
-        );
-        ShowWindow(hwnd, SW_SHOW);
+    {
+        Flourish::RenderContextCreateInfo contextCreateInfo;
+        contextCreateInfo.Width = 1920;
+        contextCreateInfo.Height = 1080;
+        #ifdef FL_PLATFORM_WINDOWS
+            HINSTANCE instance = GetModuleHandle(NULL);
+            WNDCLASS wc{};
+            wc.lpfnWndProc = DefWindowProc;
+            wc.hInstance = instance;
+            wc.lpszClassName = "Window";
+            RegisterClass(&wc);
+            HWND hwnd = CreateWindow(
+                "Window",
+                "Flourish",
+                WS_OVERLAPPEDWINDOW,
+                CW_USEDEFAULT, CW_USEDEFAULT,
+                (int)contextCreateInfo.Width, (int)contextCreateInfo.Height,
+                NULL,
+                NULL,
+                instance,
+                NULL
+            );
+            ShowWindow(hwnd, SW_SHOW);
 
-        contextCreateInfo.Instance = instance;
-        contextCreateInfo.Window = hwnd;
-    #endif
-    auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
+            contextCreateInfo.Instance = instance;
+            contextCreateInfo.Window = hwnd;
+        #endif
+        auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
 
-    Flourish::CommandBufferCreateInfo cmdCreateInfo;
-    cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
-    auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
+        Flourish::CommandBufferCreateInfo cmdCreateInfo;
+        cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
+        auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
 
-    Flourish::BufferCreateInfo bufCreateInfo;
-    bufCreateInfo.Type = Flourish::BufferType::Uniform;
-    bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
-    bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
-    bufCreateInfo.ElementCount = 1;
-    auto buffer = Flourish::Buffer::Create(bufCreateInfo);
+        Flourish::BufferCreateInfo bufCreateInfo;
+        bufCreateInfo.Type = Flourish::BufferType::Uniform;
+        bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
+        bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
+        bufCreateInfo.ElementCount = 1;
+        auto buffer = Flourish::Buffer::Create(bufCreateInfo);
 
-    buffer.reset();
-    cmdBuffer.reset();
-    renderContext.reset();
+        float val = 3.f;
+        buffer->SetBytes(&val, sizeof(float), 0);
+        buffer->Flush();
+    }
+
     Flourish::Context::Shutdown();
 
     return 0;
