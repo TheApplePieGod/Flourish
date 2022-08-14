@@ -4,6 +4,7 @@
 #include "Flourish/Api/RenderContext.h"
 #include "Flourish/Api/CommandBuffer.h"
 #include "Flourish/Api/Buffer.h"
+#include "Flourish/Api/RenderPass.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -70,6 +71,56 @@ int main(int argc, char** argv)
         bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
         bufCreateInfo.ElementCount = 1;
         auto buffer = Flourish::Buffer::Create(bufCreateInfo);
+
+        Flourish::RenderPassCreateInfo rpCreateInfo;
+        rpCreateInfo.ColorAttachments = {
+            { Flourish::ColorFormat::RGBA8 }
+        };
+        rpCreateInfo.DepthAttachments = { {} };
+        rpCreateInfo.Subpasses = {
+            { {}, { { Flourish::SubpassAttachmentType::Color, 0 } } }
+        };
+        rpCreateInfo.SampleCount = Flourish::MsaaSampleCount::None;
+        auto renderPass = Flourish::RenderPass::Create(rpCreateInfo);
+
+        Flourish::ShaderCreateInfo vsCreateInfo;
+        vsCreateInfo.Type = Flourish::ShaderType::Vertex;
+        vsCreateInfo.Source = R"(
+            #version 460
+
+            layout(location = 0) in vec3 inPosition;
+
+            void main() {
+                gl_Position = vec4(inPosition, 1.f);
+            }
+        )";
+        auto vertShader = Flourish::Shader::Create(vsCreateInfo);
+
+        Flourish::ShaderCreateInfo fsCreateInfo;
+        fsCreateInfo.Type = Flourish::ShaderType::Fragment;
+        fsCreateInfo.Source = R"(
+            #version 460
+
+            layout(location = 0) out vec4 outColor;
+
+            void main() {
+                outColor = vec4(1.f);
+            }
+        )";
+        auto fragShader = Flourish::Shader::Create(fsCreateInfo);
+
+        Flourish::GraphicsPipelineCreateInfo gpCreateInfo;
+        gpCreateInfo.VertexShader = vertShader;
+        gpCreateInfo.FragmentShader = fragShader;
+        gpCreateInfo.VertexInput = true;
+        gpCreateInfo.VertexTopology = Flourish::VertexTopology::TriangleList;
+        gpCreateInfo.VertexLayout = { { Flourish::BufferDataType::Float3 } };
+        gpCreateInfo.BlendStates = { { false } };
+        gpCreateInfo.DepthTest = true;
+        gpCreateInfo.DepthWrite = true;
+        gpCreateInfo.CullMode = Flourish::CullMode::Backface;
+        gpCreateInfo.WindingOrder = Flourish::WindingOrder::Clockwise;
+        renderPass->CreatePipeline("main", gpCreateInfo);
 
         float val = 3.f;
         buffer->SetBytes(&val, sizeof(float), 0);

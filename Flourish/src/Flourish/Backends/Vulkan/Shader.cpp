@@ -103,18 +103,28 @@ namespace Flourish::Vulkan
             case ShaderType::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
         }
 
-        shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(baseSource.data(), shaderKind, path.data(), options);
+        shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
+            baseSource.data(),
+            shaderKind,
+            path.empty() ? "shader" : path.data(),
+            options
+        );
         FL_CRASH_ASSERT(
             preprocessed.GetCompilationStatus() == shaderc_compilation_status_success,
             "Shader preprocessing failed: %s",
-            preprocessed.GetErrorMessage()
+            preprocessed.GetErrorMessage().data()
         );
 
-        shaderc::SpvCompilationResult compiled = compiler.CompileGlslToSpv(preprocessed.begin(), shaderKind, path.data(), options);
+        shaderc::SpvCompilationResult compiled = compiler.CompileGlslToSpv(
+            preprocessed.begin(),
+            shaderKind,
+            path.empty() ? "shader" : path.data(),
+            options
+        );
         FL_CRASH_ASSERT(
             compiled.GetCompilationStatus() == shaderc_compilation_status_success,
             "Shader compilation failed: %s",
-            compiled.GetErrorMessage()
+            compiled.GetErrorMessage().data()
         );
 
         return std::vector<u32>((u32*)compiled.cbegin(), (u32*)compiled.cend());

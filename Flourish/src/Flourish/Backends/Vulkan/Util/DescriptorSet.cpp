@@ -95,6 +95,7 @@ namespace Flourish::Vulkan
             for (u32 i = 0; i < pools.size(); i++)
                 for (auto pool : pools[i])
                     vkDestroyDescriptorPool(Context::Devices().Device(), pool, nullptr);
+            vkDestroyDescriptorSetLayout(Context::Devices().Device(), layout, nullptr);
         });
     }
 

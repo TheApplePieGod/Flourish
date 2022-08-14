@@ -6,13 +6,13 @@
 
 namespace Flourish
 {
-    std::shared_ptr<GraphicsPipeline> RenderPass::RegisterPipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo)
+    std::shared_ptr<GraphicsPipeline> RenderPass::CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo)
     {
         std::lock_guard lock(m_PipelineLock);
         std::string nameStr(name.data(), name.size());
         FL_ASSERT(
             m_Pipelines.find(nameStr) == m_Pipelines.end(),
-            "Cannot register pipeline to RenderPass, name already exists: %s",
+            "Cannot create pipeline to RenderPass, name already exists: %s",
             name.data()
         );
 
@@ -29,7 +29,7 @@ namespace Flourish
         std::string nameStr(name.data(), name.size());
         FL_ASSERT(
             m_Pipelines.find(nameStr) != m_Pipelines.end(),
-            "Cannot get pipeline from RenderPass, not registered: %s",
+            "Cannot get pipeline from RenderPass, not created: %s",
             name.data()
         );
 
