@@ -52,7 +52,8 @@ namespace Flourish::Vulkan
                 
                 for (u32 i = 0; i < m_BufferCount; i++)
                 {
-                    FL_VK_ENSURE_RESULT(vmaCreateBuffer(Context::Allocator(),
+                    FL_VK_ENSURE_RESULT(vmaCreateBuffer(
+                        Context::Allocator(),
                         &bufCreateInfo,
                         &allocCreateInfo,
                         &m_Buffers[i].Buffer,
@@ -77,7 +78,7 @@ namespace Flourish::Vulkan
                         if (m_Info.InitialData && m_Info.InitialDataSize > 0)
                         {
                             memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
-                            FlushInternal(m_StagingBuffers[i].Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
+                            CopyBufferToBuffer(m_StagingBuffers[i].Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
                         }
                     }
                 }
@@ -119,7 +120,7 @@ namespace Flourish::Vulkan
         if (!bufferData.HasComplement) return;
 
         // Always transfer from staging -> regular
-        FlushInternal(GetStagingBuffer(), GetBuffer(), GetAllocatedSize());
+        CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), GetAllocatedSize());
     }
 
     VkBuffer Buffer::GetBuffer() const
@@ -132,47 +133,81 @@ namespace Flourish::Vulkan
         return m_BufferCount == 1 ? m_StagingBuffers[0].Buffer : m_StagingBuffers[Context::FrameIndex()].Buffer;
     }
 
-    void Buffer::FlushInternal(VkBuffer src, VkBuffer dst, u64 size)
+    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer)
     {
-        VkCommandBuffer buffer;
-        Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &buffer, 1);
+        // Create and start command buffer if it wasn't passed in
+        VkCommandBuffer cmdBuffer = buffer;
+        if (!buffer)
+        {
+            Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1);
 
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        beginInfo.pInheritanceInfo = nullptr;
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            beginInfo.pInheritanceInfo = nullptr;
 
-        FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(buffer, &beginInfo));
-
-        VkBufferMemoryBarrier memoryBarrier{};
-        memoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        memoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-
-        // Ensure data has been copied from the host
-        vkCmdPipelineBarrier(
-            buffer,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0,
-            0, nullptr,
-            1, &memoryBarrier,
-            0, nullptr
-        );
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+        }
 
         VkBufferCopy copy{};
         copy.srcOffset = 0;
         copy.dstOffset = 0;
         copy.size = size;
 
-        vkCmdCopyBuffer(buffer, src, dst, 1, &copy);
+        vkCmdCopyBuffer(cmdBuffer, src, dst, 1, &copy);
 
-        auto thread = std::this_thread::get_id();
-        Context::Queues().PushCommand(GPUWorkloadType::Transfer, buffer, [buffer, thread](){
-            Context::Commands().FreeBuffers(GPUWorkloadType::Transfer, &buffer, 1, thread);
-        });
+        if (!buffer)
+        {
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+
+            auto thread = std::this_thread::get_id();
+            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, thread](){
+                Context::Commands().FreeBuffers(GPUWorkloadType::Transfer, &cmdBuffer, 1, thread);
+            });
+        }
     }
 
-    void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo allocInfo, u64 size)
+    void Buffer::CopyBufferToImage(VkBuffer src, VkImage dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
+    {
+        // Create and start command buffer if it wasn't passed in
+        VkCommandBuffer cmdBuffer = buffer;
+        if (!buffer)
+        {
+            Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1);
+
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            beginInfo.pInheritanceInfo = nullptr;
+
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+        }
+
+        VkBufferImageCopy region{};
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = { 0, 0, 0 };
+        region.imageExtent = { imageWidth, imageHeight, 1 };
+
+        vkCmdCopyBufferToImage(cmdBuffer, src, dst, imageLayout, 1, &region);
+
+        if (!buffer)
+        {
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+            
+            auto thread = std::this_thread::get_id();
+            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, thread](){
+                Context::Commands().FreeBuffers(GPUWorkloadType::Transfer, &cmdBuffer, 1, thread);
+            });
+        }
+    }
+
+    void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size)
     {
         VkBufferCreateInfo bufCreateInfo{};
         bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

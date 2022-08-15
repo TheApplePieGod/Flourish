@@ -61,11 +61,15 @@ namespace Flourish::Vulkan
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
+
+        VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
+        timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        timelineFeatures.timelineSemaphore = true;
         
         // Create device
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pNext = nullptr;
+        createInfo.pNext = &timelineFeatures;
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size());
         createInfo.pEnabledFeatures = &deviceFeatures;

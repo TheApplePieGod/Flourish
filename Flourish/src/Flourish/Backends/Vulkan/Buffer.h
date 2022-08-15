@@ -18,6 +18,24 @@ namespace Flourish::Vulkan
         VkBuffer GetBuffer() const;
         VkBuffer GetStagingBuffer() const;
 
+    public:
+        // TS
+        static void CopyBufferToBuffer(
+            VkBuffer src,
+            VkBuffer dst,
+            u64 size,
+            VkCommandBuffer buffer = nullptr
+        );
+        static void CopyBufferToImage(
+            VkBuffer src,
+            VkImage dst,
+            u32 imageWidth,
+            u32 imageHeight,
+            VkImageLayout imageLayout,
+            VkCommandBuffer buffer = nullptr
+        );
+        static void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size);
+
     private:
         struct BufferData
         {
@@ -28,9 +46,6 @@ namespace Flourish::Vulkan
         };
 
     private:
-        void FlushInternal(VkBuffer src, VkBuffer dst, u64 size);
-        void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo allocInfo, u64 size);
-
         const BufferData& GetBufferData() const;
         const BufferData& GetStagingBufferData() const;
 

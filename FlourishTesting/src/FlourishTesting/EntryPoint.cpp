@@ -5,9 +5,11 @@
 #include "Flourish/Api/CommandBuffer.h"
 #include "Flourish/Api/Buffer.h"
 #include "Flourish/Api/RenderPass.h"
+#include "Flourish/Api/Texture.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
+#include "stb_image/stb_image.h"
 
 std::shared_ptr<spdlog::logger> logger; 
 
@@ -121,6 +123,21 @@ int main(int argc, char** argv)
         gpCreateInfo.CullMode = Flourish::CullMode::Backface;
         gpCreateInfo.WindingOrder = Flourish::WindingOrder::Clockwise;
         renderPass->CreatePipeline("main", gpCreateInfo);
+
+        int imageWidth;
+        int imageHeight;
+        int imageChannels;
+        void* imagePixels = stbi_load("resources/image.png", &imageWidth, &imageHeight, &imageChannels, 4);
+        Flourish::TextureCreateInfo texCreateInfo;
+        texCreateInfo.Width = static_cast<u32>(imageWidth);
+        texCreateInfo.Height = static_cast<u32>(imageHeight);
+        texCreateInfo.Channels = 4;
+        texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
+        texCreateInfo.UsageType = Flourish::BufferUsageType::Static;
+        texCreateInfo.InitialData = imagePixels;
+        texCreateInfo.InitialDataSize = imageWidth * imageHeight * 4;
+        texCreateInfo.SamplerState.AnisotropyEnable = false;
+        auto texture = Flourish::Texture::Create(texCreateInfo);
 
         float val = 3.f;
         buffer->SetBytes(&val, sizeof(float), 0);

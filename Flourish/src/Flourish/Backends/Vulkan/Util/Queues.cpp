@@ -26,7 +26,7 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
-        
+        IterateCommands();
     }
     
     void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback)
@@ -82,6 +82,13 @@ namespace Flourish::Vulkan
         submitInfo.pCommandBuffers = buffers.data();
 
         FL_VK_ENSURE_RESULT(vkQueueSubmit(Context::Queues().TransferQueue(), 1, &submitInfo, nullptr));
+    }
+
+    void Queues::IterateCommands()
+    {
+        IterateCommands(GPUWorkloadType::Graphics);
+        IterateCommands(GPUWorkloadType::Compute);
+        IterateCommands(GPUWorkloadType::Transfer);
     }
 
     VkQueue Queues::GraphicsQueue() const

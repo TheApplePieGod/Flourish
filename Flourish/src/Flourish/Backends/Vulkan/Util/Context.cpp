@@ -36,11 +36,12 @@ namespace Flourish::Vulkan
 
     void Context::Shutdown()
     {
+        s_Queues.Shutdown();
+
         Sync();
 
         s_DeleteQueue.Shutdown();
         s_Commands.Shutdown();
-        s_Queues.Shutdown();
         vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG
