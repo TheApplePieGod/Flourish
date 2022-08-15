@@ -26,7 +26,14 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
-        IterateCommands();
+        ClearCommands();
+
+        auto semaphores = m_UnusedSemaphores;
+        Context::DeleteQueue().Push([=]()
+        {
+            for (auto semaphore : semaphores)
+                vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
+        });
     }
     
     void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback)
@@ -44,10 +51,11 @@ namespace Flourish::Vulkan
 
     void Queues::IterateCommands(GPUWorkloadType workloadType)
     {
-        std::vector<VkCommandBuffer> buffers;
-        std::vector<VkSemaphore> semaphores;
         auto& queueData = GetQueueData(workloadType);
         queueData.CommandQueueLock.lock();
+        queueData.Buffers.clear();
+        queueData.Semaphores.clear();
+        queueData.SignalValues.clear();
         for (u32 i = 0; i < queueData.CommandQueue.size(); i++)
         {
             auto& value = queueData.CommandQueue.front();
@@ -67,21 +75,28 @@ namespace Flourish::Vulkan
             }
             else
             {
-                buffers.push_back(value.Buffer);
-                semaphores.push_back(value.WaitSemaphore);
+                queueData.Buffers.push_back(value.Buffer);
+                queueData.Semaphores.push_back(value.WaitSemaphore);
+                queueData.SignalValues.push_back(1);
                 value.Submitted = true;
             }
         }
         queueData.CommandQueueLock.unlock();
 
+        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
+        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineSubmitInfo.signalSemaphoreValueCount = queueData.SignalValues.size();
+        timelineSubmitInfo.pSignalSemaphoreValues = queueData.SignalValues.data();
+
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.signalSemaphoreCount = semaphores.size();
-        submitInfo.pSignalSemaphores = semaphores.data();
-        submitInfo.commandBufferCount = buffers.size();
-        submitInfo.pCommandBuffers = buffers.data();
+        submitInfo.pNext = &timelineSubmitInfo;
+        submitInfo.signalSemaphoreCount = queueData.Semaphores.size();
+        submitInfo.pSignalSemaphores = queueData.Semaphores.data();
+        submitInfo.commandBufferCount = queueData.Buffers.size();
+        submitInfo.pCommandBuffers = queueData.Buffers.data();
 
-        FL_VK_ENSURE_RESULT(vkQueueSubmit(Context::Queues().TransferQueue(), 1, &submitInfo, nullptr));
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
     }
 
     void Queues::IterateCommands()
@@ -89,6 +104,28 @@ namespace Flourish::Vulkan
         IterateCommands(GPUWorkloadType::Graphics);
         IterateCommands(GPUWorkloadType::Compute);
         IterateCommands(GPUWorkloadType::Transfer);
+    }
+
+    void Queues::ClearCommands(GPUWorkloadType workloadType)
+    {
+        auto& queueData = GetQueueData(workloadType);
+        queueData.CommandQueueLock.lock();
+        for (u32 i = 0; i < queueData.CommandQueue.size(); i++)
+        {
+            auto& value = queueData.CommandQueue.front();
+            value.Callback();
+            m_UnusedSemaphoresLock.lock();
+            m_UnusedSemaphores.push_back(value.WaitSemaphore);
+            m_UnusedSemaphoresLock.unlock();
+        }
+        queueData.CommandQueueLock.unlock();
+    }
+
+    void Queues::ClearCommands()
+    {
+        ClearCommands(GPUWorkloadType::Graphics);
+        ClearCommands(GPUWorkloadType::Compute);
+        ClearCommands(GPUWorkloadType::Transfer);
     }
 
     VkQueue Queues::GraphicsQueue() const
@@ -109,6 +146,22 @@ namespace Flourish::Vulkan
     VkQueue Queues::TransferQueue() const
     {
         return m_TransferQueue.Queues[Context::FrameIndex()];
+    }
+
+    VkQueue Queues::Queue(GPUWorkloadType workloadType) const
+    {
+        switch (workloadType)
+        {
+            case GPUWorkloadType::Graphics:
+            { return GraphicsQueue(); }
+            case GPUWorkloadType::Transfer:
+            { return TransferQueue(); }
+            case GPUWorkloadType::Compute:
+            { return ComputeQueue(); }
+        }
+
+        FL_ASSERT(false, "Queue for workload not supported");
+        return GraphicsQueue();
     }
     
     QueueFamilyIndices Queues::GetQueueFamilies(VkPhysicalDevice device)
@@ -197,7 +250,7 @@ namespace Flourish::Vulkan
             { return m_ComputeQueue; }
         }
 
-        FL_ASSERT(false, "Command pool for workload not supported");
+        FL_ASSERT(false, "Queue data for workload not supported");
         return m_GraphicsQueue;
     }
 

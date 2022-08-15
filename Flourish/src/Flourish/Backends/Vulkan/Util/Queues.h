@@ -39,12 +39,15 @@ namespace Flourish::Vulkan
         void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
         void IterateCommands(GPUWorkloadType workloadType);
         void IterateCommands();
+        void ClearCommands(GPUWorkloadType workloadType);
+        void ClearCommands();
 
         // TS
         VkQueue GraphicsQueue() const;
         VkQueue PresentQueue() const;
         VkQueue ComputeQueue() const;
         VkQueue TransferQueue() const;
+        VkQueue Queue(GPUWorkloadType workloadType) const;
         inline u32 GraphicsQueueIndex() const { return m_GraphicsQueue.QueueIndex; }
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
         inline u32 ComputeQueueIndex() const { return m_ComputeQueue.QueueIndex; }
@@ -73,6 +76,10 @@ namespace Flourish::Vulkan
             u32 QueueIndex;
             std::deque<QueueCommandEntry> CommandQueue;
             std::mutex CommandQueueLock;
+
+            std::vector<VkCommandBuffer> Buffers;
+            std::vector<VkSemaphore> Semaphores;
+            std::vector<u64> SignalValues; 
         };
 
     private:

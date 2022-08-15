@@ -138,6 +138,7 @@ int main(int argc, char** argv)
         texCreateInfo.InitialDataSize = imageWidth * imageHeight * 4;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         auto texture = Flourish::Texture::Create(texCreateInfo);
+        delete[] imagePixels;
 
         float val = 3.f;
         buffer->SetBytes(&val, sizeof(float), 0);
