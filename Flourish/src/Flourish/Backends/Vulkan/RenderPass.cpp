@@ -24,12 +24,10 @@ namespace Flourish::Vulkan
 
         // TODO: depth resolve (https://github.com/KhronosGroup/Vulkan-Samples/blob/master/samples/performance/msaa/msaa_tutorial.md)
         // Create all depth attachment descriptions
-        constexpr VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
-        constexpr ColorFormat generalDepthFormat = ColorFormat::R32F;
         for (auto& attachment : createInfo.DepthAttachments)
         {
             VkAttachmentDescription depthAttachment{};
-            depthAttachment.format = depthFormat;
+            depthAttachment.format = DepthFormat;
             depthAttachment.samples = m_SampleCount;
             depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;

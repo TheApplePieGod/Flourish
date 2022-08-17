@@ -19,10 +19,10 @@ namespace Flourish::Vulkan
         // TS
         inline VkPipeline GetPipeline(u32 subpassIndex) const { return m_Pipelines[subpassIndex]; }
         inline VkPipelineLayout GetLayout() const { return m_PipelineLayout; }
-        inline DescriptorSet& GetDescriptorSet() { return m_DescriptorSet; }
+        inline const DescriptorSetLayout& GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 
     private:
-        DescriptorSet m_DescriptorSet;
+        DescriptorSetLayout m_DescriptorSetLayout;
         VkPipelineLayout m_PipelineLayout;
         std::vector<VkPipeline> m_Pipelines;
     };

@@ -22,6 +22,12 @@ namespace Flourish::Vulkan
         Texture(const TextureCreateInfo& createInfo);
         ~Texture() override;
 
+        // TS
+        VkImageView GetImageView() const;
+        VkImageView GetImageView(u32 frameIndex) const;
+        VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
+        VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
+
     public:
         static void GenerateMipmaps(
             VkImage image,

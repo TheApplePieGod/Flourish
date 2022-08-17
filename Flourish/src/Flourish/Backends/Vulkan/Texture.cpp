@@ -24,7 +24,7 @@ namespace Flourish::Vulkan
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
         if (m_Info.UsageType == BufferUsageType::Dynamic)
-            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         if (hasInitialData)
             imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -252,6 +252,26 @@ namespace Flourish::Vulkan
             }
             vkDestroySampler(device, sampler, nullptr);
         });
+    }
+
+    VkImageView Texture::GetImageView() const
+    {
+        return m_Images[Context::FrameIndex()].ImageView;
+    }
+
+    VkImageView Texture::GetImageView(u32 frameIndex) const
+    {
+        return m_Images[frameIndex].ImageView;
+    }
+
+    VkImageView Texture::GetLayerImageView(u32 layerIndex, u32 mipLevel) const
+    {
+        return m_Images[Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
+    }
+
+    VkImageView Texture::GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const
+    {
+        return m_Images[frameIndex].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
     void Texture::GenerateMipmaps(

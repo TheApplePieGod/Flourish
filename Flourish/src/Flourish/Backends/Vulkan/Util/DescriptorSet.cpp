@@ -6,10 +6,9 @@
 
 namespace Flourish::Vulkan
 {
-    void DescriptorSet::Initialize(const std::vector<ReflectionDataElement>& reflectionData)
+    void DescriptorSetLayout::Initialize(const std::vector<ReflectionDataElement>& reflectionData)
     {
         // Reflection data will give us sorted binding indexes so we can make some shortcuts here
-
         // Create the descriptor set layout and cache the associated pool sizes
         std::vector<VkDescriptorSetLayoutBinding> bindings;
         std::unordered_map<VkDescriptorType, u32> descriptorCounts;
@@ -62,11 +61,11 @@ namespace Flourish::Vulkan
         layoutInfo.bindingCount = static_cast<u32>(bindings.size());
         layoutInfo.pBindings = bindings.data();
 
-        FL_VK_ENSURE_RESULT(vkCreateDescriptorSetLayout(Context::Devices().Device(), &layoutInfo, nullptr, &m_DescriptorSetLayout));
+        FL_VK_ENSURE_RESULT(vkCreateDescriptorSetLayout(Context::Devices().Device(), &layoutInfo, nullptr, &m_Layout));
 
         // Populate cached layouts because one is needed for each allocation
         for (u32 i = 0; i < MaxSetsPerPool; i++)
-            m_CachedSetLayouts.emplace_back(m_DescriptorSetLayout);
+            m_CachedSetLayouts.emplace_back(m_Layout);
 
         // Populate the cached pool sizes
         for (auto& element : descriptorCounts)
@@ -77,25 +76,38 @@ namespace Flourish::Vulkan
 
             m_CachedPoolSizes.emplace_back(poolSize);
         }
+    }
+
+    void DescriptorSetLayout::Shutdown()
+    {
+        auto layout = m_Layout;
+        Context::DeleteQueue().Push([=]()
+        {
+            vkDestroyDescriptorSetLayout(Context::Devices().Device(), layout, nullptr);
+        });
+    }
+
+    DescriptorSet::DescriptorSet(const DescriptorSetLayout& layout)
+        : m_Layout(layout)
+    {
+        FL_ASSERT(m_Layout.GetLayout(), "Initializing descriptor set with uninitalized layout");
 
         for (u32 i = 0; i < Flourish::Context::FrameBufferCount(); i++)
-            m_AvailableSets[i].resize(MaxSetsPerPool);
+            m_AvailableSets[i].resize(DescriptorSetLayout::MaxSetsPerPool);
 
         // Create the initial descriptor pools per frame
         for (size_t i = 0; i < m_DescriptorPools.size(); i++)
             m_DescriptorPools[i].emplace_back(CreateDescriptorPool());
     }
 
-    void DescriptorSet::Shutdown()
+    DescriptorSet::~DescriptorSet()
     {
         auto pools = m_DescriptorPools;
-        auto layout = m_DescriptorSetLayout;
         Context::DeleteQueue().Push([=]()
         {
             for (u32 i = 0; i < pools.size(); i++)
                 for (auto pool : pools[i])
                     vkDestroyDescriptorPool(Context::Devices().Device(), pool, nullptr);
-            vkDestroyDescriptorSetLayout(Context::Devices().Device(), layout, nullptr);
         });
     }
 
@@ -112,12 +124,12 @@ namespace Flourish::Vulkan
         boundResource.Size = size;
 
         FL_ASSERT(
-            bindingIndex >= m_Bindings.size() || !m_Bindings[bindingIndex].Exists,
+            bindingIndex >= m_Layout.GetBindings().size() || !m_Layout.GetBindings()[bindingIndex].Exists,
             "Attempting to update a descriptor binding that doesn't exist in the shader"
         );
 
         u32 bufferInfoBaseIndex = bindingIndex;
-        u32 imageInfoBaseIndex = bindingIndex * MaxDescriptorArrayCount;
+        u32 imageInfoBaseIndex = bindingIndex * DescriptorSetLayout::MaxDescriptorArrayCount;
         switch (resourceType)
         {
             default: { FL_ASSERT(false, "Cannot update descriptor set with selected resource type"); } break;
@@ -136,7 +148,7 @@ namespace Flourish::Vulkan
             case ShaderResourceType::Texture:
             {
                 // Texture* texture = static_cast<Texture*>(resource);
-                // FL_ASSERT(texture->GetArrayCount() <= MaxDescriptorArrayCount, "Image array count too large");
+                // FL_ASSERT(texture->GetArrayCount() <= DescriptorSetLayout::MaxDescriptorArrayCount, "Image array count too large");
 
                 // for (u32 i = 0; i < texture->GetArrayCount(); i++)
                 // {
@@ -160,7 +172,7 @@ namespace Flourish::Vulkan
             } break;
         }
 
-        VkWriteDescriptorSet& descriptorWrite = m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping];
+        VkWriteDescriptorSet& descriptorWrite = m_Layout.GetDescriptorWrite(bindingIndex);
         if (descriptorWrite.pBufferInfo == nullptr && descriptorWrite.pImageInfo == nullptr)
             m_WritesReadyCount++;
 
@@ -175,7 +187,7 @@ namespace Flourish::Vulkan
         m_Mutex.lock();
         CheckFrameUpdate();
 
-        FL_ASSERT(m_WritesReadyCount == m_CachedDescriptorWrites.size(), "Cannot flush bindings until all binding slots have been bound");
+        FL_ASSERT(m_WritesReadyCount == m_Layout.GetDescriptorWrites().size(), "Cannot flush bindings until all binding slots have been bound");
 
         u64 hash = HashBindings();
         u32 frameIndex = Context::FrameIndex();
@@ -186,13 +198,13 @@ namespace Flourish::Vulkan
         }
 
         m_MostRecentDescriptorSet = AllocateSet();
-        for (auto& write : m_CachedDescriptorWrites)
+        for (auto& write : m_Layout.GetDescriptorWrites())
             write.dstSet = m_MostRecentDescriptorSet;
         
         vkUpdateDescriptorSets(
             Context::Devices().Device(),
-            static_cast<u32>(m_CachedDescriptorWrites.size()),
-            m_CachedDescriptorWrites.data(),
+            static_cast<u32>(m_Layout.GetDescriptorWrites().size()),
+            m_Layout.GetDescriptorWrites().data(),
             0, nullptr
         );
 
@@ -210,7 +222,7 @@ namespace Flourish::Vulkan
             m_BoundResources.clear();
             
             m_WritesReadyCount = 0;
-            for (auto& write : m_CachedDescriptorWrites)
+            for (auto& write : m_Layout.GetDescriptorWrites())
             {
                 write.pBufferInfo = nullptr;
                 write.pImageInfo = nullptr;
@@ -220,13 +232,13 @@ namespace Flourish::Vulkan
 
     VkDescriptorPool DescriptorSet::CreateDescriptorPool()
     {
-        if (m_CachedPoolSizes.empty()) return nullptr; // No descriptors so don't create pool
+        if (m_Layout.GetPoolSizes().empty()) return nullptr; // No descriptors so don't create pool
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = static_cast<u32>(m_CachedPoolSizes.size());
-        poolInfo.pPoolSizes = m_CachedPoolSizes.data();
-        poolInfo.maxSets = MaxSetsPerPool;
+        poolInfo.poolSizeCount = static_cast<u32>(m_Layout.GetPoolSizes().size());
+        poolInfo.pPoolSizes = m_Layout.GetPoolSizes().data();
+        poolInfo.maxSets = DescriptorSetLayout::MaxSetsPerPool;
         poolInfo.flags = 0;
 
         VkDescriptorPool pool;
@@ -249,8 +261,8 @@ namespace Flourish::Vulkan
             VkDescriptorSetAllocateInfo allocInfo{};
             allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
             allocInfo.descriptorPool = m_DescriptorPools[frameIndex][m_AvailablePoolIndex[frameIndex]++];
-            allocInfo.descriptorSetCount = MaxSetsPerPool;
-            allocInfo.pSetLayouts = m_CachedSetLayouts.data();
+            allocInfo.descriptorSetCount = DescriptorSetLayout::MaxSetsPerPool;
+            allocInfo.pSetLayouts = m_Layout.GetSetLayouts().data();
 
             VkResult result = vkAllocateDescriptorSets(Context::Devices().Device(), &allocInfo, m_AvailableSets[frameIndex].data());
         }

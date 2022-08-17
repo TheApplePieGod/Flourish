@@ -36,7 +36,7 @@ namespace Flourish::Vulkan
     GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, u32 subpassCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
-        m_DescriptorSet.Initialize(m_ProgramReflectionData);
+        m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {
             static_cast<Shader*>(createInfo.VertexShader.get())->DefineShaderStage(),
@@ -134,7 +134,7 @@ namespace Flourish::Vulkan
         dynamicState.pDynamicStates = dynamicStates;
 
         std::vector<VkDescriptorSetLayout> layouts;
-        layouts.emplace_back(m_DescriptorSet.GetLayout());
+        layouts.emplace_back(m_DescriptorSetLayout.GetLayout());
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -190,7 +190,7 @@ namespace Flourish::Vulkan
 
     GraphicsPipeline::~GraphicsPipeline()
     {
-        m_DescriptorSet.Shutdown();
+        m_DescriptorSetLayout.Shutdown();
 
         auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;

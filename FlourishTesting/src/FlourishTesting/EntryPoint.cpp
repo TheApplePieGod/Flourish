@@ -6,6 +6,7 @@
 #include "Flourish/Api/Buffer.h"
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"
+#include "Flourish/Api/Framebuffer.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -82,7 +83,7 @@ int main(int argc, char** argv)
         rpCreateInfo.Subpasses = {
             { {}, { { Flourish::SubpassAttachmentType::Color, 0 } } }
         };
-        rpCreateInfo.SampleCount = Flourish::MsaaSampleCount::None;
+        rpCreateInfo.SampleCount = Flourish::MsaaSampleCount::Four;
         auto renderPass = Flourish::RenderPass::Create(rpCreateInfo);
 
         Flourish::ShaderCreateInfo vsCreateInfo;
@@ -139,6 +140,14 @@ int main(int argc, char** argv)
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         auto texture = Flourish::Texture::Create(texCreateInfo);
         delete[] imagePixels;
+
+        Flourish::FramebufferCreateInfo fbCreateInfo;
+        fbCreateInfo.RenderPass = renderPass;
+        fbCreateInfo.ColorAttachments = { {} };
+        fbCreateInfo.DepthAttachments = { {} };
+        fbCreateInfo.Width = 1920;
+        fbCreateInfo.Height = 1080;
+        auto framebuffer = Flourish::Framebuffer::Create(fbCreateInfo);
 
         float val = 3.f;
         buffer->SetBytes(&val, sizeof(float), 0);

@@ -1,7 +1,3 @@
-[submodule "Flourish/lib/glm"]
-	path = Flourish/lib/glm
-	url = https://github.com/g-truc/glm.git
-	branch = master
 [submodule "Flourish/lib/vma"]
 	path = Flourish/lib/vma
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
