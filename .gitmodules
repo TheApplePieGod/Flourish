@@ -1,0 +1,8 @@
+[submodule "Flourish/lib/vma"]
+	path = Flourish/lib/vma
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+	branch = master
+[submodule "FlourishTesting/lib/spdlog"]
+	path = FlourishTesting/lib/spdlog
+	url = https://github.com/gabime/spdlog.git
+	branch = v1.x
