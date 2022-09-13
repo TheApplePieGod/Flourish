@@ -18,7 +18,7 @@ namespace Flourish
     {
     public:
         CommandBuffer(const CommandBufferCreateInfo& createInfo)
-            : m_WorkloadType(createInfo.WorkloadType)
+            : m_Info(createInfo)
         {}
         virtual ~CommandBuffer() = default;
 
@@ -27,6 +27,6 @@ namespace Flourish
         static std::shared_ptr<CommandBuffer> Create(const CommandBufferCreateInfo& createInfo);
 
     protected:
-        GPUWorkloadType m_WorkloadType;
+        CommandBufferCreateInfo m_Info;
     };
 }

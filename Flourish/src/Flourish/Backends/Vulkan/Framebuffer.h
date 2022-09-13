@@ -15,6 +15,8 @@ namespace Flourish::Vulkan
 
         // TS
         VkRenderPass GetRenderPass() const;
+        VkFramebuffer GetFramebuffer() const;
+        const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
 
     private:
         struct ImageData

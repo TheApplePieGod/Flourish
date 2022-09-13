@@ -36,6 +36,10 @@ namespace Flourish
         {}
         virtual ~Framebuffer() = default;
 
+        // TS
+        inline u32 GetWidth() { return m_Info.Width; }
+        inline u32 GetHeight() { return m_Info.Height; }
+        
     public:
         // TS
         static std::shared_ptr<Framebuffer> Create(const FramebufferCreateInfo& createInfo);

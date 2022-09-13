@@ -153,8 +153,7 @@ int main(int argc, char** argv)
         buffer->SetBytes(&val, sizeof(float), 0);
         buffer->Flush();
     }
-
+    
     Flourish::Context::Shutdown();
-
     return 0;
 }

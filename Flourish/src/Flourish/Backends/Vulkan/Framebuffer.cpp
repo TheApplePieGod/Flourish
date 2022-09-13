@@ -24,6 +24,11 @@ namespace Flourish::Vulkan
     {
         return static_cast<RenderPass*>(m_Info.RenderPass.get())->GetRenderPass();
     }
+    
+    VkFramebuffer Framebuffer::GetFramebuffer() const
+    {
+        return m_Framebuffers[Context::FrameIndex()];
+    }
 
     void Framebuffer::Create()
     {

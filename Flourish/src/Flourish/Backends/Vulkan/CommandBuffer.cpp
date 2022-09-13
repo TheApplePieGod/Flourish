@@ -10,8 +10,8 @@ namespace Flourish::Vulkan
     {
         m_AllocatedThread = std::this_thread::get_id();
         Context::Commands().AllocateBuffers(
-            m_WorkloadType,
-            true,
+            m_Info.WorkloadType,
+            false,
             m_CommandBuffers.data(),
             Flourish::Context::FrameBufferCount(),
             m_AllocatedThread
@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
 
         auto buffers = m_CommandBuffers;
         auto thread = m_AllocatedThread;
-        auto workloadType = m_WorkloadType;
+        auto workloadType = m_Info.WorkloadType;
         Context::DeleteQueue().Push([=]()
         {
             Context::Commands().FreeBuffers(
