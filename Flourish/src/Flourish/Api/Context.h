@@ -25,6 +25,8 @@ namespace Flourish
     public:
         static void Initialize(const ContextInitializeInfo& initInfo);
         static void Shutdown();
+        static void BeginFrame();
+        static void EndFrame();
 
         // TS
         static bool IsThreadRegistered(std::thread::id thread = std::this_thread::get_id());
@@ -35,6 +37,7 @@ namespace Flourish
         inline static BackendType BackendType() { return s_BackendType; }
         inline static u32 FrameBufferCount() { return s_FrameBufferCount; }
         inline static u64 FrameCount() { return s_FrameBufferCount; }
+        inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
@@ -44,6 +47,7 @@ namespace Flourish
         inline static bool s_ReversedZBuffer = true;
         inline static u32 s_FrameBufferCount = 0;
         inline static u64 s_FrameCount = 0;
+        inline static u32 s_FrameIndex = 0;
         inline static std::unordered_set<std::thread::id> s_RegisteredThreads;
         inline static std::mutex s_RegisteredThreadsLock;
     };

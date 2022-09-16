@@ -2,6 +2,7 @@
 
 #include "Flourish/Api/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Backends/Vulkan/CommandBuffer.h"
 
 namespace Flourish::Vulkan
 {
@@ -21,8 +22,9 @@ namespace Flourish::Vulkan
         void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount) override;
         void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) override;
         
+        // TS
+        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer.GetCommandBuffer(); }
     private:
-        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
-        std::thread::id m_AllocatedThread;
+        CommandBuffer m_CommandBuffer;
     };
 }

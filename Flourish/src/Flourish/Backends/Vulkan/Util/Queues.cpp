@@ -130,22 +130,22 @@ namespace Flourish::Vulkan
 
     VkQueue Queues::GraphicsQueue() const
     {
-        return m_GraphicsQueue.Queues[Context::FrameIndex()];
+        return m_GraphicsQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
     VkQueue Queues::PresentQueue() const
     {
-        return m_PresentQueue.Queues[Context::FrameIndex()];
+        return m_PresentQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
     VkQueue Queues::ComputeQueue() const
     {
-        return m_ComputeQueue.Queues[Context::FrameIndex()];
+        return m_ComputeQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
     VkQueue Queues::TransferQueue() const
     {
-        return m_TransferQueue.Queues[Context::FrameIndex()];
+        return m_TransferQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
     VkQueue Queues::Queue(GPUWorkloadType workloadType) const

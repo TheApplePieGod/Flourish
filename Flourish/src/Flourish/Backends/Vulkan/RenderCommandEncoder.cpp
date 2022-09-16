@@ -8,59 +8,24 @@
 namespace Flourish::Vulkan
 {
     RenderCommandEncoder::RenderCommandEncoder(const RenderCommandEncoderCreateInfo& createInfo)
-        : Flourish::RenderCommandEncoder(createInfo)
+        : Flourish::RenderCommandEncoder(createInfo), m_CommandBuffer(CommandBufferCreateInfo())
     {
-        m_AllocatedThread = std::this_thread::get_id();
-        Context::Commands().AllocateBuffers(
-            GPUWorkloadType::Graphics,
-            true,
-            m_CommandBuffers.data(),
-            Flourish::Context::FrameBufferCount(),
-            m_AllocatedThread
-        );   
+
     }
 
     RenderCommandEncoder::~RenderCommandEncoder()
     {
-        FL_ASSERT(
-            m_AllocatedThread == std::this_thread::get_id(),
-            "Render command encoder should never be destroyed from a thread different than the one that created it"
-        );
-        FL_ASSERT(
-            Flourish::Context::IsThreadRegistered(),
-            "Destroying render command encoder on deregistered thread, which will cause a memory leak"
-        );
 
-        auto buffers = m_CommandBuffers;
-        auto thread = m_AllocatedThread;
-        Context::DeleteQueue().Push([=]()
-        {
-            Context::Commands().FreeBuffers(
-                GPUWorkloadType::Graphics,
-                buffers.data(),
-                Flourish::Context::FrameBufferCount(),
-                thread
-            );
-        });
     }
 
     void RenderCommandEncoder::BeginEncoding()
     {
-        FL_CRASH_ASSERT(!m_Encoding, "Cannot begin render command encoding that has already begun");
-
-        VkCommandBufferInheritanceInfo inheritanceInfo{};
-        inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = m_Info.Reusable ? VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT : VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        beginInfo.pInheritanceInfo = &inheritanceInfo;
-
-        VkCommandBuffer buffer = m_CommandBuffers[Context::FrameIndex()];
-        Framebuffer* fbuffer = static_cast<Framebuffer*>(m_Info.Framebuffer.get());
+        FL_CRASH_ASSERT(!m_CommandBuffer.IsRecording(), "Cannot begin render command encoding that has already begun");
         
-        // TODO: check result?
-        vkBeginCommandBuffer(buffer, &beginInfo);
+        m_CommandBuffer.BeginRecording();
+
+        VkCommandBuffer buffer = m_CommandBuffer.GetCommandBuffer();
+        Framebuffer* fbuffer = static_cast<Framebuffer*>(m_Info.Framebuffer.get());
 
         VkViewport viewport{};
         viewport.x = 0.0f;
@@ -87,20 +52,14 @@ namespace Flourish::Vulkan
         renderPassInfo.pClearValues = fbuffer->GetClearValues().data();
 
         vkCmdBeginRenderPass(buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-        
-        m_Encoding = true;
     }
 
     void RenderCommandEncoder::EndEncoding()
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot end render command encoding that has not begun");
         
-        VkCommandBuffer buffer = m_CommandBuffers[Context::FrameIndex()];
-        
-        vkCmdEndRenderPass(buffer);
-        vkEndCommandBuffer(buffer);
-        
-        m_Encoding = false;
+        vkCmdEndRenderPass(m_CommandBuffer.GetCommandBuffer());
+        m_CommandBuffer.EndRecording();
     }
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
@@ -115,25 +74,35 @@ namespace Flourish::Vulkan
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
-        vkCmdSetViewport(m_CommandBuffers[Context::FrameIndex()], 0, 1, &viewport);
+        vkCmdSetViewport(m_CommandBuffer.GetCommandBuffer(), 0, 1, &viewport);
     }
 
     void RenderCommandEncoder::BindVertexBuffer(Flourish::Buffer* _buffer)
     {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindVertexBuffer before render encoding has begun");
+
         VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
 
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(m_CommandBuffers[Context::FrameIndex()], 0, 1, &buffer, offsets);
+        vkCmdBindVertexBuffers(m_CommandBuffer.GetCommandBuffer(), 0, 1, &buffer, offsets);
     }
 
-    void RenderCommandEncoder::BindIndexBuffer(Buffer* buffer)
+    void RenderCommandEncoder::BindIndexBuffer(Flourish::Buffer* _buffer)
     {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindIndexBuffer before render encoding has begun");
 
+        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindIndexBuffer(m_CommandBuffer.GetCommandBuffer(), buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
     void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount)
     {
-}
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed before render encoding has begun");
+
+        vkCmdDrawIndexed(m_CommandBuffer.GetCommandBuffer(), indexCount, instanceCount, indexOffset, vertexOffset, 0);
+    }
 
     void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
     {

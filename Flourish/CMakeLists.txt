@@ -1,7 +1,6 @@
 project(Core)
 
 # Build dependencies
-add_subdirectory("lib/glm")
 add_subdirectory("lib/vma")
 
 # Build main
@@ -15,7 +14,6 @@ target_include_directories(
   Core
   PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/glm>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/vma/include>"
   "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
 )
@@ -75,7 +73,7 @@ endif()
 # Link dependencies
 target_link_libraries(
   Core
-  glm ${vulkan} ${shaderc} ${spirvglsl}
+  ${vulkan} ${shaderc} ${spirvglsl}
 )
 
 # PCH

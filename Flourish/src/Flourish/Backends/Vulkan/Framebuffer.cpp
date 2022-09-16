@@ -27,7 +27,7 @@ namespace Flourish::Vulkan
     
     VkFramebuffer Framebuffer::GetFramebuffer() const
     {
-        return m_Framebuffers[Context::FrameIndex()];
+        return m_Framebuffers[Flourish::Context::FrameIndex()];
     }
 
     void Framebuffer::Create()

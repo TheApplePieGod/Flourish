@@ -8,8 +8,17 @@ namespace Flourish::Vulkan
     class CommandBuffer : public Flourish::CommandBuffer
     {
     public:
-        CommandBuffer(const CommandBufferCreateInfo& createInfo);
+        CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary = true);
         ~CommandBuffer() override;
+
+        void BeginRecording() override;
+        void EndRecording() override;
+
+        // TS
+        void ExecuteRenderCommands(Flourish::RenderCommandEncoder* encoder) override;
+        
+        // TS
+        VkCommandBuffer GetCommandBuffer() const;
 
     private:
         std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;

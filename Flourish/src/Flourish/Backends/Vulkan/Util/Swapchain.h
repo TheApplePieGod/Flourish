@@ -11,6 +11,7 @@ namespace Flourish::Vulkan
         VkPresentModeKHR PresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
     };
 
+    class Framebuffer;
     class Swapchain
     {
     public:
@@ -29,6 +30,7 @@ namespace Flourish::Vulkan
         u32 m_CurrentWidth, m_CurrentHeight = 0;
         std::vector<VkImage> m_ChainImages;
         std::vector<VkImageView> m_ChainImageViews;
+        std::vector<Framebuffer> m_ChainFramebuffers;
         SwapchainInfo m_Info;
 
         // Copied from RenderContext so we don't need to delete

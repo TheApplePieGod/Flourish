@@ -256,7 +256,7 @@ namespace Flourish::Vulkan
 
     VkImageView Texture::GetImageView() const
     {
-        return m_Images[Context::FrameIndex()].ImageView;
+        return m_Images[Flourish::Context::FrameIndex()].ImageView;
     }
 
     VkImageView Texture::GetImageView(u32 frameIndex) const
@@ -266,7 +266,7 @@ namespace Flourish::Vulkan
 
     VkImageView Texture::GetLayerImageView(u32 layerIndex, u32 mipLevel) const
     {
-        return m_Images[Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
+        return m_Images[Flourish::Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
     VkImageView Texture::GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const
@@ -550,6 +550,6 @@ namespace Flourish::Vulkan
 
     const Texture::ImageData& Texture::GetImageData() const
     {
-        return m_ImageCount == 1 ? m_Images[0] : m_Images[Context::FrameIndex()];
+        return m_ImageCount == 1 ? m_Images[0] : m_Images[Flourish::Context::FrameIndex()];
     }
 }

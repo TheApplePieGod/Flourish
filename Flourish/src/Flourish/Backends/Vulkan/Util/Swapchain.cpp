@@ -3,6 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
+#include "Flourish/Backends/Vulkan/Framebuffer.h"
 
 namespace Flourish::Vulkan
 {
@@ -178,6 +179,8 @@ namespace Flourish::Vulkan
             viewCreateInfo.Image = image;
             m_ChainImageViews.push_back(Texture::CreateImageView(viewCreateInfo));
         }
+        
+        
     }
 
     void Swapchain::CleanupSwapchain()

@@ -2,16 +2,18 @@
 #include "CommandBuffer.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Api/RenderCommandEncoder.h"
+#include "Flourish/Backends/Vulkan/RenderCommandEncoder.h"
 
 namespace Flourish::Vulkan
 {
-    CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo)
+    CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary)
         : Flourish::CommandBuffer(createInfo)
     {
         m_AllocatedThread = std::this_thread::get_id();
         Context::Commands().AllocateBuffers(
             m_Info.WorkloadType,
-            false,
+            isPrimary,
             m_CommandBuffers.data(),
             Flourish::Context::FrameBufferCount(),
             m_AllocatedThread
@@ -41,5 +43,50 @@ namespace Flourish::Vulkan
                 thread
             );
         });
+    }
+    
+    void CommandBuffer::BeginRecording()
+    {
+        FL_CRASH_ASSERT(!m_Recording, "Cannot begin command buffer recording that has already begun");
+
+        VkCommandBufferInheritanceInfo inheritanceInfo{};
+        inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = m_Info.Reusable ? VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT : VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.pInheritanceInfo = &inheritanceInfo;
+
+        // TODO: check result?
+        VkCommandBuffer buffer = m_CommandBuffers[Flourish::Context::FrameIndex()];
+        vkBeginCommandBuffer(buffer, &beginInfo);
+        
+        m_Recording = true;
+    }
+    
+    void CommandBuffer::EndRecording()
+    {
+        FL_CRASH_ASSERT(m_Recording, "Cannot end command buffer recording that has not begun");
+        
+        VkCommandBuffer buffer = m_CommandBuffers[Flourish::Context::FrameIndex()];
+        vkEndCommandBuffer(buffer);
+
+        m_Recording = false;
+    }
+
+    void CommandBuffer::ExecuteRenderCommands(Flourish::RenderCommandEncoder* encoder)
+    {
+        FL_CRASH_ASSERT(m_Recording, "Cannot record ExecuteRenderCommands before recording has begun");
+
+        VkCommandBuffer buffer = static_cast<RenderCommandEncoder*>(encoder)->GetCommandBuffer();
+
+        m_RecordLock.lock(); 
+        vkCmdExecuteCommands(GetCommandBuffer(), 1, &buffer);
+        m_RecordLock.unlock();
+    }
+    
+    VkCommandBuffer CommandBuffer::GetCommandBuffer() const
+    {
+        return m_CommandBuffers[Flourish::Context::FrameIndex()];
     }
 }

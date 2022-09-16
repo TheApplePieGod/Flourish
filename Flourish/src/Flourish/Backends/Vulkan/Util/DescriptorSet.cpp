@@ -190,7 +190,7 @@ namespace Flourish::Vulkan
         FL_ASSERT(m_WritesReadyCount == m_Layout.GetDescriptorWrites().size(), "Cannot flush bindings until all binding slots have been bound");
 
         u64 hash = HashBindings();
-        u32 frameIndex = Context::FrameIndex();
+        u32 frameIndex = Flourish::Context::FrameIndex();
         if (m_CachedDescriptorSets[frameIndex].find(hash) != m_CachedDescriptorSets[frameIndex].end())
         {
             m_MostRecentDescriptorSet = m_CachedDescriptorSets[frameIndex][hash];
@@ -250,7 +250,7 @@ namespace Flourish::Vulkan
     VkDescriptorSet DescriptorSet::AllocateSet()
     {
         // Generate if we go over the size limit or if this is the first allocation
-        u32 frameIndex = Context::FrameIndex();
+        u32 frameIndex = Flourish::Context::FrameIndex();
         if (m_AvailablePoolIndex[frameIndex] == 0 || m_AvailableSetIndex[frameIndex] >= m_AvailableSets[frameIndex].size())
         {
             m_AvailableSetIndex[frameIndex] = 0;
@@ -271,7 +271,7 @@ namespace Flourish::Vulkan
 
     void DescriptorSet::ClearPools()
     {
-        u32 frameIndex = Context::FrameIndex();
+        u32 frameIndex = Flourish::Context::FrameIndex();
         m_AvailableSetIndex[frameIndex] = 0;
         m_AvailablePoolIndex[frameIndex] = 0;
         m_CachedDescriptorSets[frameIndex].clear();

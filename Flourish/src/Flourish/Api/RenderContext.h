@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Flourish/Api/Context.h"
+
 namespace Flourish
 {
     struct RenderContextCreateInfo
@@ -17,6 +19,8 @@ namespace Flourish
         u32 Height;
     };
 
+    class RenderCommandEncoder;
+    class Framebuffer;
     class RenderContext
     {
     public:
@@ -24,6 +28,9 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
+        // TS
+        virtual std::shared_ptr<RenderCommandEncoder> GetFrameRenderCommandEncoder() const; 
+        
     public:
         // TS
         static std::shared_ptr<RenderContext> Create(const RenderContextCreateInfo& createInfo);

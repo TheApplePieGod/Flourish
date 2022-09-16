@@ -40,6 +40,31 @@ namespace Flourish
         FL_ASSERT(false, "Context shutdown is missing for selected api type");
     }
 
+    void Context::BeginFrame()
+    {
+        FL_ASSERT(s_BackendType != BackendType::None, "Cannot begin frame, context has not been initialized");
+
+        s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } return;
+        }
+
+        FL_ASSERT(false, "Context BeginFrame is missing for selected api type");
+    }
+    
+    void Context::EndFrame()
+    {
+        FL_ASSERT(s_BackendType != BackendType::None, "Cannot end frame, context has not been initialized");
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } return;
+        }
+
+        FL_ASSERT(false, "Context EndFrame is missing for selected api type");
+    }
+    
     bool Context::IsThreadRegistered(std::thread::id thread)
     {
         s_RegisteredThreadsLock.lock();

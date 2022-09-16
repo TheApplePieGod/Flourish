@@ -33,6 +33,12 @@ namespace Flourish::Vulkan
         if (!m_Surface) return;
 
         m_Swapchain.Initialize(createInfo, m_Surface);
+        
+        // Create a framebuffer object and associated render command encoder for each swapchain image
+        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+        {
+
+        }
     }
 
     RenderContext::~RenderContext()
@@ -45,4 +51,9 @@ namespace Flourish::Vulkan
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
         });
     }
+    
+    std::shared_ptr<RenderCommandEncoder> RenderContext::GetFrameRenderCommandEncoder() const
+    {
+        
+    } 
 }

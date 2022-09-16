@@ -125,12 +125,12 @@ namespace Flourish::Vulkan
 
     VkBuffer Buffer::GetBuffer() const
     {
-        return m_BufferCount == 1 ? m_Buffers[0].Buffer : m_Buffers[Context::FrameIndex()].Buffer;
+        return m_BufferCount == 1 ? m_Buffers[0].Buffer : m_Buffers[Flourish::Context::FrameIndex()].Buffer;
     }
 
     VkBuffer Buffer::GetStagingBuffer() const
     {
-        return m_BufferCount == 1 ? m_StagingBuffers[0].Buffer : m_StagingBuffers[Context::FrameIndex()].Buffer;
+        return m_BufferCount == 1 ? m_StagingBuffers[0].Buffer : m_StagingBuffers[Flourish::Context::FrameIndex()].Buffer;
     }
 
     void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer)
@@ -230,12 +230,12 @@ namespace Flourish::Vulkan
 
     const Buffer::BufferData& Buffer::GetBufferData() const
     {
-        return m_BufferCount == 1 ? m_Buffers[0] : m_Buffers[Context::FrameIndex()];
+        return m_BufferCount == 1 ? m_Buffers[0] : m_Buffers[Flourish::Context::FrameIndex()];
     }
 
     const Buffer::BufferData& Buffer::GetStagingBufferData() const
     {
         // Buffer count will never be 1 with persistent staging buffers
-        return m_StagingBuffers[Context::FrameIndex()];
+        return m_StagingBuffers[Flourish::Context::FrameIndex()];
     }
 }

@@ -23,7 +23,6 @@ namespace Flourish::Vulkan
         inline static DeleteQueue& DeleteQueue() { return s_DeleteQueue; }
         inline static VmaAllocator Allocator() { return s_Allocator; }
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
-        inline static u32 FrameIndex() { return s_FrameIndex; }
 
         inline static constexpr u32 VulkanApiVersion = VK_API_VERSION_1_2;
 
@@ -47,7 +46,6 @@ namespace Flourish::Vulkan
         inline static VmaAllocator s_Allocator;
         inline static VkDebugUtilsMessengerEXT s_DebugMessenger = nullptr;
         inline static std::vector<const char*> s_ValidationLayers;
-        inline static u32 s_FrameIndex = 0;
         
         friend class Flourish::Context;
     };
