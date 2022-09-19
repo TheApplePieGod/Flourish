@@ -9,10 +9,7 @@ namespace Flourish::Vulkan
     Texture::Texture(const TextureCreateInfo& createInfo)
         : Flourish::Texture(createInfo)
     {
-        m_GeneralFormat = BufferDataTypeColorFormat(m_Info.DataType, m_Info.Channels);
-        m_Format = Common::ConvertColorFormat(m_GeneralFormat);
-        if (m_Format == VK_FORMAT_R8G8B8A8_SRGB)
-            m_Format = VK_FORMAT_R8G8B8A8_UNORM; // we want to use unorm for textures
+        UpdateFormat();
 
         // Populate initial image info
         bool hasInitialData = m_Info.InitialData && m_Info.InitialDataSize > 0;
@@ -73,34 +70,8 @@ namespace Flourish::Vulkan
         VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Info.Channels;
         u32 componentSize = BufferDataTypeSize(m_Info.DataType);
         m_ImageCount = m_Info.UsageType == BufferUsageType::Dynamic ? Flourish::Context::FrameBufferCount() : 1;
-
-        // Create the texture sampler
-        VkSamplerReductionModeCreateInfo reductionInfo{};
-        reductionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
-        reductionInfo.reductionMode = Common::ConvertSamplerReductionMode(m_Info.SamplerState.ReductionMode);
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.pNext = &reductionInfo;
-        samplerInfo.magFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MagFilter);
-        samplerInfo.minFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MinFilter);
-        samplerInfo.addressModeU = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[0]);
-        samplerInfo.addressModeV = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[1]);
-        samplerInfo.addressModeW = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[2]);
-        samplerInfo.anisotropyEnable = m_Info.SamplerState.AnisotropyEnable;
-        samplerInfo.maxAnisotropy = std::min(
-            static_cast<float>(m_Info.SamplerState.MaxAnisotropy),
-            Context::Devices().PhysicalDeviceProperties().limits.maxSamplerAnisotropy
-        );
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(m_MipLevels);
-
-        FL_VK_ENSURE_RESULT(vkCreateSampler(Context::Devices().Device(), &samplerInfo, nullptr, &m_Sampler));
+        
+        CreateSampler();
 
         // Create staging buffer with initial data
         VkBuffer stagingBuffer;
@@ -234,6 +205,21 @@ namespace Flourish::Vulkan
         });
     }
 
+    Texture::Texture(const TextureCreateInfo& createInfo, VkImageView imageView)
+        : Flourish::Texture(createInfo)
+    {
+        m_Info.MipCount = 1;
+        UpdateFormat();
+
+        m_MipLevels = 1;
+        m_ImageCount = 1;
+        
+        ImageData& imageData = m_Images[0];
+        imageData = ImageData{};
+        imageData.ImageView = imageView;
+        imageData.SliceViews.push_back(imageView);
+    }
+
     Texture::~Texture()
     {
         auto imageCount = m_ImageCount;
@@ -245,32 +231,42 @@ namespace Flourish::Vulkan
             for (u32 frame = 0; frame < imageCount; frame++)
             {
                 auto& imageData = images[frame];
+                
+                // Texture objects wrapping preexisting textures will not have an allocation
+                // so there will be nothing to free
+                if (!imageData.Allocation) continue;
+
                 for (auto view : imageData.SliceViews)
                     vkDestroyImageView(device, view, nullptr);
                 vkDestroyImageView(device, imageData.ImageView, nullptr);
                 vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
             }
-            vkDestroySampler(device, sampler, nullptr);
+            if (sampler) 
+                vkDestroySampler(device, sampler, nullptr);
         });
     }
 
     VkImageView Texture::GetImageView() const
     {
+        if (m_ImageCount == 1) return m_Images[0].ImageView;
         return m_Images[Flourish::Context::FrameIndex()].ImageView;
     }
 
     VkImageView Texture::GetImageView(u32 frameIndex) const
     {
+        if (m_ImageCount == 1) return m_Images[0].ImageView;
         return m_Images[frameIndex].ImageView;
     }
 
     VkImageView Texture::GetLayerImageView(u32 layerIndex, u32 mipLevel) const
     {
+        if (m_ImageCount == 1) return m_Images[0].SliceViews[layerIndex * m_MipLevels + mipLevel];
         return m_Images[Flourish::Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
     VkImageView Texture::GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const
     {
+        if (m_ImageCount == 1) return m_Images[0].SliceViews[layerIndex * m_MipLevels + mipLevel];
         return m_Images[frameIndex].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
@@ -551,5 +547,43 @@ namespace Flourish::Vulkan
     const Texture::ImageData& Texture::GetImageData() const
     {
         return m_ImageCount == 1 ? m_Images[0] : m_Images[Flourish::Context::FrameIndex()];
+    }
+    
+    void Texture::UpdateFormat()
+    {
+        m_GeneralFormat = BufferDataTypeColorFormat(m_Info.DataType, m_Info.Channels);
+        m_Format = Common::ConvertColorFormat(m_GeneralFormat);
+        if (m_Format == VK_FORMAT_R8G8B8A8_SRGB)
+            m_Format = VK_FORMAT_R8G8B8A8_UNORM; // we want to use unorm for textures
+    }
+    
+    void Texture::CreateSampler()
+    {
+        VkSamplerReductionModeCreateInfo reductionInfo{};
+        reductionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
+        reductionInfo.reductionMode = Common::ConvertSamplerReductionMode(m_Info.SamplerState.ReductionMode);
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.pNext = &reductionInfo;
+        samplerInfo.magFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MagFilter);
+        samplerInfo.minFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MinFilter);
+        samplerInfo.addressModeU = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[0]);
+        samplerInfo.addressModeV = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[1]);
+        samplerInfo.addressModeW = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[2]);
+        samplerInfo.anisotropyEnable = m_Info.SamplerState.AnisotropyEnable;
+        samplerInfo.maxAnisotropy = std::min(
+            static_cast<float>(m_Info.SamplerState.MaxAnisotropy),
+            Context::Devices().PhysicalDeviceProperties().limits.maxSamplerAnisotropy
+        );
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = static_cast<float>(m_MipLevels);
+
+        FL_VK_ENSURE_RESULT(vkCreateSampler(Context::Devices().Device(), &samplerInfo, nullptr, &m_Sampler));
     }
 }

@@ -13,7 +13,7 @@ namespace Flourish::Vulkan
         m_AllocatedThread = std::this_thread::get_id();
         Context::Commands().AllocateBuffers(
             m_Info.WorkloadType,
-            isPrimary,
+            !isPrimary,
             m_CommandBuffers.data(),
             Flourish::Context::FrameBufferCount(),
             m_AllocatedThread
@@ -47,10 +47,15 @@ namespace Flourish::Vulkan
     
     void CommandBuffer::BeginRecording()
     {
-        FL_CRASH_ASSERT(!m_Recording, "Cannot begin command buffer recording that has already begun");
-
         VkCommandBufferInheritanceInfo inheritanceInfo{};
         inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
+        BeginRecording(inheritanceInfo);
+    }
+    
+    void CommandBuffer::BeginRecording(const VkCommandBufferInheritanceInfo& inheritanceInfo)
+    {
+        FL_CRASH_ASSERT(!m_Recording, "Cannot begin command buffer recording that has already begun");
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -63,7 +68,7 @@ namespace Flourish::Vulkan
         
         m_Recording = true;
     }
-    
+
     void CommandBuffer::EndRecording()
     {
         FL_CRASH_ASSERT(m_Recording, "Cannot end command buffer recording that has not begun");
@@ -74,14 +79,17 @@ namespace Flourish::Vulkan
         m_Recording = false;
     }
 
-    void CommandBuffer::ExecuteRenderCommands(Flourish::RenderCommandEncoder* encoder)
+    void CommandBuffer::ExecuteRenderCommands(Flourish::RenderCommandEncoder* _encoder)
     {
         FL_CRASH_ASSERT(m_Recording, "Cannot record ExecuteRenderCommands before recording has begun");
 
-        VkCommandBuffer buffer = static_cast<RenderCommandEncoder*>(encoder)->GetCommandBuffer();
+        RenderCommandEncoder* encoder = static_cast<RenderCommandEncoder*>(_encoder);
+        VkCommandBuffer buffer = encoder->GetCommandBuffer();
 
         m_RecordLock.lock(); 
+        vkCmdBeginRenderPass(buffer, &encoder->GetRenderPassBeginInfo(), VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
         vkCmdExecuteCommands(GetCommandBuffer(), 1, &buffer);
+        vkCmdEndRenderPass(buffer);
         m_RecordLock.unlock();
     }
     

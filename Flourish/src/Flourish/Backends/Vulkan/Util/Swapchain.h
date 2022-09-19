@@ -2,6 +2,10 @@
 
 #include "Flourish/Api/RenderContext.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Backends/Vulkan/Texture.h"
+#include "Flourish/Backends/Vulkan/Framebuffer.h"
+#include "Flourish/Backends/Vulkan/RenderPass.h"
+#include "Flourish/Backends/Vulkan/RenderCommandEncoder.h"
 
 namespace Flourish::Vulkan
 {
@@ -11,13 +15,26 @@ namespace Flourish::Vulkan
         VkPresentModeKHR PresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
     };
 
-    class Framebuffer;
     class Swapchain
     {
     public:
         // TS
         void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface);
         void Shutdown();
+
+        // TS
+        // Return value is not intended to be persisted
+        inline RenderCommandEncoder* GetRenderCommandEncoder() const { return m_ImageData[m_ActiveImageIndex].RenderCommandEncoder.get(); }
+
+    private:
+        struct ImageData
+        {
+            VkImage Image;
+            VkImageView ImageView;
+            std::shared_ptr<Texture> Texture;
+            std::shared_ptr<Framebuffer> Framebuffer;
+            std::shared_ptr<RenderCommandEncoder> RenderCommandEncoder;
+        };
 
     private:
         void PopulateSwapchainInfo();
@@ -28,12 +45,12 @@ namespace Flourish::Vulkan
         VkSwapchainKHR m_Swapchain = nullptr;
         bool m_Invalid = false;
         u32 m_CurrentWidth, m_CurrentHeight = 0;
-        std::vector<VkImage> m_ChainImages;
-        std::vector<VkImageView> m_ChainImageViews;
-        std::vector<Framebuffer> m_ChainFramebuffers;
+        std::vector<ImageData> m_ImageData;
+        std::shared_ptr<RenderPass> m_RenderPass;
         SwapchainInfo m_Info;
+        u32 m_ActiveImageIndex = 0;
 
-        // Copied from RenderContext so we don't need to delete
+        // Copied from RenderContext so we won't need to free
         VkSurfaceKHR m_Surface;
     };
 }

@@ -7,6 +7,7 @@
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"
 #include "Flourish/Api/Framebuffer.h"
+#include "Flourish/Api/RenderCommandEncoder.h"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -64,10 +65,6 @@ int main(int argc, char** argv)
         #endif
         auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
 
-        Flourish::CommandBufferCreateInfo cmdCreateInfo;
-        cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
-        auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
-
         Flourish::BufferCreateInfo bufCreateInfo;
         bufCreateInfo.Type = Flourish::BufferType::Uniform;
         bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
@@ -77,7 +74,7 @@ int main(int argc, char** argv)
 
         Flourish::RenderPassCreateInfo rpCreateInfo;
         rpCreateInfo.ColorAttachments = {
-            { Flourish::ColorFormat::RGBA8 }
+            { Flourish::ColorFormat::RGBA8_SRGB }
         };
         rpCreateInfo.DepthAttachments = { {} };
         rpCreateInfo.Subpasses = {
@@ -152,6 +149,20 @@ int main(int argc, char** argv)
         float val = 3.f;
         buffer->SetBytes(&val, sizeof(float), 0);
         buffer->Flush();
+        
+        Flourish::RenderCommandEncoder* frameEncoder = renderContext->GetFrameRenderCommandEncoder(); 
+        frameEncoder->BeginEncoding();
+
+        frameEncoder->EndEncoding();
+
+        Flourish::CommandBufferCreateInfo cmdCreateInfo;
+        cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
+        cmdCreateInfo.Reusable = false;
+        auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
+
+        cmdBuffer->BeginRecording();
+        cmdBuffer->ExecuteRenderCommands(frameEncoder);
+        cmdBuffer->EndRecording();
     }
     
     Flourish::Context::Shutdown();

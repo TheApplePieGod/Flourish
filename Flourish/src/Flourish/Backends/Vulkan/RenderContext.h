@@ -13,7 +13,7 @@ namespace Flourish::Vulkan
         ~RenderContext() override;
 
         // TS
-        std::shared_ptr<RenderCommandEncoder> GetFrameRenderCommandEncoder() const override; 
+        Flourish::RenderCommandEncoder* GetFrameRenderCommandEncoder() const override; 
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }

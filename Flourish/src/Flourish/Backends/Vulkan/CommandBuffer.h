@@ -12,6 +12,7 @@ namespace Flourish::Vulkan
         ~CommandBuffer() override;
 
         void BeginRecording() override;
+        void BeginRecording(const VkCommandBufferInheritanceInfo& inheritanceInfo);
         void EndRecording() override;
 
         // TS

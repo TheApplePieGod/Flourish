@@ -29,7 +29,7 @@ namespace Flourish
         virtual ~RenderContext() = default;
 
         // TS
-        virtual std::shared_ptr<RenderCommandEncoder> GetFrameRenderCommandEncoder() const; 
+        virtual RenderCommandEncoder* GetFrameRenderCommandEncoder() const = 0;
         
     public:
         // TS

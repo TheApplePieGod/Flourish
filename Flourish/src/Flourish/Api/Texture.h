@@ -7,9 +7,12 @@ namespace Flourish
     enum class ColorFormat
     {
         None = 0,
-        RGBA8,
-        R16F, RGBA16F,
-        R32F, RGBA32F
+        RGBA8_UNORM, RGBA8_SRGB,
+        BGRA8_UNORM, 
+        RGB8_UNORM,
+        BGR8_UNORM,
+        R16_FLOAT, RGBA16_FLOAT,
+        R32_FLOAT, RGBA32_FLOAT
     };
 
     enum class SamplerFilter

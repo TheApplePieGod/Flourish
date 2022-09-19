@@ -8,14 +8,14 @@ namespace Flourish::Vulkan
     class RenderPass : public Flourish::RenderPass
     {
     public:
-        RenderPass(const RenderPassCreateInfo& createInfo);
+        RenderPass(const RenderPassCreateInfo& createInfo, bool rendersToSwapchain = false);
         ~RenderPass() override;
 
         // TS
         inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
 
         inline static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
-        inline static constexpr ColorFormat GeneralDepthFormat = ColorFormat::R32F;
+        inline static constexpr ColorFormat GeneralDepthFormat = ColorFormat::R32_FLOAT;
 
     protected:
         std::shared_ptr<Flourish::GraphicsPipeline> CreatePipeline(const GraphicsPipelineCreateInfo& createInfo) override;

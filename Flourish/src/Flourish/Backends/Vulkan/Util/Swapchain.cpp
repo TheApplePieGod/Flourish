@@ -2,8 +2,6 @@
 #include "Swapchain.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
-#include "Flourish/Backends/Vulkan/Texture.h"
-#include "Flourish/Backends/Vulkan/Framebuffer.h"
 
 namespace Flourish::Vulkan
 {
@@ -167,35 +165,84 @@ namespace Flourish::Vulkan
         m_Swapchain = newSwapchain;
 
         // Load images
+        std::vector<VkImage> chainImages;
         vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, nullptr);
-        m_ChainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, m_ChainImages.data());
+        chainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, chainImages.data());
 
-        // Create image views
-        ImageViewCreateInfo viewCreateInfo;
-        viewCreateInfo.Format = m_Info.SurfaceFormat.format;
-        for (auto image : m_ChainImages)
+        // Create renderpass compatible with all images
+        RenderPassCreateInfo rpCreateInfo;
+        rpCreateInfo.ColorAttachments = { { Common::RevertColorFormat(m_Info.SurfaceFormat.format) } };
+        rpCreateInfo.Subpasses = {{
+            {}, {{ SubpassAttachmentType::Color, 0 }}
+        }};
+        m_RenderPass = std::make_shared<RenderPass>(rpCreateInfo, true);
+
+        // Populate image data
+        TextureCreateInfo texCreateInfo;
+        texCreateInfo.Width = m_CurrentWidth;
+        texCreateInfo.Height = m_CurrentHeight;
+        texCreateInfo.DataType = Texture::ColorFormatBufferDataType(rpCreateInfo.ColorAttachments[0].Format);
+        FramebufferCreateInfo fbCreateInfo;
+        fbCreateInfo.RenderPass = m_RenderPass;
+        fbCreateInfo.Width = m_CurrentWidth;
+        fbCreateInfo.Height = m_CurrentHeight;
+        fbCreateInfo.ColorAttachments = {
+            { 0.f, 0.f, 0.f, 0.f }
+        };
+        for (auto image : chainImages)
         {
+            ImageData imageData{};
+            imageData.Image = image;
+
+            // Create view
+            ImageViewCreateInfo viewCreateInfo;
+            viewCreateInfo.Format = m_Info.SurfaceFormat.format;
             viewCreateInfo.Image = image;
-            m_ChainImageViews.push_back(Texture::CreateImageView(viewCreateInfo));
+            imageData.ImageView = Texture::CreateImageView(viewCreateInfo);
+            
+            // Create texture
+            imageData.Texture = std::make_shared<Texture>(texCreateInfo, imageData.ImageView);
+            
+            // Create framebuffer
+            fbCreateInfo.ColorAttachments[0].Texture = imageData.Texture;
+            imageData.Framebuffer = std::make_shared<Framebuffer>(fbCreateInfo);
+            
+            // Create render command encoder
+            RenderCommandEncoderCreateInfo rceCreateInfo;
+            rceCreateInfo.Framebuffer = imageData.Framebuffer;
+            rceCreateInfo.Reusable = false;
+            imageData.RenderCommandEncoder = std::make_shared<RenderCommandEncoder>(rceCreateInfo);
+            
+            m_ImageData.push_back(imageData);
         }
-        
-        
     }
 
     void Swapchain::CleanupSwapchain()
     {
-        auto chainImageViews = m_ChainImageViews;
+        // We need to go through and reset the pointers here because we copy
+        // m_ImageData in order to free the vulkan objects via the delete queue,
+        // which keeps the pointers alive. That is bad because it means
+        // the pointers get destructed at some arbitrary point when the lambda gets freed
+        // instead of now when it is intended.
+        for (auto& data : m_ImageData)
+        {
+            data.RenderCommandEncoder.reset();
+            data.Framebuffer.reset();
+            data.Texture.reset();
+        }
+
+        auto imageData = m_ImageData;
         auto swapchain = m_Swapchain;
         Context::DeleteQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
-            for (auto view : chainImageViews)
-                vkDestroyImageView(device, view, nullptr);
+            for (auto& data : imageData)
+                vkDestroyImageView(device, data.ImageView, nullptr);
             
             vkDestroySwapchainKHR(device, swapchain, nullptr);
         });
 
-        m_ChainImageViews.clear();
+        m_ImageData.clear();
     }
 }

@@ -20,6 +20,7 @@ namespace Flourish::Vulkan
     {
     public:
         Texture(const TextureCreateInfo& createInfo);
+        Texture(const TextureCreateInfo& createInfo, VkImageView imageView);
         ~Texture() override;
 
         // TS
@@ -63,13 +64,14 @@ namespace Flourish::Vulkan
 
     private:
         const ImageData& GetImageData() const;
+        void UpdateFormat();
+        void CreateSampler();
 
     private:
         std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
         VkFormat m_Format;
         ColorFormat m_GeneralFormat;
-        VkSampler m_Sampler;
+        VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
-        u32 m_MipLevels = 0;
     };
 }
