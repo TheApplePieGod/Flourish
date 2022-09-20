@@ -3,6 +3,7 @@
 #include "Flourish/Api/RenderContext.h"
 #include "Flourish/Backends/Vulkan/Util/Swapchain.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Backends/Vulkan/CommandBuffer.h"
 
 namespace Flourish::Vulkan
 {
@@ -13,7 +14,7 @@ namespace Flourish::Vulkan
         ~RenderContext() override;
 
         // TS
-        Flourish::RenderCommandEncoder* GetFrameRenderCommandEncoder() const override; 
+        [[nodiscard]] Flourish::RenderCommandEncoder* EncodeFrameRenderCommands() override; 
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }
@@ -22,5 +23,6 @@ namespace Flourish::Vulkan
     private:
         VkSurfaceKHR m_Surface;
         Vulkan::Swapchain m_Swapchain;
+        CommandBuffer m_CommandBuffer;
     };
 }

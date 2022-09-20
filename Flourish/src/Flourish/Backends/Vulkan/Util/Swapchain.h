@@ -23,8 +23,7 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        // Return value is not intended to be persisted
-        inline RenderCommandEncoder* GetRenderCommandEncoder() const { return m_ImageData[m_ActiveImageIndex].RenderCommandEncoder.get(); }
+        inline Framebuffer* GetFramebuffer() const { return m_ImageData[m_ActiveImageIndex].Framebuffer.get(); }
 
     private:
         struct ImageData
@@ -33,7 +32,6 @@ namespace Flourish::Vulkan
             VkImageView ImageView;
             std::shared_ptr<Texture> Texture;
             std::shared_ptr<Framebuffer> Framebuffer;
-            std::shared_ptr<RenderCommandEncoder> RenderCommandEncoder;
         };
 
     private:

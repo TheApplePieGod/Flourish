@@ -4,21 +4,11 @@
 
 namespace Flourish
 {
-    struct RenderCommandEncoderCreateInfo
-    {
-        std::shared_ptr<Framebuffer> Framebuffer;
-        bool Reusable = false; // True if encoded commands might be used more than once
-    };
-     
     class RenderCommandEncoder  
     {
     public:
-        RenderCommandEncoder(const RenderCommandEncoderCreateInfo& createInfo)
-            : m_Info(createInfo)
-        {}
-        virtual ~RenderCommandEncoder() = default;
+        RenderCommandEncoder() = default;
 
-        virtual void BeginEncoding() = 0;
         virtual void EndEncoding() = 0;
 
         // TS
@@ -31,11 +21,10 @@ namespace Flourish
         virtual void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) = 0;
         // virtual void DrawIndexedIndirect(Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) = 0;
 
-    public:
         // TS
-        static std::shared_ptr<RenderCommandEncoder> Create(const RenderCommandEncoderCreateInfo& createInfo);
-
+        inline bool IsEncoding() const { return m_Encoding; }
+        
     protected:
-        RenderCommandEncoderCreateInfo m_Info;
+        bool m_Encoding = false;
     };
 }

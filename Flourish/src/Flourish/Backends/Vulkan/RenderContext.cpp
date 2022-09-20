@@ -6,7 +6,8 @@
 namespace Flourish::Vulkan
 {
     RenderContext::RenderContext(const RenderContextCreateInfo& createInfo)
-        : Flourish::RenderContext(createInfo)
+        : Flourish::RenderContext(createInfo),
+          m_CommandBuffer({})
     {
         auto instance = Context::Instance();
 
@@ -46,8 +47,8 @@ namespace Flourish::Vulkan
         });
     }
     
-    Flourish::RenderCommandEncoder* RenderContext::GetFrameRenderCommandEncoder() const
+    Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()
     {
-        return m_Swapchain.GetRenderCommandEncoder();
+        return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
 }

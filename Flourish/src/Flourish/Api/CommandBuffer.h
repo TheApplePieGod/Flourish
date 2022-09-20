@@ -11,10 +11,10 @@ namespace Flourish
 
     struct CommandBufferCreateInfo
     {
-        GPUWorkloadType WorkloadType;
-        bool Reusable; // True if recorded commands might be submitted more than once
+
     };
 
+    class Framebuffer;
     class RenderCommandEncoder;
     class CommandBuffer
     {
@@ -24,14 +24,10 @@ namespace Flourish
         {}
         virtual ~CommandBuffer() = default;
         
-        virtual void BeginRecording() = 0;
-        virtual void EndRecording() = 0;
+        virtual RenderCommandEncoder* EncodeRenderCommands(Framebuffer* framebuffer) = 0;
 
         // TS
-        virtual void ExecuteRenderCommands(RenderCommandEncoder* encoder) = 0;
-
-        // TS
-        inline bool IsRecording() const { return m_Recording; }
+        inline bool IsEncoding() const { return m_Encoding; }
 
     public:
         // TS
@@ -39,7 +35,6 @@ namespace Flourish
 
     protected:
         CommandBufferCreateInfo m_Info;
-        std::mutex m_RecordLock;
-        bool m_Recording = false;
+        bool m_Encoding = false;
     };
 }

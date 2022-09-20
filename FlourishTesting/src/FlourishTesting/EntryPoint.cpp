@@ -149,20 +149,12 @@ int main(int argc, char** argv)
         float val = 3.f;
         buffer->SetBytes(&val, sizeof(float), 0);
         buffer->Flush();
-        
-        Flourish::RenderCommandEncoder* frameEncoder = renderContext->GetFrameRenderCommandEncoder(); 
-        frameEncoder->BeginEncoding();
-
-        frameEncoder->EndEncoding();
 
         Flourish::CommandBufferCreateInfo cmdCreateInfo;
-        cmdCreateInfo.WorkloadType = Flourish::GPUWorkloadType::Graphics;
-        cmdCreateInfo.Reusable = false;
         auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
 
-        cmdBuffer->BeginRecording();
-        cmdBuffer->ExecuteRenderCommands(frameEncoder);
-        cmdBuffer->EndRecording();
+        auto frameEncoder = renderContext->EncodeFrameRenderCommands();
+        frameEncoder->EndEncoding();
     }
     
     Flourish::Context::Shutdown();

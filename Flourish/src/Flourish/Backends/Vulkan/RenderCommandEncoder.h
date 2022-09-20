@@ -2,17 +2,18 @@
 
 #include "Flourish/Api/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
-#include "Flourish/Backends/Vulkan/CommandBuffer.h"
 
 namespace Flourish::Vulkan
 {
+    class Framebuffer;
+    class CommandBuffer;
     class RenderCommandEncoder : public Flourish::RenderCommandEncoder 
     {
     public:
-        RenderCommandEncoder(const RenderCommandEncoderCreateInfo& createInfo);
-        ~RenderCommandEncoder() override;
+        RenderCommandEncoder(CommandBuffer* parentBuffer);
+        ~RenderCommandEncoder();
 
-        void BeginEncoding() override;
+        void BeginEncoding(Framebuffer* framebuffer);
         void EndEncoding() override;
 
         // TS
@@ -24,11 +25,11 @@ namespace Flourish::Vulkan
         void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) override;
         
         // TS
-        const VkRenderPassBeginInfo& GetRenderPassBeginInfo();
-        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer.GetCommandBuffer(); }
+        VkCommandBuffer GetCommandBuffer() const;
 
     private:
-        CommandBuffer m_CommandBuffer;
-        VkRenderPassBeginInfo m_RenderPassBeginInfo{};
+        std::thread::id m_AllocatedThread;
+        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
+        CommandBuffer* m_ParentBuffer;
     };
 }

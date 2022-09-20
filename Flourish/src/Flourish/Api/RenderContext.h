@@ -29,7 +29,7 @@ namespace Flourish
         virtual ~RenderContext() = default;
 
         // TS
-        virtual RenderCommandEncoder* GetFrameRenderCommandEncoder() const = 0;
+        [[nodiscard]] virtual RenderCommandEncoder* EncodeFrameRenderCommands() = 0;
         
     public:
         // TS

@@ -208,12 +208,6 @@ namespace Flourish::Vulkan
             fbCreateInfo.ColorAttachments[0].Texture = imageData.Texture;
             imageData.Framebuffer = std::make_shared<Framebuffer>(fbCreateInfo);
             
-            // Create render command encoder
-            RenderCommandEncoderCreateInfo rceCreateInfo;
-            rceCreateInfo.Framebuffer = imageData.Framebuffer;
-            rceCreateInfo.Reusable = false;
-            imageData.RenderCommandEncoder = std::make_shared<RenderCommandEncoder>(rceCreateInfo);
-            
             m_ImageData.push_back(imageData);
         }
     }
@@ -227,7 +221,6 @@ namespace Flourish::Vulkan
         // instead of now when it is intended.
         for (auto& data : m_ImageData)
         {
-            data.RenderCommandEncoder.reset();
             data.Framebuffer.reset();
             data.Texture.reset();
         }
