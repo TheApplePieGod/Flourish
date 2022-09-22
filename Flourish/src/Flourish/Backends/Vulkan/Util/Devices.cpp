@@ -13,6 +13,7 @@ namespace Flourish::Vulkan
         // Required physical device extensions
         std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            "VK_KHR_portability_subset"
         };
 
         // Get devices
@@ -28,8 +29,10 @@ namespace Flourish::Vulkan
             if (CheckDeviceCompatability(device, deviceExtensions))
             {
                 m_PhysicalDevice = device;
+
                 vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_PhysicalDeviceProperties);
                 m_DeviceMaxSampleCount = GetMaxSampleCount();
+
                 break;
             }
         }
@@ -84,6 +87,10 @@ namespace Flourish::Vulkan
         #endif
 
         FL_VK_ENSURE_RESULT(vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device));
+
+        // Load all device functions for this device. This will have to change
+        // if we ever support multiple devices.
+        volkLoadDevice(m_Device);
     }
 
     void Devices::Shutdown()

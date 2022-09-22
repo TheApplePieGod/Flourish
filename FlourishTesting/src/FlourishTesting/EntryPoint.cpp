@@ -13,6 +13,10 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "stb_image/stb_image.h"
 
+#ifdef FL_PLATFORM_MACOS
+    #include "FlourishTesting/MacWindow.h"
+#endif
+
 std::shared_ptr<spdlog::logger> logger; 
 
 void Log(Flourish::LogLevel level, const char* message)
@@ -62,6 +66,9 @@ int main(int argc, char** argv)
 
             contextCreateInfo.Instance = instance;
             contextCreateInfo.Window = hwnd;
+        #elif defined(FL_PLATFORM_MACOS)
+            void* view = MacOS::CreateWindowAndGetView();
+            contextCreateInfo.NSView = view;
         #endif
         auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
 
@@ -125,7 +132,7 @@ int main(int argc, char** argv)
         int imageWidth;
         int imageHeight;
         int imageChannels;
-        void* imagePixels = stbi_load("resources/image.png", &imageWidth, &imageHeight, &imageChannels, 4);
+        unsigned char* imagePixels = stbi_load("resources/image.png", &imageWidth, &imageHeight, &imageChannels, 4);
         Flourish::TextureCreateInfo texCreateInfo;
         texCreateInfo.Width = static_cast<u32>(imageWidth);
         texCreateInfo.Height = static_cast<u32>(imageHeight);

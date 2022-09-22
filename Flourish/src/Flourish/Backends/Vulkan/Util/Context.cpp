@@ -24,6 +24,9 @@ namespace Flourish::Vulkan
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
+        // Initialize the vulkan loader
+        FL_VK_ENSURE_RESULT(volkInitialize());
+
         SetupInstance(initInfo);
         s_Devices.Initialize(initInfo);
         SetupAllocator();
@@ -93,6 +96,8 @@ namespace Flourish::Vulkan
                 "VK_KHR_win32_surface",
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
+            #elif defined (FL_PLATFORM_MACOS)
+                "VK_MVK_macos_surface"
             #endif
         };
 
@@ -124,6 +129,9 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance));
 
+        // Load all instance functions
+        volkLoadInstance(s_Instance);
+
         #if FL_DEBUG
             // Setup debug messenger
             if (supportsDebug)
@@ -152,11 +160,16 @@ namespace Flourish::Vulkan
 
     void Context::SetupAllocator()
     {
+        VmaVulkanFunctions vulkanFunctions = {};
+        vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
         VmaAllocatorCreateInfo createInfo{};
         createInfo.instance = s_Instance;
         createInfo.physicalDevice = s_Devices.PhysicalDevice();
         createInfo.device = s_Devices.Device();
         createInfo.vulkanApiVersion = VulkanApiVersion;
+        createInfo.pVulkanFunctions = &vulkanFunctions;
 
         vmaCreateAllocator(&createInfo, &s_Allocator);
     }

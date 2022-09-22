@@ -4,13 +4,8 @@
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Pipeline.h"
 #include "Flourish/Api/Texture.h"
-#include "vulkan/vulkan.h"
+#include "volk/volk.h"
 #include "vk_mem_alloc.h"
-#ifdef FL_PLATFORM_WINDOWS
-    #include "vulkan/vulkan_win32.h"
-#elif defined(FL_PLATFORM_LINUX)
-    #include "vulkan/vulkan_xcb.h"
-#endif
 
 namespace Flourish::Vulkan
 {

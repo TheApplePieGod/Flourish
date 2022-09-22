@@ -1,4 +1,4 @@
-project(Tests)
+project(Tests C CXX OBJC OBJCXX)
 
 # Build dependencies
 add_subdirectory("lib/spdlog")
@@ -16,9 +16,16 @@ add_custom_target(
 )
 
 # Build main
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h")
+if(APPLE)
+  file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h" "src/*.mm")
+else()
+  file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h")
+endif()
 add_executable(Tests "${SOURCES}" "${DEPENDENCY_SOURCES}")
 
+if(APPLE)
+  target_link_options(Tests PUBLIC "SHELL:-framework QuartzCore" "SHELL:-framework Cocoa")
+endif()
 target_compile_features(Tests PUBLIC cxx_std_17)
 
 # Include directories
