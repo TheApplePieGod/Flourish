@@ -39,6 +39,8 @@ namespace Flourish::Vulkan
 
     void Context::Shutdown()
     {
+        FL_LOG_TRACE("Vulkan context shutdown begin");
+
         s_Queues.Shutdown();
 
         Sync();
@@ -55,8 +57,7 @@ namespace Flourish::Vulkan
         #endif
         vkDestroyInstance(s_Instance, nullptr);
 
-
-        FL_LOG_DEBUG("Vulkan context shutdown");
+        FL_LOG_DEBUG("Vulkan context shutdown complete");
     }
 
     void Context::BeginFrame()

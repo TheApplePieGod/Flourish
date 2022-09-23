@@ -13,7 +13,8 @@ namespace Flourish::Vulkan
         // Required physical device extensions
         std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            "VK_KHR_portability_subset"
+            "VK_KHR_portability_subset",
+            VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
         };
 
         // Get devices
@@ -37,6 +38,8 @@ namespace Flourish::Vulkan
             }
         }
         FL_CRASH_ASSERT(m_PhysicalDevice, "Unable to find a compatible gpu while initializing");
+
+        PopulateOptionalExtensions(deviceExtensions);
 
         // Get the max amount of queues we can/need to create for each family
         QueueFamilyIndices indices = Queues::GetQueueFamilies(m_PhysicalDevice);
@@ -64,6 +67,7 @@ namespace Flourish::Vulkan
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
+        //deviceFeatures.samplerAnisotropy = false;
 
         VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
         timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
@@ -118,6 +122,21 @@ namespace Flourish::Vulkan
                 return false;
         
         return indices.IsComplete();
+    }
+
+    void Devices::PopulateOptionalExtensions(std::vector<const char*>& extensions)
+    {
+        // Get hardware extension support
+        u32 supportedExtensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, nullptr);
+        std::vector<VkExtensionProperties> supportedExtensions(supportedExtensionCount);
+        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, supportedExtensions.data());
+        
+        if (Common::SupportsExtension(supportedExtensions, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
+        {
+            extensions.push_back(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
+            Flourish::Context::FeatureTable().SamplerMinMax = true;
+        }
     }
 
     VkSampleCountFlagBits Devices::GetMaxSampleCount()

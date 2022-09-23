@@ -16,9 +16,9 @@ namespace Flourish::Vulkan
         return std::find_if(
             extensions.begin(),
             extensions.end(),
-            [&extensions, extension](const VkExtensionProperties& arg)
+            [extension](const VkExtensionProperties& arg)
             {
-                return strcmp(arg.extensionName, extension);
+                return strcmp(arg.extensionName, extension) == 0;
             }
         ) != extensions.end();
     }

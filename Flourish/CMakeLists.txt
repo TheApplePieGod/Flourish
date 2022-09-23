@@ -23,23 +23,51 @@ target_include_directories(
   "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
 )
 
-find_library(mvk
-  NAMES "libMoltenVK.dylib"
-  PATHS "$ENV{VULKAN_SDK}/MoltenVK/dylib/macOS"
-)
-target_link_libraries(Core ${mvk})
-
-find_library(shaderc
-  NAMES "libshaderc_shared.dylib"
-  PATHS "$ENV{VULKAN_SDK}/lib"
-)
-target_link_libraries(Core ${shaderc})
-
-find_library(spirvcore
-  NAMES "libspirv-cross-c.dylib"
-  PATHS "$ENV{VULKAN_SDK}/lib"
-)
-target_link_libraries(Core ${spirvcore})
+# Link vulkan related libraries
+if (WIN32)
+  find_library(vulkan
+    NAMES "vulkan-1"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${vulkan})
+  find_library(shaderc
+    NAMES "shaderc_shared"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${shaderc})
+  find_library(spirvglsl
+    NAMES "spirv-cross-glsl"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${spirvglsl})
+elseif(APPLE)
+  find_library(mvk
+    NAMES "libMoltenVK.dylib"
+    PATHS "$ENV{VULKAN_SDK}/MoltenVK/dylib/macOS"
+  )
+  target_link_libraries(Core ${mvk})
+  find_library(shaderc
+    NAMES "libshaderc_shared.dylib"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${shaderc})
+  find_library(spirvcore
+    NAMES "libspirv-cross-c.dylib"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${spirvcore})
+else()
+  find_library(vulkan
+    NAMES "libvulkan.so"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${vulkan})
+  find_library(shaderc
+    NAMES "libshaderc_shared.so"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${shaderc})
+endif()
 
 # PCH
 target_precompile_headers(
