@@ -1,4 +1,8 @@
-project(Core C CXX OBJC OBJCXX)
+if(APPLE)
+  project(Core C CXX OBJC OBJCXX)
+else()
+  project(Core C CXX)
+endif()
 
 # Build dependencies
 add_subdirectory("lib/vma")
@@ -25,16 +29,25 @@ target_include_directories(
 
 # Link vulkan related libraries
 if (WIN32)
+  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
+    set(DEBUG_LIB_EXTRAS "d")
+  endif()
+  message("shaderc_shared${DEBUG_LIB_EXTRAS}")
   find_library(vulkan
     NAMES "vulkan-1"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(Core ${vulkan})
   find_library(shaderc
-    NAMES "shaderc_shared"
+    NAMES "shaderc_shared${DEBUG_LIB_EXTRAS}"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(Core ${shaderc})
+  find_library(spirvcore
+    NAMES "spirv-cross-core${DEBUG_LIB_EXTRAS}"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${spirvcore})
   find_library(spirvglsl
     NAMES "spirv-cross-glsl"
     PATHS "$ENV{VULKAN_SDK}/lib"

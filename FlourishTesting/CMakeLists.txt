@@ -1,4 +1,8 @@
-project(Tests C CXX OBJC OBJCXX)
+if(APPLE)
+  project(Tests C CXX OBJC OBJCXX)
+else()
+  project(Tests C CXX)
+endif()
 
 # Build dependencies
 add_subdirectory("lib/spdlog")
