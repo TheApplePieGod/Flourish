@@ -18,9 +18,10 @@ namespace Flourish::Vulkan
     class Swapchain
     {
     public:
-        // TS
         void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface);
         void Shutdown();
+        void BeginRendering();
+        void EndRendering();
 
         // TS
         inline Framebuffer* GetFramebuffer() const { return m_ImageData[m_ActiveImageIndex].Framebuffer.get(); }

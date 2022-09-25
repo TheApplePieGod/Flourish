@@ -53,6 +53,16 @@ namespace Flourish::Vulkan
         });
     }
     
+    void RenderContext::BeginRendering()
+    {
+        
+    }
+
+    void RenderContext::EndRendering()
+    {
+        Context::SubmitRenderContextForRendering(this);
+    }
+
     Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()
     {
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());

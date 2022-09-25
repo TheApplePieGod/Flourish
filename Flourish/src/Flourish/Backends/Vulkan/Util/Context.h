@@ -13,6 +13,9 @@ namespace Flourish::Vulkan
     {
     public:
         // TS
+        static void SubmitRenderContextForRendering(const RenderContext* context);
+
+        // TS
         inline static void Sync() { vkDeviceWaitIdle(s_Devices.Device()); }
 
         // TS
@@ -46,6 +49,8 @@ namespace Flourish::Vulkan
         inline static VmaAllocator s_Allocator;
         inline static VkDebugUtilsMessengerEXT s_DebugMessenger = nullptr;
         inline static std::vector<const char*> s_ValidationLayers;
+        inline static std::vector<const RenderContext*> s_ContextsToRender;
+        inline static std::mutex s_ContextsToRenderLock;
         
         friend class Flourish::Context;
     };

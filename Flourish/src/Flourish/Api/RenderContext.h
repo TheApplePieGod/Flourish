@@ -28,6 +28,9 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
+        virtual void BeginRendering() = 0;
+        virtual void EndRendering() = 0;
+        
         // TS
         [[nodiscard]] virtual RenderCommandEncoder* EncodeFrameRenderCommands() = 0;
         

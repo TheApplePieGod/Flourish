@@ -20,6 +20,16 @@ namespace Flourish::Vulkan
         CleanupSwapchain();
     }
 
+    void Swapchain::BeginRendering()
+    {
+        
+    }
+
+    void Swapchain::EndRendering()
+    {
+
+    }
+
     void Swapchain::PopulateSwapchainInfo()
     {
         auto physicalDevice = Context::Devices().PhysicalDevice();

@@ -153,15 +153,26 @@ int main(int argc, char** argv)
         fbCreateInfo.Height = 1080;
         auto framebuffer = Flourish::Framebuffer::Create(fbCreateInfo);
 
-        float val = 3.f;
-        buffer->SetBytes(&val, sizeof(float), 0);
+        float vertices[9] = { 0.f, 0.f, 0.f, 0.5f, 0.f, 0.f, 0.f, 0.5f, 0.f };
+        buffer->SetBytes(vertices, sizeof(float), 9);
         buffer->Flush();
 
         Flourish::CommandBufferCreateInfo cmdCreateInfo;
         auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
 
-        auto frameEncoder = renderContext->EncodeFrameRenderCommands();
-        frameEncoder->EndEncoding();
+        while (true)
+        {
+            Flourish::Context::BeginFrame();
+            renderContext->BeginRendering();
+
+            auto frameEncoder = renderContext->EncodeFrameRenderCommands();
+            frameEncoder->BindVertexBuffer(buffer.get());
+            frameEncoder->Draw(3, 0, 1);
+            frameEncoder->EndEncoding();
+            
+            renderContext->EndRendering();
+            Flourish::Context::EndFrame();
+        }
     }
     
     Flourish::Context::Shutdown();

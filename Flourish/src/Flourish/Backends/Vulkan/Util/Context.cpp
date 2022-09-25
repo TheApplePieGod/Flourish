@@ -22,6 +22,13 @@ namespace Flourish::Vulkan
         return VK_FALSE;
     }
 
+    void Context::SubmitRenderContextForRendering(const RenderContext* context)
+    {
+        s_ContextsToRenderLock.lock();
+        s_ContextsToRender.push_back(context);
+        s_ContextsToRenderLock.unlock();
+    }
+
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
         // Initialize the vulkan loader
@@ -68,6 +75,12 @@ namespace Flourish::Vulkan
     void Context::EndFrame()
     {
         s_DeleteQueue.Iterate();
+
+        
+        for (auto renderContext : s_ContextsToRender)
+        {
+
+        }
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
