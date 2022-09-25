@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Flourish/Api/FeatureTable.h"
+
 namespace Flourish
 {
     enum class BackendType
@@ -39,6 +41,7 @@ namespace Flourish
         inline static u64 FrameCount() { return s_FrameBufferCount; }
         inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
+        inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
 
@@ -48,6 +51,7 @@ namespace Flourish
         inline static u32 s_FrameBufferCount = 0;
         inline static u64 s_FrameCount = 0;
         inline static u32 s_FrameIndex = 0;
+        inline static Flourish::FeatureTable s_FeatureTable;
         inline static std::unordered_set<std::thread::id> s_RegisteredThreads;
         inline static std::mutex s_RegisteredThreadsLock;
     };

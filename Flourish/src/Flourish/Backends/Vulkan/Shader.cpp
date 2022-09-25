@@ -179,8 +179,10 @@ namespace Flourish::Vulkan
     {
         m_ReflectionData.clear();
 
-        spirv_cross::Compiler compiler(compiledData.data(), compiledData.size());
-		spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+        // For some reason, compiler needs to be heap allocated because otherwise it causes
+        // a crash on macos
+        auto compiler = std::make_unique<spirv_cross::Compiler>(compiledData.data(), compiledData.size());
+		spirv_cross::ShaderResources resources = compiler->get_shader_resources();
 
         ShaderResourceAccessType accessType;
         switch (m_Type)
@@ -203,10 +205,10 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Uniform buffers:");
 		for (const auto& resource : resources.uniform_buffers)
 		{
-			const auto& bufferType = compiler.get_type(resource.base_type_id);
-			size_t bufferSize = compiler.get_declared_struct_size(bufferType);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+			const auto& bufferType = compiler->get_type(resource.base_type_id);
+			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::UniformBuffer, accessType, binding, set, 1);
@@ -224,10 +226,10 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Storage buffers:");
 		for (const auto& resource : resources.storage_buffers)
 		{
-			const auto& bufferType = compiler.get_type(resource.base_type_id);
-			size_t bufferSize = compiler.get_declared_struct_size(bufferType);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+			const auto& bufferType = compiler->get_type(resource.base_type_id);
+			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::StorageBuffer, accessType, binding, set, 1);
@@ -245,9 +247,9 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Sampled Images:");
 		for (const auto& resource : resources.sampled_images)
 		{
-            const auto& imageType = compiler.get_type(resource.type_id);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+            const auto& imageType = compiler->get_type(resource.type_id);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::Texture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
 
@@ -263,10 +265,10 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Subpass Inputs:");
 		for (const auto& resource : resources.subpass_inputs)
 		{
-            const auto& subpassType = compiler.get_type(resource.type_id);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
-            u32 attachmentIndex = compiler.get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
+            const auto& subpassType = compiler->get_type(resource.type_id);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
             
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::SubpassInput, accessType, binding, set, 1);
 

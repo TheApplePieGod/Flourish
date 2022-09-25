@@ -13,7 +13,7 @@ namespace Flourish
         xcb_connection_t* Connection;
         xcb_window_t Window;
         #else
-
+        void* NSView;
         #endif
         u32 Width;
         u32 Height;
@@ -28,6 +28,9 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
+        virtual void BeginRendering() = 0;
+        virtual void EndRendering() = 0;
+        
         // TS
         [[nodiscard]] virtual RenderCommandEncoder* EncodeFrameRenderCommands() = 0;
         

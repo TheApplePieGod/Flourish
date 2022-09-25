@@ -22,8 +22,18 @@ namespace Flourish::Vulkan
         return VK_FALSE;
     }
 
+    void Context::SubmitRenderContextForRendering(const RenderContext* context)
+    {
+        s_ContextsToRenderLock.lock();
+        s_ContextsToRender.push_back(context);
+        s_ContextsToRenderLock.unlock();
+    }
+
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
+        // Initialize the vulkan loader
+        FL_VK_ENSURE_RESULT(volkInitialize());
+
         SetupInstance(initInfo);
         s_Devices.Initialize(initInfo);
         SetupAllocator();
@@ -36,6 +46,8 @@ namespace Flourish::Vulkan
 
     void Context::Shutdown()
     {
+        FL_LOG_TRACE("Vulkan context shutdown begin");
+
         s_Queues.Shutdown();
 
         Sync();
@@ -52,8 +64,7 @@ namespace Flourish::Vulkan
         #endif
         vkDestroyInstance(s_Instance, nullptr);
 
-
-        FL_LOG_DEBUG("Vulkan context shutdown");
+        FL_LOG_DEBUG("Vulkan context shutdown complete");
     }
 
     void Context::BeginFrame()
@@ -64,6 +75,12 @@ namespace Flourish::Vulkan
     void Context::EndFrame()
     {
         s_DeleteQueue.Iterate();
+
+        
+        for (auto renderContext : s_ContextsToRender)
+        {
+
+        }
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
@@ -93,6 +110,8 @@ namespace Flourish::Vulkan
                 "VK_KHR_win32_surface",
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
+            #elif defined (FL_PLATFORM_MACOS)
+                "VK_MVK_macos_surface"
             #endif
         };
 
@@ -124,6 +143,9 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance));
 
+        // Load all instance functions
+        volkLoadInstance(s_Instance);
+
         #if FL_DEBUG
             // Setup debug messenger
             if (supportsDebug)
@@ -152,11 +174,16 @@ namespace Flourish::Vulkan
 
     void Context::SetupAllocator()
     {
+        VmaVulkanFunctions vulkanFunctions = {};
+        vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
         VmaAllocatorCreateInfo createInfo{};
         createInfo.instance = s_Instance;
         createInfo.physicalDevice = s_Devices.PhysicalDevice();
         createInfo.device = s_Devices.Device();
         createInfo.vulkanApiVersion = VulkanApiVersion;
+        createInfo.pVulkanFunctions = &vulkanFunctions;
 
         vmaCreateAllocator(&createInfo, &s_Allocator);
     }

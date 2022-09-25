@@ -204,6 +204,9 @@ namespace Flourish::Vulkan
                 // TODO: we need to figure out where these params come from
                 // presentSupport = vkGetPhysicalDeviceXcbPresentationSupportKHR(device, i, ???, ???);
                 presentSupport = true;
+            #else
+                // Doesn't seem to be any function to verify, so it should always be true
+                presentSupport = true;
             #endif
 
             if (presentSupport)

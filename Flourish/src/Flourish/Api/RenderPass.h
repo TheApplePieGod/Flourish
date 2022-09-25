@@ -49,7 +49,7 @@ namespace Flourish
     class RenderPass
     {
     public:
-        RenderPass::RenderPass(const RenderPassCreateInfo& createInfo)
+        RenderPass(const RenderPassCreateInfo& createInfo)
             : m_Info(createInfo)
         {}
         virtual ~RenderPass() = default;

@@ -2,6 +2,10 @@
 	path = Flourish/lib/vma
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
 	branch = master
+[submodule "Flourish/lib/volk"]
+	path = Flourish/lib/volk
+	url = https://github.com/zeux/volk.git
+	branch = master
 [submodule "FlourishTesting/lib/spdlog"]
 	path = FlourishTesting/lib/spdlog
 	url = https://github.com/gabime/spdlog.git

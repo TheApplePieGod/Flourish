@@ -559,12 +559,19 @@ namespace Flourish::Vulkan
     
     void Texture::CreateSampler()
     {
+        FL_ASSERT(
+            Flourish::Context::FeatureTable().SamplerMinMax ||
+                (m_Info.SamplerState.ReductionMode != SamplerReductionMode::Min &&
+                m_Info.SamplerState.ReductionMode != SamplerReductionMode::Max),
+            "Texture has reduction mode of min or max, but that feature flag is not enabled"
+        );
+
         VkSamplerReductionModeCreateInfo reductionInfo{};
         reductionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
         reductionInfo.reductionMode = Common::ConvertSamplerReductionMode(m_Info.SamplerState.ReductionMode);
         VkSamplerCreateInfo samplerInfo{};
         samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.pNext = &reductionInfo;
+        samplerInfo.pNext = Flourish::Context::FeatureTable().SamplerMinMax ? &reductionInfo : nullptr;
         samplerInfo.magFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MagFilter);
         samplerInfo.minFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MinFilter);
         samplerInfo.addressModeU = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[0]);

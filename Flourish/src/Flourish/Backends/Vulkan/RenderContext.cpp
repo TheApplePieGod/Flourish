@@ -27,7 +27,13 @@ namespace Flourish::Vulkan
             surfaceInfo.connection = createInfo.connection;
             surfaceInfo.window = createInfo.window;
 
-            vkCreateXcbSurfaceKHR(instance &surfaceInfo, nullptr, &m_Surface);
+            vkCreateXcbSurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
+        #else
+            VkMacOSSurfaceCreateInfoMVK surfaceInfo{};
+            surfaceInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
+            surfaceInfo.pView = createInfo.NSView;
+
+            vkCreateMacOSSurfaceMVK(instance, &surfaceInfo, nullptr, &m_Surface);
         #endif
 
         FL_ASSERT(m_Surface, "Unable to create window surface");
@@ -47,6 +53,16 @@ namespace Flourish::Vulkan
         });
     }
     
+    void RenderContext::BeginRendering()
+    {
+        
+    }
+
+    void RenderContext::EndRendering()
+    {
+        Context::SubmitRenderContextForRendering(this);
+    }
+
     Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()
     {
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
