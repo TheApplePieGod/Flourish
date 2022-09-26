@@ -14,9 +14,9 @@ namespace Flourish::Vulkan
 
         void SubmitEncodedCommands(VkCommandBuffer buffer, GPUWorkloadType workloadType);
         Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
-        
+
         // TS
-        VkCommandBuffer GetCommandBuffer() const;
+        inline const auto& GetEncoderSubmissions() const { return m_EncoderSubmissions; }
 
     private:
         struct EncoderSubmission
@@ -33,7 +33,6 @@ namespace Flourish::Vulkan
         std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
         u32 m_RenderCommandEncoderCachePtr = 0;
         std::vector<EncoderSubmission> m_EncoderSubmissions;
-        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
         std::thread::id m_AllocatedThread;
     };
 }

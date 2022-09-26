@@ -21,6 +21,7 @@ namespace Flourish
 
     class RenderCommandEncoder;
     class Framebuffer;
+    class CommandBuffer;
     class RenderContext
     {
     public:
@@ -28,8 +29,7 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
-        virtual void BeginRendering() = 0;
-        virtual void EndRendering() = 0;
+        virtual void Present(const std::vector<std::vector<const CommandBuffer*>>& dependencyBuffers) = 0;
         
         // TS
         [[nodiscard]] virtual RenderCommandEncoder* EncodeFrameRenderCommands() = 0;

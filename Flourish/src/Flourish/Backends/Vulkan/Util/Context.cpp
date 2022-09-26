@@ -1,6 +1,8 @@
 #include "flpch.h"
 #include "Context.h"
 
+#include "Flourish/Backends/Vulkan/RenderContext.h"
+
 namespace Flourish::Vulkan
 {
     static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback(
@@ -22,13 +24,6 @@ namespace Flourish::Vulkan
         return VK_FALSE;
     }
 
-    void Context::SubmitRenderContextForRendering(const RenderContext* context)
-    {
-        s_ContextsToRenderLock.lock();
-        s_ContextsToRender.push_back(context);
-        s_ContextsToRenderLock.unlock();
-    }
-
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
         // Initialize the vulkan loader
@@ -39,6 +34,7 @@ namespace Flourish::Vulkan
         SetupAllocator();
         s_Queues.Initialize();
         s_Commands.Initialize();
+        s_SubmissionHandler.Initialize();
         s_DeleteQueue.Initialize();
 
         FL_LOG_DEBUG("Vulkan context ready");
@@ -53,11 +49,13 @@ namespace Flourish::Vulkan
         Sync();
 
         s_DeleteQueue.Shutdown();
+        s_SubmissionHandler.Shutdown();
         s_Commands.Shutdown();
         vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG
             // Find func and destroy debug instance
+            // TODO: stop doing a load here?
             auto destroyDebugUtilsFunc = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(s_Instance, "vkDestroyDebugUtilsMessengerEXT");
             if (destroyDebugUtilsFunc)
                 destroyDebugUtilsFunc(s_Instance, s_DebugMessenger, nullptr);
@@ -75,12 +73,7 @@ namespace Flourish::Vulkan
     void Context::EndFrame()
     {
         s_DeleteQueue.Iterate();
-
-        
-        for (auto renderContext : s_ContextsToRender)
-        {
-
-        }
+        s_SubmissionHandler.ProcessSubmissions();
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)

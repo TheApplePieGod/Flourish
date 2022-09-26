@@ -5,16 +5,14 @@
 #include "Flourish/Backends/Vulkan/Util/Queues.h"
 #include "Flourish/Backends/Vulkan/Util/Commands.h"
 #include "Flourish/Backends/Vulkan/Util/DeleteQueue.h"
-#include "Flourish/Api/Context.h"
+#include "Flourish/Backends/Vulkan/Util/SubmissionHandler.h"
 
 namespace Flourish::Vulkan
 {
+    class RenderContext;
     class Context
     {
     public:
-        // TS
-        static void SubmitRenderContextForRendering(const RenderContext* context);
-
         // TS
         inline static void Sync() { vkDeviceWaitIdle(s_Devices.Device()); }
 
@@ -24,6 +22,7 @@ namespace Flourish::Vulkan
         inline static Queues& Queues() { return s_Queues; }
         inline static Commands& Commands() { return s_Commands; }
         inline static DeleteQueue& DeleteQueue() { return s_DeleteQueue; }
+        inline static SubmissionHandler& SubmissionHandler() { return s_SubmissionHandler; }
         inline static VmaAllocator Allocator() { return s_Allocator; }
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
 
@@ -46,12 +45,11 @@ namespace Flourish::Vulkan
         inline static Vulkan::Queues s_Queues;
         inline static Vulkan::Commands s_Commands;
         inline static Vulkan::DeleteQueue s_DeleteQueue;
+        inline static Vulkan::SubmissionHandler s_SubmissionHandler;
         inline static VmaAllocator s_Allocator;
         inline static VkDebugUtilsMessengerEXT s_DebugMessenger = nullptr;
         inline static std::vector<const char*> s_ValidationLayers;
-        inline static std::vector<const RenderContext*> s_ContextsToRender;
-        inline static std::mutex s_ContextsToRenderLock;
-        
+
         friend class Flourish::Context;
     };
 }

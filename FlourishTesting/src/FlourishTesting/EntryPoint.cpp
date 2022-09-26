@@ -163,14 +163,13 @@ int main(int argc, char** argv)
         while (true)
         {
             Flourish::Context::BeginFrame();
-            renderContext->BeginRendering();
 
             auto frameEncoder = renderContext->EncodeFrameRenderCommands();
             frameEncoder->BindVertexBuffer(buffer.get());
             frameEncoder->Draw(3, 0, 1);
             frameEncoder->EndEncoding();
             
-            renderContext->EndRendering();
+            renderContext->Present({});
             Flourish::Context::EndFrame();
         }
     }

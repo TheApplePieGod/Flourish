@@ -52,15 +52,13 @@ namespace Flourish::Vulkan
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
         });
     }
-    
-    void RenderContext::BeginRendering()
-    {
-        
-    }
 
-    void RenderContext::EndRendering()
+    void RenderContext::Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers)
     {
-        Context::SubmitRenderContextForRendering(this);
+        auto buffersToSubmit = dependencyBuffers;
+        buffersToSubmit.push_back({ &m_CommandBuffer });
+        Flourish::Context::SubmitCommandBuffers(buffersToSubmit);
+        Context::SubmissionHandler().PresentRenderContext(this);
     }
 
     Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()

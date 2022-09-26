@@ -13,8 +13,7 @@ namespace Flourish::Vulkan
         RenderContext(const RenderContextCreateInfo& createInfo);
         ~RenderContext() override;
 
-        void BeginRendering() override;
-        void EndRendering() override;
+        void Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers) override;
 
         // TS
         [[nodiscard]] Flourish::RenderCommandEncoder* EncodeFrameRenderCommands() override; 

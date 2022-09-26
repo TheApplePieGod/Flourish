@@ -22,6 +22,7 @@ namespace Flourish
         bool UseReversedZBuffer = true;
     };
 
+    class CommandBuffer;
     class Context
     {
     public:
@@ -34,6 +35,7 @@ namespace Flourish
         static bool IsThreadRegistered(std::thread::id thread = std::this_thread::get_id());
         static void RegisterThread();
         static void UnregisterThread();
+        static void SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers);
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }
@@ -42,6 +44,8 @@ namespace Flourish
         inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
+        inline static const auto& SubmittedCommandBuffers() { return s_SubmittedCommandBuffers; }
+        inline static const auto& SubmittedCommandBufferCounts() { return s_SubmittedCommandBufferCounts; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
 
@@ -54,5 +58,8 @@ namespace Flourish
         inline static Flourish::FeatureTable s_FeatureTable;
         inline static std::unordered_set<std::thread::id> s_RegisteredThreads;
         inline static std::mutex s_RegisteredThreadsLock;
+        inline static std::vector<std::vector<const CommandBuffer*>> s_SubmittedCommandBuffers;
+        inline static std::vector<u32> s_SubmittedCommandBufferCounts;
+        inline static std::mutex s_SubmittedCommandBuffersLock;
     };
 }

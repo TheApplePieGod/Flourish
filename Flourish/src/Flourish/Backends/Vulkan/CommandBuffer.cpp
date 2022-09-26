@@ -46,9 +46,4 @@ namespace Flourish::Vulkan
 
         return static_cast<Flourish::RenderCommandEncoder*>(&m_RenderCommandEncoderCache[m_RenderCommandEncoderCachePtr++]);
     }
-    
-    VkCommandBuffer CommandBuffer::GetCommandBuffer() const
-    {
-        return m_CommandBuffers[Flourish::Context::FrameIndex()];
-    }
 }

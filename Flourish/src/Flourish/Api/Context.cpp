@@ -45,6 +45,8 @@ namespace Flourish
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot begin frame, context has not been initialized");
 
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
+        s_SubmittedCommandBuffers.clear();
+        s_SubmittedCommandBufferCounts.clear();
         switch (s_BackendType)
         {
             case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } return;
@@ -103,5 +105,13 @@ namespace Flourish
         {
             case BackendType::Vulkan: { Vulkan::Context::UnregisterThread(); } return;
         }
+    }
+
+    void Context::SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers)
+    {
+        s_SubmittedCommandBuffersLock.lock();
+        s_SubmittedCommandBuffers.insert(s_SubmittedCommandBuffers.end(), buffers.begin(), buffers.end());
+        s_SubmittedCommandBufferCounts.push_back(buffers.size());
+        s_SubmittedCommandBuffersLock.unlock();
     }
 }
