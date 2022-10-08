@@ -17,6 +17,13 @@ namespace Flourish::Vulkan
         void PresentRenderContext(const RenderContext* context);
         
     private:
+        struct ProcessedSubmissionInfo
+        {
+            u32 CompletionSemaphoresStartIndex;
+            u32 CompletionSemaphoresCount;
+        };
+
+    private:
         VkSemaphore GetSemaphore();
 
     private:

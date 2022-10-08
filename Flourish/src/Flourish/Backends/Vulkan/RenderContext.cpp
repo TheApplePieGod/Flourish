@@ -7,7 +7,7 @@ namespace Flourish::Vulkan
 {
     RenderContext::RenderContext(const RenderContextCreateInfo& createInfo)
         : Flourish::RenderContext(createInfo),
-          m_CommandBuffer({})
+          m_CommandBuffer({}, false, true)
     {
         auto instance = Context::Instance();
 
@@ -55,9 +55,7 @@ namespace Flourish::Vulkan
 
     void RenderContext::Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers)
     {
-        auto buffersToSubmit = dependencyBuffers;
-        buffersToSubmit.push_back({ &m_CommandBuffer });
-        Flourish::Context::SubmitCommandBuffers(buffersToSubmit);
+        m_SubmissionId = Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
         Context::SubmissionHandler().PresentRenderContext(this);
     }
 

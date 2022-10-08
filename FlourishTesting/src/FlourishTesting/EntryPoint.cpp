@@ -73,7 +73,7 @@ int main(int argc, char** argv)
         auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
 
         Flourish::BufferCreateInfo bufCreateInfo;
-        bufCreateInfo.Type = Flourish::BufferType::Uniform;
+        bufCreateInfo.Type = Flourish::BufferType::Vertex;
         bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
         bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
         bufCreateInfo.ElementCount = 1;
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
             Flourish::Context::BeginFrame();
 
             auto frameEncoder = renderContext->EncodeFrameRenderCommands();
-            frameEncoder->BindVertexBuffer(buffer.get());
+            frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
             frameEncoder->Draw(3, 0, 1);
             frameEncoder->EndEncoding();
             

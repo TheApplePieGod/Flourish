@@ -9,10 +9,9 @@
 namespace Flourish::Vulkan
 {
     CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary)
-        : Flourish::CommandBuffer(createInfo)
-    {
-        m_AllocatedThread = std::this_thread::get_id();
-    }
+        : Flourish::CommandBuffer(createInfo),
+          m_AllocatedThread(std::this_thread::get_id())
+    {}
 
     CommandBuffer::~CommandBuffer()
     {
