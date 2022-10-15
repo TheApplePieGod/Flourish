@@ -4,9 +4,11 @@
 
 namespace Flourish::Vulkan
 {
-    struct Semaphore
+    struct Synchronization
     {
         // TS
         static VkSemaphore CreateTimelineSemaphore(u32 initialValue);
+        static VkSemaphore CreateSemaphore();
+        static VkFence CreateFence();
     };
 }

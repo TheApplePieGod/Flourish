@@ -33,6 +33,8 @@ namespace Flourish::Vulkan
     public:
         void Initialize();
         void Shutdown();
+        void ResetQueueFences();
+        void WaitForQueueFences();
 
         // TS
         void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback);
@@ -43,15 +45,11 @@ namespace Flourish::Vulkan
         void ClearCommands();
 
         // TS
-        VkQueue GraphicsQueue() const;
         VkQueue PresentQueue() const;
-        VkQueue ComputeQueue() const;
-        VkQueue TransferQueue() const;
         VkQueue Queue(GPUWorkloadType workloadType) const;
-        inline u32 GraphicsQueueIndex() const { return m_GraphicsQueue.QueueIndex; }
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
-        inline u32 ComputeQueueIndex() const { return m_ComputeQueue.QueueIndex; }
-        inline u32 TransferQueueIndex() const { return m_TransferQueue.QueueIndex; }
+        u32 QueueIndex(GPUWorkloadType workloadType) const;
+        VkFence QueueFence(GPUWorkloadType workloadType) const;
 
     public:
         // TS
@@ -73,6 +71,7 @@ namespace Flourish::Vulkan
         struct QueueData
         {
             std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> Queues;
+            std::array<VkFence, Flourish::Context::MaxFrameBufferCount> Fences;
             u32 QueueIndex;
             std::deque<QueueCommandEntry> CommandQueue;
             std::mutex CommandQueueLock;

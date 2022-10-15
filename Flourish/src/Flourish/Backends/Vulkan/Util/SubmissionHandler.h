@@ -14,13 +14,29 @@ namespace Flourish::Vulkan
         void ProcessSubmissions();
 
         // TS
-        void PresentRenderContext(const RenderContext* context);
+        void PresentRenderContext(const RenderContext* context, u32 submissionId);
         
     private:
         struct ProcessedSubmissionInfo
         {
+            ProcessedSubmissionInfo(u32 startIndex, u32 count)
+                : CompletionSemaphoresStartIndex(startIndex),
+                  CompletionSemaphoresCount(count)
+            {}
+
             u32 CompletionSemaphoresStartIndex;
             u32 CompletionSemaphoresCount;
+        };
+        
+        struct RenderContextSubmission
+        {
+            RenderContextSubmission(const RenderContext* context, u32 submissionId)
+                : Context(context),
+                  SubmissionId(submissionId)
+            {}
+
+            const RenderContext* Context;
+            u32 SubmissionId;
         };
 
     private:
@@ -29,7 +45,7 @@ namespace Flourish::Vulkan
     private:
         u32 m_SemaphorePoolIndex = 0;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_SemaphorePools;
-        std::vector<const RenderContext*> m_PresentingContexts;
+        std::vector<RenderContextSubmission> m_PresentingContexts;
         std::mutex m_PresentingContextsLock;
     };
 }

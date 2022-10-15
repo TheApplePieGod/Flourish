@@ -50,7 +50,7 @@ namespace Flourish::Vulkan
         completionSemaphores.reserve(150);
         std::vector<u64> completionSemaphoreValues;
         completionSemaphoreValues.reserve(150);
-        std::vector<ProcessedSubmissionInfo> processedSubmissionInfo;
+        std::vector<ProcessedSubmissionInfo> processedSubmissions;
 
         // Each submission gets executed in parallel
         for (auto submissionCount : Flourish::Context::SubmittedCommandBufferCounts())
@@ -153,52 +153,120 @@ namespace Flourish::Vulkan
                         }
                     }
                 }
-                
-                // If these were the last buffers in this submission, we need to add its information to the
-                // processed submission info array
-                bool isLastBuffers = submissionIndex == submissionStartIndex + submissionCount - 1;
-                if (isLastBuffers)
-                {
-
-                }
             }
-
+            
             submissionStartIndex += submissionCount;
             completionSemaphoresStartIndex += completionSemaphoresWaitCount;
             completionSemaphoresWaitCount = completionSemaphores.size() - completionSemaphoresStartIndex;
+
+            processedSubmissions.emplace_back(completionSemaphoresStartIndex, completionSemaphoresWaitCount);
         }
         
-        for (auto renderContext : m_PresentingContexts)
+        std::vector<VkSwapchainKHR> presentingSwapchains;
+        presentingSwapchains.reserve(m_PresentingContexts.size());
+        std::vector<u32> presentingImageIndices;
+        presentingImageIndices.reserve(m_PresentingContexts.size());
+        
+        for (auto contextSubmission : m_PresentingContexts)
         {
-            u64 waitValues[2] = { App::Get().GetFrameCount() + 1, App::Get().GetFrameCount() + 1 };
+            auto& processedSubmission = processedSubmissions[contextSubmission.SubmissionId];
+
+            std::vector<VkSemaphore> finalWaitSemaphores;
+            finalWaitSemaphores.reserve(processedSubmission.CompletionSemaphoresCount + 1);
+            finalWaitSemaphores.insert(
+                finalWaitSemaphores.end(),
+                completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex,
+                completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
+            );
+            finalWaitSemaphores.push_back(contextSubmission.Context->GetImageAvailableSemaphore());
+
+            std::vector<u64> finalWaitSemaphoreValues;
+            finalWaitSemaphoreValues.reserve(processedSubmission.CompletionSemaphoresCount + 1);
+            finalWaitSemaphoreValues.insert(
+                finalWaitSemaphoreValues.end(),
+                completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex,
+                completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
+            );
+            finalWaitSemaphoreValues.push_back(1);
+
+            std::vector<VkPipelineStageFlags> finalWaitStages;
+            finalWaitStages.reserve(processedSubmission.CompletionSemaphoresCount + 1);
+            finalWaitStages.insert(
+                finalWaitStages.end(),
+                processedSubmission.CompletionSemaphoresCount + 1,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+            );
+
             VkTimelineSemaphoreSubmitInfo finalTimelineSubmitInfo{};
             finalTimelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-            finalTimelineSubmitInfo.waitSemaphoreValueCount = 2;
-            finalTimelineSubmitInfo.pWaitSemaphoreValues = waitValues;
+            finalTimelineSubmitInfo.waitSemaphoreValueCount = processedSubmission.CompletionSemaphoresCount + 1;
+            finalTimelineSubmitInfo.pWaitSemaphoreValues = finalWaitSemaphoreValues.data();
 
-            VkSemaphore finalWaitSemaphores[] = { m_ImageAvailableSemaphores[m_InFlightFrameIndex], auxDrawSemaphores.empty() ? nullptr : auxDrawSemaphores.back() };
             VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
             VkSubmitInfo finalSubmitInfo{};
             finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             finalSubmitInfo.pNext = &finalTimelineSubmitInfo;
-            finalSubmitInfo.waitSemaphoreCount = auxDrawSemaphores.empty() ? 1 : 2;
-            finalSubmitInfo.pWaitSemaphores = finalWaitSemaphores;
-            finalSubmitInfo.pWaitDstStageMask = waitStages;
+            finalSubmitInfo.waitSemaphoreCount = processedSubmission.CompletionSemaphoresCount + 1;
+            finalSubmitInfo.pWaitSemaphores = finalWaitSemaphores.data();
+            finalSubmitInfo.pWaitDstStageMask = finalWaitStages.data();
             finalSubmitInfo.commandBufferCount = 1;
-            finalSubmitInfo.pCommandBuffers = &renderContext->CommandBuffer().
-
-            VkSemaphore finalSignalSemaphores[] = { m_RenderFinishedSemaphores[m_InFlightFrameIndex] };
-            finalSubmitInfo.signalSemaphoreCount = 1;
-            finalSubmitInfo.pSignalSemaphores = finalSignalSemaphores;
+            finalSubmitInfo.pCommandBuffers = &contextSubmission.Context->CommandBuffer().GetEncoderSubmissions()[0].Buffer;
+            
+            // TODO: stop doing a copy here
+            graphicsSubmitInfos.emplace_back(finalSubmitInfo);
+            
+            presentingSwapchains.push_back(contextSubmission.Context->Swapchain().GetSwapchain());
+            presentingImageIndices.push_back(contextSubmission.Context->Swapchain().GetActiveImageIndex());
+        }
+        
+        if (!graphicsSubmitInfos.empty())
+        {
+            FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                Context::Queues().Queue(GPUWorkloadType::Graphics),
+                static_cast<u32>(graphicsSubmitInfos.size()),
+                graphicsSubmitInfos.data(),
+                Context::Queues().QueueFence(GPUWorkloadType::Graphics)
+            ));
+        }
+        if (!computeSubmitInfos.empty())
+        {
+            FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                Context::Queues().Queue(GPUWorkloadType::Compute),
+                static_cast<u32>(computeSubmitInfos.size()),
+                computeSubmitInfos.data(),
+                Context::Queues().QueueFence(GPUWorkloadType::Compute)
+            ));
+        }
+        if (!transferSubmitInfos.empty())
+        {
+            FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                Context::Queues().Queue(GPUWorkloadType::Transfer),
+                static_cast<u32>(transferSubmitInfos.size()),
+                transferSubmitInfos.data(),
+                Context::Queues().QueueFence(GPUWorkloadType::Transfer)
+            ));
+        }
+        
+        if (!m_PresentingContexts.empty())
+        {
+            VkPresentInfoKHR presentInfo{};
+            presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+            //presentInfo.waitSemaphoreCount = 1;
+            //presentInfo.pWaitSemaphores = finalSignalSemaphores;
+            presentInfo.swapchainCount = presentingSwapchains.size();
+            presentInfo.pSwapchains = presentingSwapchains.data();
+            presentInfo.pImageIndices = presentingImageIndices.data();
+        
+            vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
         }
         
         m_PresentingContexts.clear();
     }
 
-    void SubmissionHandler::PresentRenderContext(const RenderContext* context)
+    void SubmissionHandler::PresentRenderContext(const RenderContext* context, u32 submissionId)
     {
         m_PresentingContextsLock.lock();
-        m_PresentingContexts.push_back(context);
+        m_PresentingContexts.emplace_back(context, submissionId);
         m_PresentingContextsLock.unlock();
     }
     

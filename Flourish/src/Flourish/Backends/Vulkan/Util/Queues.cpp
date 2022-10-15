@@ -2,7 +2,7 @@
 #include "Queues.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
-#include "Flourish/Backends/Vulkan/Util/Semaphore.h"
+#include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
@@ -21,6 +21,10 @@ namespace Flourish::Vulkan
             vkGetDeviceQueue(Context::Devices().Device(), m_GraphicsQueue.QueueIndex, std::min(i, indices.GraphicsQueueCount - 1), &m_GraphicsQueue.Queues[i]);
             vkGetDeviceQueue(Context::Devices().Device(), m_ComputeQueue.QueueIndex, std::min(i, indices.ComputeQueueCount - 1), &m_ComputeQueue.Queues[i]);
             vkGetDeviceQueue(Context::Devices().Device(), m_TransferQueue.QueueIndex, std::min(i, indices.TransferQueueCount - 1), &m_TransferQueue.Queues[i]);
+            
+            m_GraphicsQueue.Fences[i] = Synchronization::CreateFence();
+            m_ComputeQueue.Fences[i] = Synchronization::CreateFence();
+            m_TransferQueue.Fences[i] = Synchronization::CreateFence();
         }
     }
 
@@ -34,6 +38,28 @@ namespace Flourish::Vulkan
             for (auto semaphore : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
         });
+    }
+    
+    void Queues::ResetQueueFences()
+    {
+        VkFence fences[3] = {
+            m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()],
+            m_ComputeQueue.Fences[Flourish::Context::FrameIndex()],
+            m_TransferQueue.Fences[Flourish::Context::FrameIndex()]
+        };
+
+        vkResetFences(Context::Devices().Device(), 3, fences);
+    }
+    
+    void Queues::WaitForQueueFences()
+    {
+        VkFence fences[3] = {
+            m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()],
+            m_ComputeQueue.Fences[Flourish::Context::FrameIndex()],
+            m_TransferQueue.Fences[Flourish::Context::FrameIndex()]
+        };
+
+        vkWaitForFences(Context::Devices().Device(), 3, fences, VK_TRUE, UINT64_MAX);
     }
     
     void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback)
@@ -128,24 +154,9 @@ namespace Flourish::Vulkan
         ClearCommands(GPUWorkloadType::Transfer);
     }
 
-    VkQueue Queues::GraphicsQueue() const
-    {
-        return m_GraphicsQueue.Queues[Flourish::Context::FrameIndex()];
-    }
-
     VkQueue Queues::PresentQueue() const
     {
         return m_PresentQueue.Queues[Flourish::Context::FrameIndex()];
-    }
-
-    VkQueue Queues::ComputeQueue() const
-    {
-        return m_ComputeQueue.Queues[Flourish::Context::FrameIndex()];
-    }
-
-    VkQueue Queues::TransferQueue() const
-    {
-        return m_TransferQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
     VkQueue Queues::Queue(GPUWorkloadType workloadType) const
@@ -153,17 +164,49 @@ namespace Flourish::Vulkan
         switch (workloadType)
         {
             case GPUWorkloadType::Graphics:
-            { return GraphicsQueue(); }
+            { return m_GraphicsQueue.Queues[Flourish::Context::FrameIndex()]; }
             case GPUWorkloadType::Transfer:
-            { return TransferQueue(); }
+            { return m_TransferQueue.Queues[Flourish::Context::FrameIndex()]; }
             case GPUWorkloadType::Compute:
-            { return ComputeQueue(); }
+            { return m_ComputeQueue.Queues[Flourish::Context::FrameIndex()]; }
         }
 
         FL_ASSERT(false, "Queue for workload not supported");
-        return GraphicsQueue();
+        return nullptr;
     }
     
+    u32 Queues::QueueIndex(GPUWorkloadType workloadType) const
+    {
+        switch (workloadType)
+        {
+            case GPUWorkloadType::Graphics:
+            { return m_GraphicsQueue.QueueIndex; }
+            case GPUWorkloadType::Transfer:
+            { return m_TransferQueue.QueueIndex; }
+            case GPUWorkloadType::Compute:
+            { return m_ComputeQueue.QueueIndex; }
+        }
+
+        FL_ASSERT(false, "QueueIndex for workload not supported");
+        return 0;
+    }
+
+    VkFence Queues::QueueFence(GPUWorkloadType workloadType) const
+    {
+        switch (workloadType)
+        {
+            case GPUWorkloadType::Graphics:
+            { return m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()]; }
+            case GPUWorkloadType::Transfer:
+            { return m_TransferQueue.Fences[Flourish::Context::FrameIndex()]; }
+            case GPUWorkloadType::Compute:
+            { return m_ComputeQueue.Fences[Flourish::Context::FrameIndex()]; }
+        }
+
+        FL_ASSERT(false, "QueueIndex for workload not supported");
+        return 0;
+    }
+
     QueueFamilyIndices Queues::GetQueueFamilies(VkPhysicalDevice device)
     {
         QueueFamilyIndices indices;
@@ -268,6 +311,6 @@ namespace Flourish::Vulkan
             return semaphore;
         }
 
-        return Semaphore::CreateTimelineSemaphore(0);
+        return Synchronization::CreateTimelineSemaphore(0);
     }
 }

@@ -20,11 +20,14 @@ namespace Flourish::Vulkan
     public:
         void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface);
         void Shutdown();
-        void BeginRendering();
-        void EndRendering();
 
         // TS
+        VkSemaphore GetImageAvailableSemaphore() const;
+        
+        // TS
+        inline VkSwapchainKHR GetSwapchain() const { return m_Swapchain; }
         inline Framebuffer* GetFramebuffer() const { return m_ImageData[m_ActiveImageIndex].Framebuffer.get(); }
+        inline u32 GetActiveImageIndex() const { return m_ActiveImageIndex; }
 
     private:
         struct ImageData
@@ -48,6 +51,7 @@ namespace Flourish::Vulkan
         std::shared_ptr<RenderPass> m_RenderPass;
         SwapchainInfo m_Info;
         u32 m_ActiveImageIndex = 0;
+        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> m_ImageAvailableSemaphores;
 
         // Copied from RenderContext so we won't need to free
         VkSurfaceKHR m_Surface;

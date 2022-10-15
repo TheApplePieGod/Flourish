@@ -2,6 +2,7 @@
 #include "Swapchain.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
@@ -13,21 +14,26 @@ namespace Flourish::Vulkan
 
         PopulateSwapchainInfo();
         RecreateSwapchain();
+        
+        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            m_ImageAvailableSemaphores[frame] = Synchronization::CreateSemaphore();
     }
 
     void Swapchain::Shutdown()
     {
         CleanupSwapchain();
-    }
-
-    void Swapchain::BeginRendering()
-    {
         
+        auto imageAvailableSemaphores = m_ImageAvailableSemaphores;
+        Context::DeleteQueue().Push([=]()
+        {
+            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+                vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
+        });
     }
 
-    void Swapchain::EndRendering()
+    VkSemaphore Swapchain::GetImageAvailableSemaphore() const
     {
-
+        return m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()];
     }
 
     void Swapchain::PopulateSwapchainInfo()
@@ -157,7 +163,7 @@ namespace Flourish::Vulkan
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = m_Swapchain;
 
-        u32 queueIndices[] = { Context::Queues().GraphicsQueueIndex(), Context::Queues().PresentQueueIndex() };
+        u32 queueIndices[] = { Context::Queues().QueueIndex(GPUWorkloadType::Graphics), Context::Queues().PresentQueueIndex() };
         if (queueIndices[0] != queueIndices[1])
         {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;

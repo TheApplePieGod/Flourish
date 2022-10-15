@@ -67,7 +67,8 @@ namespace Flourish::Vulkan
 
     void Context::BeginFrame()
     {
-
+        s_Queues.WaitForQueueFences();
+        s_Queues.ResetQueueFences();
     }
 
     void Context::EndFrame()
