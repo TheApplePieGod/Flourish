@@ -50,38 +50,7 @@ namespace Flourish::Vulkan
                                         VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
                                         VMA_ALLOCATION_CREATE_MAPPED_BIT;
                 
-                for (u32 i = 0; i < m_BufferCount; i++)
-                {
-                    FL_VK_ENSURE_RESULT(vmaCreateBuffer(
-                        Context::Allocator(),
-                        &bufCreateInfo,
-                        &allocCreateInfo,
-                        &m_Buffers[i].Buffer,
-                        &m_Buffers[i].Allocation,
-                        &m_Buffers[i].AllocationInfo
-                    ));
-
-                    VkMemoryPropertyFlags memPropFlags;
-                    vmaGetAllocationMemoryProperties(Context::Allocator(), m_Buffers[i].Allocation, &memPropFlags);
-                    if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-                        memcpy(m_Buffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
-                    else
-                    {
-                        m_Buffers[i].HasComplement = true;
-                        AllocateStagingBuffer(
-                            m_StagingBuffers[i].Buffer,
-                            m_StagingBuffers[i].Allocation,
-                            m_StagingBuffers[i].AllocationInfo,
-                            bufSize
-                        );
-
-                        if (m_Info.InitialData && m_Info.InitialDataSize > 0)
-                        {
-                            memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
-                            CopyBufferToBuffer(m_StagingBuffers[i].Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
-                        }
-                    }
-                }
+                CreateBuffers(bufCreateInfo, allocCreateInfo);
             } break;
         }
     }
@@ -237,5 +206,41 @@ namespace Flourish::Vulkan
     {
         // Buffer count will never be 1 with persistent staging buffers
         return m_StagingBuffers[Flourish::Context::FrameIndex()];
+    }
+
+    void Buffer::CreateBuffers(VkBufferCreateInfo bufCreateInfo, VmaAllocationCreateInfo allocCreateInfo)
+    {
+        for (u32 i = 0; i < m_BufferCount; i++)
+        {
+            FL_VK_ENSURE_RESULT(vmaCreateBuffer(
+                Context::Allocator(),
+                &bufCreateInfo,
+                &allocCreateInfo,
+                &m_Buffers[i].Buffer,
+                &m_Buffers[i].Allocation,
+                &m_Buffers[i].AllocationInfo
+            ));
+
+            VkMemoryPropertyFlags memPropFlags;
+            vmaGetAllocationMemoryProperties(Context::Allocator(), m_Buffers[i].Allocation, &memPropFlags);
+            if (memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+                memcpy(m_Buffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+            else
+            {
+                m_Buffers[i].HasComplement = true;
+                AllocateStagingBuffer(
+                    m_StagingBuffers[i].Buffer,
+                    m_StagingBuffers[i].Allocation,
+                    m_StagingBuffers[i].AllocationInfo,
+                    bufCreateInfo.size
+                );
+
+                if (m_Info.InitialData && m_Info.InitialDataSize > 0)
+                {
+                    memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+                    CopyBufferToBuffer(m_StagingBuffers[i].Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
+                }
+            }
+        }
     }
 }

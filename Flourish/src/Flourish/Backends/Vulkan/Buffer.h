@@ -48,6 +48,7 @@ namespace Flourish::Vulkan
     private:
         const BufferData& GetBufferData() const;
         const BufferData& GetStagingBufferData() const;
+        void CreateBuffers(VkBufferCreateInfo bufCreateInfo, VmaAllocationCreateInfo allocCreateInfo);
 
     private:
         u32 m_BufferCount = 1;
