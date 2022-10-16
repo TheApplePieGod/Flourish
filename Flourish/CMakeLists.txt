@@ -32,7 +32,6 @@ if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(DEBUG_LIB_EXTRAS "d")
   endif()
-  message("shaderc_shared${DEBUG_LIB_EXTRAS}")
   find_library(vulkan
     NAMES "vulkan-1"
     PATHS "$ENV{VULKAN_SDK}/lib"
