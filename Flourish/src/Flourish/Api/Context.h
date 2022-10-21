@@ -35,7 +35,7 @@ namespace Flourish
         static bool IsThreadRegistered(std::thread::id thread = std::this_thread::get_id());
         static void RegisterThread();
         static void UnregisterThread();
-        static u32 SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers);
+        static int SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers);
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }

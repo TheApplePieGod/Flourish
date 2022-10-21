@@ -4,6 +4,7 @@
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/RenderContext.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
+#include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
@@ -15,17 +16,23 @@ namespace Flourish::Vulkan
     void SubmissionHandler::Shutdown()
     {
         auto semaphorePools = m_SemaphorePools;
+        auto timelineSemaphorePools = m_TimelineSemaphorePools;
         Context::DeleteQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                for (auto semaphore : semaphorePools[frame])
+            {
+                for (auto semaphore : semaphorePools[frame].Semaphores)
                     vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
+                for (auto semaphore : timelineSemaphorePools[frame].Semaphores)
+                    vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
+            }
         });
     }
 
     void SubmissionHandler::ProcessSubmissions()
     {
-        m_SemaphorePoolIndex = 0;
+        m_SemaphorePools[Flourish::Context::FrameIndex()].FreeIndex = 0;
+        m_TimelineSemaphorePools[Flourish::Context::FrameIndex()].FreeIndex = 0;
         
         u32 submissionStartIndex = 0;
         u32 completionSemaphoresStartIndex = 0;
@@ -65,7 +72,7 @@ namespace Flourish::Vulkan
                     u64 syncSemaphoreValue = 0;
                     
                     // Create a semaphore that will be used to sync sub buffers and also signal total completion of a buffer
-                    VkSemaphore syncSemaphore = GetSemaphore();
+                    VkSemaphore syncSemaphore = GetTimelineSemaphore();
 
                     // Each sub buffer executes sequentially
                     auto buffer = static_cast<const CommandBuffer*>(_buffer);
@@ -166,49 +173,63 @@ namespace Flourish::Vulkan
         presentingSwapchains.reserve(m_PresentingContexts.size());
         std::vector<u32> presentingImageIndices;
         presentingImageIndices.reserve(m_PresentingContexts.size());
-        
+        std::vector<VkSemaphore> finalWaitSemaphores;
+        finalWaitSemaphores.reserve(150);
+        std::vector<u64> finalWaitSemaphoreValues;
+        finalWaitSemaphoreValues.reserve(150);
+        std::vector<VkPipelineStageFlags> finalWaitStages;
+        finalWaitStages.reserve(150);
+        std::vector<VkSemaphore> finalSignalSemaphores;
+        finalSignalSemaphores.reserve(50);
+
+        // TODO: this wont work with multiple submissions
         for (auto contextSubmission : m_PresentingContexts)
         {
-            auto& processedSubmission = processedSubmissions[contextSubmission.SubmissionId];
-
-            std::vector<VkSemaphore> finalWaitSemaphores;
-            finalWaitSemaphores.reserve(processedSubmission.CompletionSemaphoresCount + 1);
-            finalWaitSemaphores.insert(
-                finalWaitSemaphores.end(),
-                completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex,
-                completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
-            );
+            u32 waitSemaphoreCount = 1;
             finalWaitSemaphores.push_back(contextSubmission.Context->GetImageAvailableSemaphore());
-
-            std::vector<u64> finalWaitSemaphoreValues;
-            finalWaitSemaphoreValues.reserve(processedSubmission.CompletionSemaphoresCount + 1);
-            finalWaitSemaphoreValues.insert(
-                finalWaitSemaphoreValues.end(),
-                completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex,
-                completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
-            );
             finalWaitSemaphoreValues.push_back(1);
+            finalWaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-            std::vector<VkPipelineStageFlags> finalWaitStages;
-            finalWaitStages.reserve(processedSubmission.CompletionSemaphoresCount + 1);
-            finalWaitStages.insert(
-                finalWaitStages.end(),
-                processedSubmission.CompletionSemaphoresCount + 1,
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-            );
+            if (contextSubmission.DependencySubmissionId != -1)
+            {
+                auto& processedSubmission = processedSubmissions[contextSubmission.DependencySubmissionId];
+                waitSemaphoreCount += processedSubmission.CompletionSemaphoresCount;
+
+                finalWaitSemaphores.insert(
+                    finalWaitSemaphores.end(),
+                    completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex,
+                    completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
+                );
+
+                finalWaitSemaphoreValues.insert(
+                    finalWaitSemaphoreValues.end(),
+                    completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex,
+                    completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
+                );
+
+                finalWaitStages.insert(
+                    finalWaitStages.end(),
+                    processedSubmission.CompletionSemaphoresCount + 1,
+                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                );
+            }
+
+            finalSignalSemaphores.push_back(GetSemaphore());
 
             VkTimelineSemaphoreSubmitInfo finalTimelineSubmitInfo{};
             finalTimelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-            finalTimelineSubmitInfo.waitSemaphoreValueCount = processedSubmission.CompletionSemaphoresCount + 1;
+            finalTimelineSubmitInfo.waitSemaphoreValueCount = waitSemaphoreCount;
             finalTimelineSubmitInfo.pWaitSemaphoreValues = finalWaitSemaphoreValues.data();
 
             VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
             VkSubmitInfo finalSubmitInfo{};
             finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             finalSubmitInfo.pNext = &finalTimelineSubmitInfo;
-            finalSubmitInfo.waitSemaphoreCount = processedSubmission.CompletionSemaphoresCount + 1;
+            finalSubmitInfo.waitSemaphoreCount = waitSemaphoreCount;
             finalSubmitInfo.pWaitSemaphores = finalWaitSemaphores.data();
             finalSubmitInfo.pWaitDstStageMask = finalWaitStages.data();
+            finalSubmitInfo.signalSemaphoreCount = 1;
+            finalSubmitInfo.pSignalSemaphores = finalSignalSemaphores.data();
             finalSubmitInfo.commandBufferCount = 1;
             finalSubmitInfo.pCommandBuffers = &contextSubmission.Context->CommandBuffer().GetEncoderSubmissions()[0].Buffer;
             
@@ -251,8 +272,8 @@ namespace Flourish::Vulkan
         {
             VkPresentInfoKHR presentInfo{};
             presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-            //presentInfo.waitSemaphoreCount = 1;
-            //presentInfo.pWaitSemaphores = finalSignalSemaphores;
+            presentInfo.waitSemaphoreCount = 1;
+            presentInfo.pWaitSemaphores = finalSignalSemaphores.data();
             presentInfo.swapchainCount = presentingSwapchains.size();
             presentInfo.pSwapchains = presentingSwapchains.data();
             presentInfo.pImageIndices = presentingImageIndices.data();
@@ -263,38 +284,28 @@ namespace Flourish::Vulkan
         m_PresentingContexts.clear();
     }
 
-    void SubmissionHandler::PresentRenderContext(const RenderContext* context, u32 submissionId)
+    void SubmissionHandler::PresentRenderContext(const RenderContext* context, int dependencySubmissionId)
     {
         m_PresentingContextsLock.lock();
-        m_PresentingContexts.emplace_back(context, submissionId);
+        m_PresentingContexts.emplace_back(context, dependencySubmissionId);
         m_PresentingContextsLock.unlock();
+    }
+
+    VkSemaphore SubmissionHandler::GetTimelineSemaphore()
+    {
+        auto& pool = m_TimelineSemaphorePools[Flourish::Context::FrameIndex()];
+        if (pool.FreeIndex >= pool.Semaphores.size())
+            pool.Semaphores.push_back(Synchronization::CreateTimelineSemaphore(0));
+        
+        return pool.Semaphores[pool.FreeIndex++];
     }
     
     VkSemaphore SubmissionHandler::GetSemaphore()
     {
         auto& pool = m_SemaphorePools[Flourish::Context::FrameIndex()];
-        if (m_SemaphorePoolIndex >= pool.size())
-        {
-            VkSemaphoreTypeCreateInfo timelineType{};
-            timelineType.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-            timelineType.pNext = NULL;
-            timelineType.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
-            timelineType.initialValue = 0;
-
-            VkSemaphoreCreateInfo semaphoreInfo{};
-            semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-            semaphoreInfo.pNext = &timelineType;
-
-            VkSemaphore semaphore;
-            FL_VK_ENSURE_RESULT(vkCreateSemaphore(
-                Context::Devices().Device(),
-                &semaphoreInfo,
-                nullptr,
-                &semaphore
-            ));
-            pool.push_back(semaphore);
-        }
+        if (pool.FreeIndex >= pool.Semaphores.size())
+            pool.Semaphores.push_back(Synchronization::CreateSemaphore());
         
-        return pool[m_SemaphorePoolIndex];
+        return pool.Semaphores[pool.FreeIndex++];
     }
 }

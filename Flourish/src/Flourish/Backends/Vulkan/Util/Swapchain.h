@@ -20,6 +20,7 @@ namespace Flourish::Vulkan
     public:
         void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface);
         void Shutdown();
+        void AcquireNextImage();
 
         // TS
         VkSemaphore GetImageAvailableSemaphore() const;

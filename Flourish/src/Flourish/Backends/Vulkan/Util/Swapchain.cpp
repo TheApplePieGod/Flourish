@@ -30,6 +30,28 @@ namespace Flourish::Vulkan
                 vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
         });
     }
+    
+    void Swapchain::AcquireNextImage()
+    {
+        VkResult result = vkAcquireNextImageKHR(
+            Context::Devices().Device(),
+            m_Swapchain,
+            UINT64_MAX,
+            m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()],
+            VK_NULL_HANDLE,
+            &m_ActiveImageIndex
+        );
+        
+        // TODO: implement this
+        /*if (result == VK_ERROR_OUT_OF_DATE_KHR)
+            m_ShouldPresentThisFrame = false;
+        else
+        {
+            HE_ENGINE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR);
+            m_ShouldPresentThisFrame = true;
+        }
+        */
+    }
 
     VkSemaphore Swapchain::GetImageAvailableSemaphore() const
     {

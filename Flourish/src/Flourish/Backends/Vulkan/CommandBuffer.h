@@ -28,8 +28,12 @@ namespace Flourish::Vulkan
             VkCommandBuffer Buffer;
             GPUWorkloadType WorkloadType;
         };
+        
+    private:
+        void CheckFrameUpdate();
 
     private:
+        u32 m_LastFrameEncoding = 0;
         std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
         u32 m_RenderCommandEncoderCachePtr = 0;
         std::vector<EncoderSubmission> m_EncoderSubmissions;

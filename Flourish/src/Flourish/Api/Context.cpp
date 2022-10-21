@@ -107,13 +107,16 @@ namespace Flourish
         }
     }
 
-    u32 Context::SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers)
+    int Context::SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers)
     {
+        if (buffers.empty()) return -1;
+
         s_SubmittedCommandBuffersLock.lock();
-        u32 submissionId = s_SubmittedCommandBufferCounts.size();
+        int submissionId = s_SubmittedCommandBufferCounts.size();
         s_SubmittedCommandBuffers.insert(s_SubmittedCommandBuffers.end(), buffers.begin(), buffers.end());
         s_SubmittedCommandBufferCounts.push_back(buffers.size());
         s_SubmittedCommandBuffersLock.unlock();
+
         return submissionId;
     }
 }

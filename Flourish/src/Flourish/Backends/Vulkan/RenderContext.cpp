@@ -55,6 +55,7 @@ namespace Flourish::Vulkan
 
     void RenderContext::Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers)
     {
+        m_Swapchain.AcquireNextImage();
         u32 submissionId = Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
         Context::SubmissionHandler().PresentRenderContext(this, submissionId);
     }

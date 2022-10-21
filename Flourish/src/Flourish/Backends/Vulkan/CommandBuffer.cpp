@@ -36,6 +36,8 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
         m_Encoding = true;
 
+        CheckFrameUpdate();
+
         if (m_RenderCommandEncoderCachePtr >= m_RenderCommandEncoderCache.size())
             m_RenderCommandEncoderCache.emplace_back(this);
 
@@ -44,5 +46,16 @@ namespace Flourish::Vulkan
         );
 
         return static_cast<Flourish::RenderCommandEncoder*>(&m_RenderCommandEncoderCache[m_RenderCommandEncoderCachePtr++]);
+    }
+    
+    void CommandBuffer::CheckFrameUpdate()
+    {
+        // Each new frame, we need to clear the previous encoder submissions
+        if (m_LastFrameEncoding != Flourish::Context::FrameIndex())
+        {
+            m_EncoderSubmissions.clear();
+            m_LastFrameEncoding = Flourish::Context::FrameIndex();
+            m_RenderCommandEncoderCachePtr = 0;
+        }
     }
 }

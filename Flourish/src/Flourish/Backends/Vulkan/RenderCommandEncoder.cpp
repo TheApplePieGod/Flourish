@@ -48,6 +48,7 @@ namespace Flourish::Vulkan
 
         // TODO: check result?
         VkCommandBuffer buffer = GetCommandBuffer();
+        vkResetCommandBuffer(buffer, 0);
         vkBeginCommandBuffer(buffer, &beginInfo);
 
         VkRenderPassBeginInfo rpBeginInfo{};
