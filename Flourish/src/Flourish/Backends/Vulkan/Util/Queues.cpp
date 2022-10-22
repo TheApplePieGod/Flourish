@@ -77,7 +77,12 @@ namespace Flourish::Vulkan
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &buffer;
 
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
     }
 
     void Queues::IterateCommands(GPUWorkloadType workloadType)
@@ -119,6 +124,7 @@ namespace Flourish::Vulkan
         timelineSubmitInfo.signalSemaphoreValueCount = queueData.SignalValues.size();
         timelineSubmitInfo.pSignalSemaphoreValues = queueData.SignalValues.data();
 
+        // Having implicit ording is a little silly so we should probably revisit this 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.pNext = &timelineSubmitInfo;

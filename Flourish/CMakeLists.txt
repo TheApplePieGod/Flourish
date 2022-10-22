@@ -38,7 +38,7 @@ if (WIN32)
   )
   target_link_libraries(Core ${vulkan})
   find_library(shaderc
-    NAMES "shaderc_shared${DEBUG_LIB_EXTRAS}"
+    NAMES "shaderc_combined${DEBUG_LIB_EXTRAS}"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(Core ${shaderc})
