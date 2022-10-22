@@ -55,7 +55,7 @@ if (WIN32)
 elseif(APPLE)
   find_library(mvk
     NAMES "libMoltenVK.dylib"
-    PATHS "$ENV{VULKAN_SDK}/MoltenVK/dylib/macOS"
+    PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(Core ${mvk})
   find_library(shaderc
