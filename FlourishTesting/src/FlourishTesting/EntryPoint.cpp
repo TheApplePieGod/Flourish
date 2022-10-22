@@ -75,8 +75,8 @@ int main(int argc, char** argv)
         Flourish::BufferCreateInfo bufCreateInfo;
         bufCreateInfo.Type = Flourish::BufferType::Vertex;
         bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
-        bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
-        bufCreateInfo.ElementCount = 1;
+        bufCreateInfo.Layout = { { Flourish::BufferDataType::Float3 } };
+        bufCreateInfo.ElementCount = 3;
         auto buffer = Flourish::Buffer::Create(bufCreateInfo);
 
         Flourish::RenderPassCreateInfo rpCreateInfo;
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
             layout(location = 0) out vec4 outColor;
 
             void main() {
-                outColor = vec4(1.f);
+                outColor = vec4(1.f, 0.f, 0.f, 1.f);
             }
         )";
         auto fragShader = Flourish::Shader::Create(fsCreateInfo);
@@ -128,6 +128,7 @@ int main(int argc, char** argv)
         gpCreateInfo.CullMode = Flourish::CullMode::Backface;
         gpCreateInfo.WindingOrder = Flourish::WindingOrder::Clockwise;
         renderPass->CreatePipeline("main", gpCreateInfo);
+        renderContext->GetRenderPass()->CreatePipeline("main", gpCreateInfo);
 
         int imageWidth;
         int imageHeight;
@@ -153,10 +154,6 @@ int main(int argc, char** argv)
         fbCreateInfo.Height = 1080;
         auto framebuffer = Flourish::Framebuffer::Create(fbCreateInfo);
 
-        float vertices[9] = { 0.f, 0.f, 0.f, 0.5f, 0.f, 0.f, 0.f, 0.5f, 0.f };
-        buffer->SetBytes(vertices, sizeof(float), 9);
-        buffer->Flush();
-
         Flourish::CommandBufferCreateInfo cmdCreateInfo;
         auto cmdBuffer = Flourish::CommandBuffer::Create(cmdCreateInfo);
 
@@ -164,9 +161,14 @@ int main(int argc, char** argv)
         {
             Flourish::Context::BeginFrame();
 
+            float vertices[9] = { 0.f, 0.f, 0.f, 0.5f, 0.f, 0.f, 0.f, 0.5f, 0.f };
+            buffer->SetBytes(vertices, sizeof(vertices), 0);
+            buffer->Flush();
+
             auto frameEncoder = renderContext->EncodeFrameRenderCommands();
-            //frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
-            //frameEncoder->Draw(3, 0, 1);
+            frameEncoder->BindPipeline("main");
+            frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
+            frameEncoder->Draw(3, 0, 1);
             frameEncoder->EndEncoding();
             
             renderContext->Present({});

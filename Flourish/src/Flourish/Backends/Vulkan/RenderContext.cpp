@@ -60,6 +60,11 @@ namespace Flourish::Vulkan
         Context::SubmissionHandler().PresentRenderContext(this, submissionId);
     }
 
+    RenderPass* RenderContext::GetRenderPass() const
+    {
+        return m_Swapchain.GetRenderPass();
+    }
+
     Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()
     {
         m_Swapchain.AcquireNextImage();

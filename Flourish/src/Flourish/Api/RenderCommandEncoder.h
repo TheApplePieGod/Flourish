@@ -13,6 +13,8 @@ namespace Flourish
 
         // TS
         // All shader resources must be bound before drawing
+        // TODO: pipeline ids?
+        virtual void BindPipeline(const std::string_view pipelineName) = 0;
         virtual void SetViewport(u32 x, u32 y, u32 width, u32 height) = 0;
         virtual void SetScissor(u32 x, u32 y, u32 width, u32 height) = 0;
         virtual void BindVertexBuffer(Buffer* buffer) = 0;

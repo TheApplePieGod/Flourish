@@ -40,15 +40,20 @@ namespace Flourish::Vulkan
         });
     }
     
-    void Queues::ResetQueueFences()
+    void Queues::ResetQueueFence(GPUWorkloadType workloadType)
     {
-        VkFence fences[3] = {
-            m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()],
-            m_ComputeQueue.Fences[Flourish::Context::FrameIndex()],
-            m_TransferQueue.Fences[Flourish::Context::FrameIndex()]
-        };
+        VkFence fence = nullptr;
+        switch (workloadType)
+        {
+            case GPUWorkloadType::Graphics:
+            { fence = m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()]; } break;
+            case GPUWorkloadType::Transfer:
+            { fence = m_TransferQueue.Fences[Flourish::Context::FrameIndex()]; } break;
+            case GPUWorkloadType::Compute:
+            { fence = m_ComputeQueue.Fences[Flourish::Context::FrameIndex()]; } break;
+        }
 
-        vkResetFences(Context::Devices().Device(), 3, fences);
+        vkResetFences(Context::Devices().Device(), 1, &fence);
     }
     
     void Queues::WaitForQueueFences()

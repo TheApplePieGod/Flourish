@@ -20,11 +20,6 @@ namespace Flourish::Vulkan
         // Descriptor sets get implicitly cleaned up
     }
 
-    VkRenderPass Framebuffer::GetRenderPass() const
-    {
-        return static_cast<RenderPass*>(m_Info.RenderPass.get())->GetRenderPass();
-    }
-    
     VkFramebuffer Framebuffer::GetFramebuffer() const
     {
         return m_Framebuffers[Flourish::Context::FrameIndex()];
@@ -125,7 +120,7 @@ namespace Flourish::Vulkan
         {
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = GetRenderPass();
+            framebufferInfo.renderPass = static_cast<RenderPass*>(m_Info.RenderPass.get())->GetRenderPass();
             framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews[frame].size());
             framebufferInfo.pAttachments = m_CachedImageViews[frame].data();
             framebufferInfo.width = m_Info.Width;

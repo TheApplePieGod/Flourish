@@ -14,8 +14,8 @@ namespace Flourish::Vulkan
         ~RenderContext() override;
 
         void Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers) override;
+        RenderPass* GetRenderPass() const override;
 
-        // TS
         // TODO: this can only be allowed once per frame
         [[nodiscard]] Flourish::RenderCommandEncoder* EncodeFrameRenderCommands() override; 
 

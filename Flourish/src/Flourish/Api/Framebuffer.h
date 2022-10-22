@@ -39,6 +39,7 @@ namespace Flourish
         // TS
         inline u32 GetWidth() { return m_Info.Width; }
         inline u32 GetHeight() { return m_Info.Height; }
+        inline RenderPass* GetRenderPass() const { return m_Info.RenderPass.get(); }
         
     public:
         // TS

@@ -14,7 +14,6 @@ namespace Flourish::Vulkan
         ~Framebuffer() override;
 
         // TS
-        VkRenderPass GetRenderPass() const;
         VkFramebuffer GetFramebuffer() const;
         const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
 

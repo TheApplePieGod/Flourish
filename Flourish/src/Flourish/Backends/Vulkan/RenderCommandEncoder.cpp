@@ -1,11 +1,11 @@
 #include "flpch.h"
 #include "RenderCommandEncoder.h"
-
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/Framebuffer.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
+#include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
 
 namespace Flourish::Vulkan
 {
@@ -41,6 +41,7 @@ namespace Flourish::Vulkan
     void RenderCommandEncoder::BeginEncoding(Framebuffer* framebuffer)
     {
         m_Encoding = true;
+        m_BoundFramebuffer = framebuffer;
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -53,7 +54,7 @@ namespace Flourish::Vulkan
 
         VkRenderPassBeginInfo rpBeginInfo{};
         rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rpBeginInfo.renderPass = framebuffer->GetRenderPass();
+        rpBeginInfo.renderPass = static_cast<RenderPass*>(framebuffer->GetRenderPass())->GetRenderPass();
         rpBeginInfo.framebuffer = framebuffer->GetFramebuffer();
         rpBeginInfo.renderArea.offset = { 0, 0 };
         rpBeginInfo.renderArea.extent = { framebuffer->GetWidth(), framebuffer->GetHeight() };
@@ -69,11 +70,26 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
+        m_BoundFramebuffer = nullptr;
+        m_BoundPipeline.clear();
+        m_SubpassIndex = 0;
 
         VkCommandBuffer buffer = GetCommandBuffer();
         vkCmdEndRenderPass(buffer);
         vkEndCommandBuffer(buffer);
         m_ParentBuffer->SubmitEncodedCommands(buffer, GPUWorkloadType::Graphics);
+    }
+
+    void RenderCommandEncoder::BindPipeline(const std::string_view pipelineName)
+    {
+        if (m_BoundPipeline == pipelineName) return;
+        m_BoundPipeline = pipelineName;
+
+        VkPipeline pipeline = static_cast<GraphicsPipeline*>(
+            m_BoundFramebuffer->GetRenderPass()->GetPipeline(pipelineName).get()
+        )->GetPipeline(m_SubpassIndex);
+
+        vkCmdBindPipeline(GetCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     }
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
@@ -84,7 +100,7 @@ namespace Flourish::Vulkan
         viewport.x = 0.0f;
         viewport.y = 0.0f;
         viewport.width = (f32)width;
-        viewport.height = (f32)width;
+        viewport.height = (f32)height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
@@ -132,6 +148,8 @@ namespace Flourish::Vulkan
     void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
+        
+        vkCmdDraw(GetCommandBuffer(), vertexCount, instanceCount, vertexOffset, 0);
     }
 
     VkCommandBuffer RenderCommandEncoder::GetCommandBuffer() const

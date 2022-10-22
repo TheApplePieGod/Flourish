@@ -15,8 +15,7 @@ namespace Flourish::Vulkan
 
         void BeginEncoding(Framebuffer* framebuffer);
         void EndEncoding() override;
-
-        // TS
+        void BindPipeline(const std::string_view pipelineName) override;
         void SetViewport(u32 x, u32 y, u32 width, u32 height) override;
         void SetScissor(u32 x, u32 y, u32 width, u32 height) override;
         void BindVertexBuffer(Flourish::Buffer* buffer) override;
@@ -31,5 +30,8 @@ namespace Flourish::Vulkan
         std::thread::id m_AllocatedThread;
         std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
         CommandBuffer* m_ParentBuffer;
+        Framebuffer* m_BoundFramebuffer = nullptr;
+        std::string m_BoundPipeline = "";
+        u32 m_SubpassIndex = 0;
     };
 }

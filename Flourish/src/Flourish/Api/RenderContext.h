@@ -22,6 +22,7 @@ namespace Flourish
     class RenderCommandEncoder;
     class Framebuffer;
     class CommandBuffer;
+    class RenderPass;
     class RenderContext
     {
     public:
@@ -30,10 +31,9 @@ namespace Flourish
         virtual ~RenderContext() = default;
 
         virtual void Present(const std::vector<std::vector<const CommandBuffer*>>& dependencyBuffers) = 0;
-        
-        // TS
+        virtual RenderPass* GetRenderPass() const = 0;
         [[nodiscard]] virtual RenderCommandEncoder* EncodeFrameRenderCommands() = 0;
-        
+
     public:
         // TS
         static std::shared_ptr<RenderContext> Create(const RenderContextCreateInfo& createInfo);

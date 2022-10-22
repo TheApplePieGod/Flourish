@@ -48,10 +48,8 @@ namespace Flourish
         s_SubmittedCommandBufferCounts.clear();
         switch (s_BackendType)
         {
-            case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } return;
+            case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } break;
         }
-
-        FL_ASSERT(false, "Context BeginFrame is missing for selected api type");
     }
     
     void Context::EndFrame()
@@ -60,12 +58,10 @@ namespace Flourish
 
         switch (s_BackendType)
         {
-            case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } return;
+            case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
-
-        FL_ASSERT(false, "Context EndFrame is missing for selected api type");
     }
     
     bool Context::IsThreadRegistered(std::thread::id thread)

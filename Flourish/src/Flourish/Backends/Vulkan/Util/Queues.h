@@ -33,7 +33,7 @@ namespace Flourish::Vulkan
     public:
         void Initialize();
         void Shutdown();
-        void ResetQueueFences();
+        void ResetQueueFence(GPUWorkloadType workloadType);
         void WaitForQueueFences();
 
         // TS

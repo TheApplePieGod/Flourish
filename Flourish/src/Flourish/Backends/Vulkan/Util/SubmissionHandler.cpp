@@ -241,6 +241,7 @@ namespace Flourish::Vulkan
         
         if (!graphicsSubmitInfos.empty())
         {
+            Context::Queues().ResetQueueFence(GPUWorkloadType::Graphics);
             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                 Context::Queues().Queue(GPUWorkloadType::Graphics),
                 static_cast<u32>(graphicsSubmitInfos.size()),
@@ -250,6 +251,7 @@ namespace Flourish::Vulkan
         }
         if (!computeSubmitInfos.empty())
         {
+            Context::Queues().ResetQueueFence(GPUWorkloadType::Compute);
             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                 Context::Queues().Queue(GPUWorkloadType::Compute),
                 static_cast<u32>(computeSubmitInfos.size()),
@@ -259,6 +261,7 @@ namespace Flourish::Vulkan
         }
         if (!transferSubmitInfos.empty())
         {
+            Context::Queues().ResetQueueFence(GPUWorkloadType::Transfer);
             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                 Context::Queues().Queue(GPUWorkloadType::Transfer),
                 static_cast<u32>(transferSubmitInfos.size()),
