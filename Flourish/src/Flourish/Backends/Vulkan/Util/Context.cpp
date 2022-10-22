@@ -184,7 +184,9 @@ namespace Flourish::Vulkan
 
     void Context::ConfigureValidationLayers()
     {
-        std::array<const char*, 1> requestedLayers = { "VK_LAYER_KHRONOS_validation" };
+        std::array<const char*, 1> requestedLayers = {
+            "VK_LAYER_KHRONOS_validation"
+        };
 
         u32 supportedLayerCount;
         vkEnumerateInstanceLayerProperties(&supportedLayerCount, nullptr);

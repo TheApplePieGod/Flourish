@@ -44,7 +44,6 @@ namespace Flourish
     {
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot begin frame, context has not been initialized");
 
-        s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
         s_SubmittedCommandBuffers.clear();
         s_SubmittedCommandBufferCounts.clear();
         switch (s_BackendType)
@@ -63,6 +62,8 @@ namespace Flourish
         {
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } return;
         }
+
+        s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
 
         FL_ASSERT(false, "Context EndFrame is missing for selected api type");
     }

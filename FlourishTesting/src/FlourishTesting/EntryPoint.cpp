@@ -165,8 +165,8 @@ int main(int argc, char** argv)
             Flourish::Context::BeginFrame();
 
             auto frameEncoder = renderContext->EncodeFrameRenderCommands();
-            frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
-            frameEncoder->Draw(3, 0, 1);
+            //frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
+            //frameEncoder->Draw(3, 0, 1);
             frameEncoder->EndEncoding();
             
             renderContext->Present({});

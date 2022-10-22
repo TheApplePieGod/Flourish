@@ -64,10 +64,15 @@ elseif(APPLE)
   )
   target_link_libraries(Core ${shaderc})
   find_library(spirvcore
-    NAMES "libspirv-cross-c.dylib"
+    NAMES "libspirv-cross-core.a"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(Core ${spirvcore})
+  find_library(spirvglsl
+    NAMES "libspirv-cross-glsl.a"
+    PATHS "$ENV{VULKAN_SDK}/lib"
+  )
+  target_link_libraries(Core ${sprivglsl})
 else()
   find_library(vulkan
     NAMES "libvulkan.so"

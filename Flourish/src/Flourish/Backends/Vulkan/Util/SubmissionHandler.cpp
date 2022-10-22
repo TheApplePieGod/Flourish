@@ -221,7 +221,6 @@ namespace Flourish::Vulkan
             finalTimelineSubmitInfo.waitSemaphoreValueCount = waitSemaphoreCount;
             finalTimelineSubmitInfo.pWaitSemaphoreValues = finalWaitSemaphoreValues.data();
 
-            VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
             VkSubmitInfo finalSubmitInfo{};
             finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
             finalSubmitInfo.pNext = &finalTimelineSubmitInfo;

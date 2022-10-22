@@ -12,16 +12,17 @@ void* MacOS::CreateWindowAndGetView()
     NSUInteger windowStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
     NSRect rect = [NSWindow contentRectForFrameRect:frame styleMask:windowStyle];
 
-    // NSWindow* window = [[[NSWindow alloc] initWithContentRect:rect styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO] autorelease];
-    // [window makeKeyAndOrderFront: window];
-    // [window setBackgroundColor: [NSColor blueColor]];
+    NSWindow* window = [[[NSWindow alloc] initWithContentRect:rect styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO] autorelease];
+    [window setBackgroundColor: [NSColor blueColor]];
+    [window makeKeyAndOrderFront: window];
     // // [window setTitle: [NSString stringWithUTF8String:title]];
     // [window orderFrontRegardless];
 
     // [pool drain];
     // [NSApp run];
 
-    NSView* view = [[[NSView alloc] initWithFrame:rect] autorelease];
+    // NSView* view = [[[NSView alloc] initWithFrame:rect] autorelease];
+    NSView* view = window.contentView;
     view.wantsLayer = YES;
     view.layer = [CAMetalLayer layer];
 
