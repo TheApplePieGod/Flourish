@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
         });
     }
     
-    void Swapchain::AcquireNextImage()
+    void Swapchain::UpdateActiveImage()
     {
         VkResult result = vkAcquireNextImageKHR(
             Context::Devices().Device(),

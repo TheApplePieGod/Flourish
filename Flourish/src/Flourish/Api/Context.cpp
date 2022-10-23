@@ -46,6 +46,7 @@ namespace Flourish
 
         s_SubmittedCommandBuffers.clear();
         s_SubmittedCommandBufferCounts.clear();
+        s_FrameCount++;
         switch (s_BackendType)
         {
             case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } break;

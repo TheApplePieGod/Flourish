@@ -29,5 +29,7 @@ namespace Flourish::Vulkan
         VkSurfaceKHR m_Surface;
         Vulkan::Swapchain m_Swapchain;
         Vulkan::CommandBuffer m_CommandBuffer;
+        u64 m_LastEncodingFrame = 0;
+        u64 m_LastPresentFrame = 0;
     };
 }

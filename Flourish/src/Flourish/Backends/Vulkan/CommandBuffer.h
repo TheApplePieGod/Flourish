@@ -33,7 +33,7 @@ namespace Flourish::Vulkan
         void CheckFrameUpdate();
 
     private:
-        u32 m_LastFrameEncoding = 0;
+        u64 m_LastFrameEncoding = 0;
         std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
         u32 m_RenderCommandEncoderCachePtr = 0;
         std::vector<EncoderSubmission> m_EncoderSubmissions;

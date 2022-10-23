@@ -55,7 +55,14 @@ namespace Flourish::Vulkan
 
     void RenderContext::Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers)
     {
-        //m_Swapchain.AcquireNextImage();
+        if (m_LastPresentFrame == Flourish::Context::FrameCount())
+        {
+            FL_ASSERT(false, "Cannot present render context multiple times per frame");
+            return;
+        }
+
+        m_LastPresentFrame = Flourish::Context::FrameCount();
+
         u32 submissionId = Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
         Context::SubmissionHandler().PresentRenderContext(this, submissionId);
     }
@@ -67,7 +74,15 @@ namespace Flourish::Vulkan
 
     Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()
     {
-        m_Swapchain.AcquireNextImage();
+        if (m_LastEncodingFrame == Flourish::Context::FrameCount())
+        {
+            FL_ASSERT(false, "Cannot encode frame render commands multiple times per frame");
+            return nullptr;
+        }
+
+        m_LastEncodingFrame = Flourish::Context::FrameCount();
+
+        m_Swapchain.UpdateActiveImage();
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
 }

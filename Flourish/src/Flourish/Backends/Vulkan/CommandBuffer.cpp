@@ -51,10 +51,10 @@ namespace Flourish::Vulkan
     void CommandBuffer::CheckFrameUpdate()
     {
         // Each new frame, we need to clear the previous encoder submissions
-        if (m_LastFrameEncoding != Flourish::Context::FrameIndex())
+        if (m_LastFrameEncoding != Flourish::Context::FrameCount())
         {
             m_EncoderSubmissions.clear();
-            m_LastFrameEncoding = Flourish::Context::FrameIndex();
+            m_LastFrameEncoding = Flourish::Context::FrameCount();
             m_RenderCommandEncoderCachePtr = 0;
         }
     }

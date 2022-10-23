@@ -40,7 +40,7 @@ namespace Flourish
         // TS
         inline static BackendType BackendType() { return s_BackendType; }
         inline static u32 FrameBufferCount() { return s_FrameBufferCount; }
-        inline static u64 FrameCount() { return s_FrameBufferCount; }
+        inline static u64 FrameCount() { return s_FrameCount; }
         inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
