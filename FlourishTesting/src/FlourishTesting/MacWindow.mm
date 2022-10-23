@@ -14,11 +14,10 @@ void* MacOS::CreateWindowAndGetView()
     NSApplication* app = NSApplication.sharedApplication;
     app.activationPolicy = NSApplicationActivationPolicyRegular;
 
-    NSRect frame = NSMakeRect(100, 100, 500, 500);
+    NSRect frame = NSMakeRect(100, 250, 900, 700);
     NSUInteger windowStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
 
-    NSWindow* window = [[NSWindow alloc] initWithContentRect:NSScreen.mainScreen.visibleFrame styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO];
-    //[window setBackgroundColor: [NSColor blueColor]];
+    NSWindow* window = [[NSWindow alloc] initWithContentRect:frame styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO];
     [window setTitle: @"Flourish"];
     
     [NSApp finishLaunching];
