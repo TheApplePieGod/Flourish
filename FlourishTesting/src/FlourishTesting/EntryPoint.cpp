@@ -161,6 +161,10 @@ int main(int argc, char** argv)
         {
             Flourish::Context::BeginFrame();
 
+            #ifdef FL_PLATFORM_MACOS
+                MacOS::PollEvents();
+            #endif
+
             float vertices[9] = { 0.f, 0.f, 0.f, 0.5f, 0.f, 0.f, 0.f, 0.5f, 0.f };
             buffer->SetBytes(vertices, sizeof(vertices), 0);
             buffer->Flush();

@@ -3,25 +3,30 @@
 #import <Cocoa/Cocoa.h>
 #import <MetalKit/MetalKit.h>
 
+void MacOS::PollEvents()
+{
+    NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
+    [event release];
+}
+
 void* MacOS::CreateWindowAndGetView()
 {
-    // NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    // [NSApplication sharedApplication];
+    NSApplication* app = NSApplication.sharedApplication;
+    app.activationPolicy = NSApplicationActivationPolicyRegular;
 
-    NSRect frame = NSMakeRect(0, 0, 500, 500);
+    NSRect frame = NSMakeRect(100, 100, 500, 500);
     NSUInteger windowStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
-    NSRect rect = [NSWindow contentRectForFrameRect:frame styleMask:windowStyle];
 
-    NSWindow* window = [[[NSWindow alloc] initWithContentRect:rect styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO] autorelease];
-    [window setBackgroundColor: [NSColor blueColor]];
+    NSWindow* window = [[NSWindow alloc] initWithContentRect:NSScreen.mainScreen.visibleFrame styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO];
+    //[window setBackgroundColor: [NSColor blueColor]];
+    [window setTitle: @"Flourish"];
+    
+    [NSApp finishLaunching];
+    [NSRunningApplication.currentApplication
+        activateWithOptions:NSApplicationActivateAllWindows];
+
     [window makeKeyAndOrderFront: window];
-    // // [window setTitle: [NSString stringWithUTF8String:title]];
-    // [window orderFrontRegardless];
 
-    // [pool drain];
-    // [NSApp run];
-
-    // NSView* view = [[[NSView alloc] initWithFrame:rect] autorelease];
     NSView* view = window.contentView;
     view.wantsLayer = YES;
     view.layer = [CAMetalLayer layer];

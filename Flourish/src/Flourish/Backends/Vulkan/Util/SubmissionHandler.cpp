@@ -220,10 +220,14 @@ namespace Flourish::Vulkan
             finalTimelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
             finalTimelineSubmitInfo.waitSemaphoreValueCount = waitSemaphoreCount;
             finalTimelineSubmitInfo.pWaitSemaphoreValues = finalWaitSemaphoreValues.data();
+            // We need this even though we aren't signaling a timeline semaphore. Removing this causes
+            // an extremely hard to find crash on macos
+            finalTimelineSubmitInfo.signalSemaphoreValueCount = 1;
+            finalTimelineSubmitInfo.pSignalSemaphoreValues = finalWaitSemaphoreValues.data();
 
             VkSubmitInfo finalSubmitInfo{};
             finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            finalSubmitInfo.pNext = &finalTimelineSubmitInfo;
+            finalSubmitInfo.pNext = timelineSubmitInfos.data() + timelineSubmitInfos.size();
             finalSubmitInfo.waitSemaphoreCount = waitSemaphoreCount;
             finalSubmitInfo.pWaitSemaphores = finalWaitSemaphores.data();
             finalSubmitInfo.pWaitDstStageMask = finalWaitStages.data();
@@ -234,7 +238,8 @@ namespace Flourish::Vulkan
             
             // TODO: stop doing a copy here
             graphicsSubmitInfos.emplace_back(finalSubmitInfo);
-            
+            timelineSubmitInfos.emplace_back(finalTimelineSubmitInfo);
+
             presentingSwapchains.push_back(contextSubmission.Context->Swapchain().GetSwapchain());
             presentingImageIndices.push_back(contextSubmission.Context->Swapchain().GetActiveImageIndex());
         }
