@@ -37,6 +37,7 @@ namespace Flourish::Vulkan
         u32 submissionStartIndex = 0;
         u32 completionSemaphoresStartIndex = 0;
         u32 completionSemaphoresWaitCount = 0;
+        u64 semaphoreBaseValue = Flourish::Context::FrameCount();
         VkPipelineStageFlags drawWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
         VkPipelineStageFlags transferWaitStages[] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
         VkPipelineStageFlags computeWaitStages[] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
@@ -100,7 +101,7 @@ namespace Flourish::Vulkan
                             timelineSubmitInfo.pSignalSemaphoreValues = completionSemaphoreValues.data() + completionSemaphoreValues.size();
 
                             completionSemaphores.push_back(syncSemaphore);
-                            completionSemaphoreValues.push_back(syncSemaphoreValue + 1);
+                            completionSemaphoreValues.push_back(semaphoreBaseValue + syncSemaphoreValue + 1);
                         }
                         else
                         {
@@ -110,7 +111,7 @@ namespace Flourish::Vulkan
                             timelineSubmitInfo.pSignalSemaphoreValues = semaphoreValues.data() + semaphoreValues.size();
 
                             syncSemaphores.push_back(syncSemaphore);
-                            semaphoreValues.push_back(syncSemaphoreValue + 1);
+                            semaphoreValues.push_back(semaphoreBaseValue + syncSemaphoreValue + 1);
                         }
 
                         // First sub buffer is not subject to the normal waiting process
@@ -133,7 +134,7 @@ namespace Flourish::Vulkan
                             timelineSubmitInfo.pWaitSemaphoreValues = semaphoreValues.data() + semaphoreValues.size();
 
                             syncSemaphores.push_back(syncSemaphore);
-                            semaphoreValues.push_back(syncSemaphoreValue);
+                            semaphoreValues.push_back(semaphoreBaseValue + syncSemaphoreValue);
                         }
 
                         syncSemaphoreValue++;
@@ -187,7 +188,7 @@ namespace Flourish::Vulkan
         {
             u32 waitSemaphoreCount = 1;
             finalWaitSemaphores.push_back(contextSubmission.Context->GetImageAvailableSemaphore());
-            finalWaitSemaphoreValues.push_back(1);
+            finalWaitSemaphoreValues.push_back(semaphoreBaseValue);
             finalWaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
             if (contextSubmission.DependencySubmissionId != -1)
