@@ -169,13 +169,16 @@ int main(int argc, char** argv)
             buffer->SetBytes(vertices, sizeof(vertices), 0);
             buffer->Flush();
 
+            auto encoder1 = cmdBuffer->EncodeRenderCommands(framebuffer.get());
+            encoder1->BindPipeline("main");
+            encoder1->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
+            encoder1->Draw(3, 0, 1);
+            encoder1->EndEncoding();
+
             auto frameEncoder = renderContext->EncodeFrameRenderCommands();
-            frameEncoder->BindPipeline("main");
-            frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
-            frameEncoder->Draw(3, 0, 1);
             frameEncoder->EndEncoding();
             
-            renderContext->Present({});
+            renderContext->Present({ { cmdBuffer.get() } });
             Flourish::Context::EndFrame();
         }
     }

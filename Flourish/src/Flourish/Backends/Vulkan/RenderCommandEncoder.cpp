@@ -138,6 +138,13 @@ namespace Flourish::Vulkan
         vkCmdBindIndexBuffer(GetCommandBuffer(), buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
+    void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
+        
+        vkCmdDraw(GetCommandBuffer(), vertexCount, instanceCount, vertexOffset, 0);
+    }
+
     void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed after encoding has ended");
@@ -145,11 +152,19 @@ namespace Flourish::Vulkan
         vkCmdDrawIndexed(GetCommandBuffer(), indexCount, instanceCount, indexOffset, vertexOffset, 0);
     }
 
-    void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
+    void RenderCommandEncoder::DrawIndexedIndirect(Buffer* indirectBuffer, u32 commandOffset, u32 drawCount)
     {
-        FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
-        
-        vkCmdDraw(GetCommandBuffer(), vertexCount, instanceCount, vertexOffset, 0);
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexedIndirect after encoding has ended");
+
+        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+
+        vkCmdDrawIndexedIndirect(
+            GetCommandBuffer(),
+            buffer,
+            commandOffset * indirectBuffer->GetLayout().GetStride(),
+            drawCount,
+            indirectBuffer->GetLayout().GetStride()
+        );
     }
 
     VkCommandBuffer RenderCommandEncoder::GetCommandBuffer() const
