@@ -142,7 +142,7 @@ namespace Flourish
         BufferLayout Layout;
         u32 ElementCount = 0;
         void* InitialData = nullptr;
-        u32 InitialDataSize = 0;
+        u32 InitialDataSize = 0; // Bytes
     };
 
     class Buffer
