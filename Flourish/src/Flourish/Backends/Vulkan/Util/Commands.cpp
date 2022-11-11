@@ -106,17 +106,34 @@ namespace Flourish::Vulkan
         m_ThreadCommandPoolsLock.unlock();
     }
 
-    void Commands::FreeBuffers(GPUWorkloadType workloadType, const VkCommandBuffer* buffers, u32 bufferCount, std::thread::id thread)
+    void Commands::FreeBuffers(GPUWorkloadType workloadType, const std::vector<VkCommandBuffer>& buffers, std::thread::id thread)
     {
         auto pool = GetPool(workloadType, thread);
-        Context::DeleteQueue().Push([this, pool, buffers, bufferCount]()
+        auto bufs = buffers;
+        Context::DeleteQueue().Push([this, pool, bufs]()
         {
             m_ThreadCommandPoolsLock.lock();
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
                 pool,
-                bufferCount,
-                buffers
+                bufs.size(),
+                bufs.data()
+            );
+            m_ThreadCommandPoolsLock.unlock();
+        });
+    }
+
+    void Commands::FreeBuffer(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::thread::id thread)
+    {
+        auto pool = GetPool(workloadType, thread);
+        Context::DeleteQueue().Push([this, pool, buffer]()
+        {
+            m_ThreadCommandPoolsLock.lock();
+            vkFreeCommandBuffers(
+                Context::Devices().Device(),
+                pool,
+                1,
+                &buffer
             );
             m_ThreadCommandPoolsLock.unlock();
         });

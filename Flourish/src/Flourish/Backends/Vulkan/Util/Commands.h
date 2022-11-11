@@ -24,8 +24,12 @@ namespace Flourish::Vulkan
         );
         void FreeBuffers(
             GPUWorkloadType workloadType,
-            const VkCommandBuffer* buffers,
-            u32 bufferCount,
+            const std::vector<VkCommandBuffer>& buffers,
+            std::thread::id thread = std::this_thread::get_id()
+        );
+        void FreeBuffer(
+            GPUWorkloadType workloadType,
+            VkCommandBuffer buffer,
             std::thread::id thread = std::this_thread::get_id()
         );
 

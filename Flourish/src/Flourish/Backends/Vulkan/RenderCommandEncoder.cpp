@@ -24,18 +24,14 @@ namespace Flourish::Vulkan
     RenderCommandEncoder::~RenderCommandEncoder()
     {
         // We shouldn't have to do any thread sanity checking here because command buffer
-        // already does this and it is the only class who will own this object
-        auto buffers = m_CommandBuffers;
-        auto thread = m_AllocatedThread;
-        Context::DeleteQueue().Push([=]()
-        {
-            Context::Commands().FreeBuffers(
-                GPUWorkloadType::Graphics,
-                buffers.data(),
-                Flourish::Context::FrameBufferCount(),
-                thread
-            );
-        });
+        // already does this and it is the only class who will own this object. Also, FreeBuffers()
+        // already handles a delete queue entry
+        std::vector<VkCommandBuffer> buffers(m_CommandBuffers.begin(), m_CommandBuffers.begin() + Flourish::Context::FrameBufferCount());
+        Context::Commands().FreeBuffers(
+            GPUWorkloadType::Graphics,
+            buffers,
+            m_AllocatedThread
+        );
     }
 
     void RenderCommandEncoder::BeginEncoding(Framebuffer* framebuffer)

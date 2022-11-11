@@ -32,11 +32,6 @@ if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(DEBUG_LIB_EXTRAS "d")
   endif()
-  find_library(vulkan
-    NAMES "vulkan-1"
-    PATHS "$ENV{VULKAN_SDK}/lib"
-  )
-  target_link_libraries(Core ${vulkan})
   find_library(shaderc
     NAMES "shaderc_combined${DEBUG_LIB_EXTRAS}"
     PATHS "$ENV{VULKAN_SDK}/lib"
@@ -53,11 +48,6 @@ if (WIN32)
   )
   target_link_libraries(Core ${spirvglsl})
 elseif(APPLE)
-  find_library(mvk
-    NAMES "libMoltenVK.dylib"
-    PATHS "$ENV{VULKAN_SDK}/lib"
-  )
-  target_link_libraries(Core ${mvk})
   find_library(shaderc
     NAMES "libshaderc_shared.dylib"
     PATHS "$ENV{VULKAN_SDK}/lib"
@@ -74,11 +64,6 @@ elseif(APPLE)
   )
   target_link_libraries(Core ${sprivglsl})
 else()
-  find_library(vulkan
-    NAMES "libvulkan.so"
-    PATHS "$ENV{VULKAN_SDK}/lib"
-  )
-  target_link_libraries(Core ${vulkan})
   find_library(shaderc
     NAMES "libshaderc_shared.so"
     PATHS "$ENV{VULKAN_SDK}/lib"

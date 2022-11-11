@@ -204,7 +204,7 @@ namespace Flourish::Vulkan
         auto thread = std::this_thread::get_id();
         auto readyState = m_ReadyState;
         Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread, stagingBuffer, stagingAlloc, readyState, hasInitialData](){
-            Context::Commands().FreeBuffers(GPUWorkloadType::Graphics, &cmdBuffer, 1, thread);
+            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer, thread);
             *readyState += 1;
             if (hasInitialData)
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
@@ -402,7 +402,7 @@ namespace Flourish::Vulkan
 
             auto thread = std::this_thread::get_id();
             Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread, completionCallback](){
-                Context::Commands().FreeBuffers(GPUWorkloadType::Graphics, &cmdBuffer, 1, thread);
+                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer, thread);
                 if (completionCallback) completionCallback();
             });
         }
@@ -530,7 +530,7 @@ namespace Flourish::Vulkan
 
             auto thread = std::this_thread::get_id();
             Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffers(GPUWorkloadType::Graphics, &cmdBuffer, 1, thread);
+                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer, thread);
             });
         }
     }

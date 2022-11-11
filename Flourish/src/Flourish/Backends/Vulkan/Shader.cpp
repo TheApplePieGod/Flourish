@@ -213,7 +213,7 @@ namespace Flourish::Vulkan
 
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::UniformBuffer, accessType, binding, set, 1);
 
-			FL_LOG_DEBUG("    %s", resource.name);
+			FL_LOG_DEBUG("    %s", resource.name.c_str());
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -234,7 +234,7 @@ namespace Flourish::Vulkan
 
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::StorageBuffer, accessType, binding, set, 1);
 
-			FL_LOG_DEBUG("    %s", resource.name);
+			FL_LOG_DEBUG("    %s", resource.name.c_str());
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -253,7 +253,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::Texture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
 
-			FL_LOG_DEBUG("    Image (%s)", resource.name);
+			FL_LOG_DEBUG("    Image (%s)", resource.name.c_str());
             FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -272,7 +272,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::SubpassInput, accessType, binding, set, 1);
 
-			FL_LOG_DEBUG("    Input (%s)", resource.name);
+			FL_LOG_DEBUG("    Input (%s)", resource.name.c_str());
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
             FL_LOG_DEBUG("      AttachmentIndex = %d", attachmentIndex);

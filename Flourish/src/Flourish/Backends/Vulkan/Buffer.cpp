@@ -174,7 +174,7 @@ namespace Flourish::Vulkan
 
             auto thread = std::this_thread::get_id();
             Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffers(GPUWorkloadType::Transfer, &cmdBuffer, 1, thread);
+                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer, thread);
             });
         }
     }
@@ -214,7 +214,7 @@ namespace Flourish::Vulkan
             
             auto thread = std::this_thread::get_id();
             Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffers(GPUWorkloadType::Transfer, &cmdBuffer, 1, thread);
+                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer, thread);
             });
         }
     }

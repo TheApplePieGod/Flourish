@@ -22,6 +22,7 @@ add_custom_target(
 # Build main
 if(APPLE)
   file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h" "src/*.mm")
+  list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/FlourishTesting/WindowsWindow.cpp")
 else()
   file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.h")
 endif()

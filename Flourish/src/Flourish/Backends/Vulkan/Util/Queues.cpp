@@ -88,17 +88,19 @@ namespace Flourish::Vulkan
     void Queues::IterateCommands(GPUWorkloadType workloadType)
     {
         auto& queueData = GetQueueData(workloadType);
+        if (queueData.CommandQueue.empty()) return;
+
         queueData.CommandQueueLock.lock();
         queueData.Buffers.clear();
         queueData.Semaphores.clear();
         queueData.SignalValues.clear();
-        for (u32 i = 0; i < queueData.CommandQueue.size(); i++)
+        for (int i = 0; i < queueData.CommandQueue.size(); i++)
         {
-            auto& value = queueData.CommandQueue.front();
+            auto& value = queueData.CommandQueue.at(i);
             if (value.Submitted)
             {
                 u64 semaphoreVal;
-                vkGetSemaphoreCounterValue(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
+                vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
                 if (semaphoreVal > 0) // Completed
                 {
                     value.Callback();
@@ -119,6 +121,8 @@ namespace Flourish::Vulkan
         }
         queueData.CommandQueueLock.unlock();
 
+        if (queueData.Buffers.empty()) return;
+        
         VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
         timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
         timelineSubmitInfo.signalSemaphoreValueCount = queueData.SignalValues.size();
