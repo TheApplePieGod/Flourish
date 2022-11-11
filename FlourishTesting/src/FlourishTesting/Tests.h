@@ -24,6 +24,12 @@ namespace FlourishTesting
             float Position[3];
             float TexCoord[2];
         };
+        
+        struct ObjectData
+        {
+            float Scale[2];
+            float Offset[2];
+        };
     
     private:
         void RunSingleThreadedTest();
@@ -53,6 +59,7 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::Buffer> m_FullTriangleVertices;
         std::shared_ptr<Flourish::Buffer> m_QuadVertices;
         std::shared_ptr<Flourish::Buffer> m_QuadIndices;
+        std::shared_ptr<Flourish::Buffer> m_ObjectData;
         
         std::shared_ptr<Flourish::Texture> m_DogTexture;
         std::shared_ptr<Flourish::Texture> m_UIntFrameTex;

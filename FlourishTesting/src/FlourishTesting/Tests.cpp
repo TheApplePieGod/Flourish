@@ -37,9 +37,22 @@ namespace FlourishTesting
     {
         if (!m_DogTexture->IsReady()) return;
 
+        /*
         auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_SimplePassNoDepthFrameTexFB.get());
         encoder1->BindPipeline("image");
         encoder1->BindPipelineTextureResource(0, m_DogTexture.get());
+        encoder1->FlushPipelineBindings();
+        encoder1->BindVertexBuffer(m_QuadVertices.get()); // TODO: validate buffer is actually a vertex
+        encoder1->BindIndexBuffer(m_QuadIndices.get()); // TODO: validate buffer is actually a vertex
+        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1);
+        encoder1->EndEncoding();
+        */
+        
+        u32 objectCount = 5;
+        auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_SimplePassNoDepthFrameTexFB.get());
+        encoder1->BindPipeline("object_image");
+        encoder1->BindPipelineTextureResource(0, m_DogTexture.get());
+        encoder1->BindPipelineBufferResource(1, m_ObjectData.get(), 0, 0, objectCount);
         encoder1->FlushPipelineBindings();
         encoder1->BindVertexBuffer(m_QuadVertices.get()); // TODO: validate buffer is actually a vertex
         encoder1->BindIndexBuffer(m_QuadIndices.get()); // TODO: validate buffer is actually a vertex
@@ -137,6 +150,36 @@ namespace FlourishTesting
         )";
         auto imageFragShader = Flourish::Shader::Create(fsCreateInfo);
 
+        // Object vert shader
+        vsCreateInfo.Type = Flourish::ShaderType::Vertex;
+        vsCreateInfo.Source = R"(
+            #version 460
+
+            struct Object
+            {
+                vec2 Scale;
+                vec2 Offset;
+            };
+
+            layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec2 inTexCoord;
+
+            layout(location = 0) out vec2 outTexCoord;
+
+            layout(binding = 1) readonly buffer ObjectBuffer {
+                Object data[];
+            } objectBuffer;
+
+            void main() {
+                uint instance = gl_InstanceIndex;
+                vec2 finalPos = inPosition.xy * objectBuffer.data[instance].Scale;
+                finalPos += objectBuffer.data[instance].Offset;
+                gl_Position = vec4(finalPos, inPosition.z, 1.f);
+                outTexCoord = inTexCoord;
+            }
+        )";
+        auto objectVertShader = Flourish::Shader::Create(vsCreateInfo);
+        
         // Render context primary pipeline
         gpCreateInfo.VertexShader = simpleVertShader;
         gpCreateInfo.FragmentShader = imageFragShader;
@@ -150,7 +193,10 @@ namespace FlourishTesting
         gpCreateInfo.WindingOrder = Flourish::WindingOrder::Clockwise;
         m_RenderContext->GetRenderPass()->CreatePipeline("main", gpCreateInfo);
 
-        m_SimplePassNoDepth->CreatePipeline("image", gpCreateInfo);
+        m_SimplePassNoDepth->CreatePipeline("simple_image", gpCreateInfo);
+
+        gpCreateInfo.VertexShader = objectVertShader;
+        m_SimplePassNoDepth->CreatePipeline("object_image", gpCreateInfo);
     }
     
     void Tests::CreateBuffers()
@@ -199,6 +245,19 @@ namespace FlourishTesting
             bufCreateInfo.InitialData = indices;
             bufCreateInfo.InitialDataSize = sizeof(indices);
             m_QuadIndices = Flourish::Buffer::Create(bufCreateInfo);
+        }
+        
+        // Object data
+        {
+            bufCreateInfo.Type = Flourish::BufferType::Storage;
+            bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
+            bufCreateInfo.Layout = {
+                { Flourish::BufferDataType::Float2 },
+                { Flourish::BufferDataType::Float2 }
+            };
+            bufCreateInfo.ElementCount = 1000;
+            bufCreateInfo.InitialData = nullptr;
+            m_ObjectData = Flourish::Buffer::Create(bufCreateInfo);
         }
     }
     
