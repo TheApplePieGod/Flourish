@@ -49,6 +49,7 @@ namespace Flourish::Vulkan
         VkSwapchainKHR m_Swapchain = nullptr;
         bool m_Invalid = false;
         u32 m_CurrentWidth, m_CurrentHeight = 0;
+        std::array<float, 4> m_ClearColor;
         std::vector<ImageData> m_ImageData;
         std::shared_ptr<RenderPass> m_RenderPass;
         SwapchainInfo m_Info;

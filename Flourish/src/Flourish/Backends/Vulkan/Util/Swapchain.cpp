@@ -11,6 +11,7 @@ namespace Flourish::Vulkan
         m_Surface = surface;
         m_CurrentWidth = createInfo.Width;
         m_CurrentHeight = createInfo.Height;
+        m_ClearColor = createInfo.ClearColor;
 
         PopulateSwapchainInfo();
         RecreateSwapchain();
@@ -226,7 +227,7 @@ namespace Flourish::Vulkan
         fbCreateInfo.Width = m_CurrentWidth;
         fbCreateInfo.Height = m_CurrentHeight;
         fbCreateInfo.ColorAttachments = {
-            { 0.f, 0.f, 0.f, 0.f }
+            { m_ClearColor }
         };
         for (auto image : chainImages)
         {

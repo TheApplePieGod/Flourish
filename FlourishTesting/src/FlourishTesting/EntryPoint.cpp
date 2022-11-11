@@ -56,11 +56,17 @@ int main(int argc, char** argv)
             contextCreateInfo.NSView = view;
         #endif
         auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
+        
+        struct Vertex
+        {
+            float Position[3];
+            float TexCoord[2];
+        };
 
         Flourish::BufferCreateInfo bufCreateInfo;
         bufCreateInfo.Type = Flourish::BufferType::Vertex;
         bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
-        bufCreateInfo.Layout = { { Flourish::BufferDataType::Float3 } };
+        bufCreateInfo.Layout = { { Flourish::BufferDataType::Float3 }, { Flourish::BufferDataType::Float2 } };
         bufCreateInfo.ElementCount = 3;
         auto buffer = Flourish::Buffer::Create(bufCreateInfo);
 
@@ -72,7 +78,7 @@ int main(int argc, char** argv)
 
         Flourish::RenderPassCreateInfo rpCreateInfo;
         rpCreateInfo.ColorAttachments = {
-            { Flourish::ColorFormat::RGBA8_SRGB }
+            { Flourish::ColorFormat::RGBA8_UNORM }
         };
         rpCreateInfo.DepthAttachments = { {} };
         rpCreateInfo.Subpasses = {
@@ -87,9 +93,13 @@ int main(int argc, char** argv)
             #version 460
 
             layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec2 inTexCoord;
+
+            layout(location = 0) out vec2 outTexCoord;
 
             void main() {
                 gl_Position = vec4(inPosition, 1.f);
+                outTexCoord = inTexCoord;
             }
         )";
         auto vertShader = Flourish::Shader::Create(vsCreateInfo);
@@ -99,15 +109,20 @@ int main(int argc, char** argv)
         fsCreateInfo.Source = R"(
             #version 460
 
+            layout(location = 0) in vec2 inTexCoord;
+
             layout(location = 0) out vec4 outColor;
 
             layout(binding = 0) readonly buffer ColorBuffer {
                 vec4 color;
             } colorBuffer;
 
+            layout(binding = 1) uniform sampler2D tex;
+
             void main() {
                 // outColor = vec4(1.f, 0.f, 0.f, 1.f);
-                outColor = vec4(colorBuffer.color.rgb, 1.f);
+                // outColor = vec4(colorBuffer.color.rgb, 1.f);
+                outColor = texture(tex, inTexCoord);
             }
         )";
         auto fragShader = Flourish::Shader::Create(fsCreateInfo);
@@ -117,7 +132,7 @@ int main(int argc, char** argv)
         gpCreateInfo.FragmentShader = fragShader;
         gpCreateInfo.VertexInput = true;
         gpCreateInfo.VertexTopology = Flourish::VertexTopology::TriangleList;
-        gpCreateInfo.VertexLayout = { { Flourish::BufferDataType::Float3 } };
+        gpCreateInfo.VertexLayout = buffer->GetLayout();
         gpCreateInfo.BlendStates = { { false } };
         gpCreateInfo.DepthTest = true;
         gpCreateInfo.DepthWrite = true;
@@ -142,9 +157,18 @@ int main(int argc, char** argv)
         auto texture = Flourish::Texture::Create(texCreateInfo);
         delete[] imagePixels;
 
+        texCreateInfo.Width = contextCreateInfo.Width;
+        texCreateInfo.Height = contextCreateInfo.Height;
+        texCreateInfo.Channels = 4;
+        texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
+        texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;
+        texCreateInfo.SamplerState.AnisotropyEnable = false;
+        texCreateInfo.InitialData = nullptr;
+        auto frameTex = Flourish::Texture::Create(texCreateInfo);
+
         Flourish::FramebufferCreateInfo fbCreateInfo;
         fbCreateInfo.RenderPass = renderPass;
-        fbCreateInfo.ColorAttachments = { {} };
+        fbCreateInfo.ColorAttachments = { { { 0.f, 0.f, 0.f, 0.f }, frameTex } };
         fbCreateInfo.DepthAttachments = { {} };
         fbCreateInfo.Width = 1920;
         fbCreateInfo.Height = 1080;
@@ -163,31 +187,41 @@ int main(int argc, char** argv)
                 MacOS::PollEvents();
             #endif
 
-            float vertices[9] = { 0.f, 0.f, 0.f, 0.5f, 0.f, 0.f, 0.f, 0.5f, 0.f };
+            Vertex vertices[3] = {
+                { { 0.f, 0.f, 0.f }, { 0.f, 0.f } },
+                { { 0.5f, 0.f, 0.f }, { 1.f, 0.f } },
+                { { 0.f, 0.5f, 0.f }, { 0.f, 1.f } }
+            };
             buffer->SetBytes(vertices, sizeof(vertices), 0);
             buffer->Flush();
 
             float color[8] = { 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f };
             uniform->SetBytes(color, sizeof(color), 0);
 
-            /*
-            auto encoder1 = cmdBuffer->EncodeRenderCommands(framebuffer.get());
-            encoder1->BindPipeline("main");
-            encoder1->BindPipelineBufferResource(0, uniform.get(), 0, 0, 3);
-            encoder1->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
-            encoder1->Draw(3, 0, 1);
-            encoder1->EndEncoding();
-            */
+            if (texture->IsReady())
+            {
+                /*
+                auto encoder1 = cmdBuffer->EncodeRenderCommands(framebuffer.get());
+                encoder1->BindPipeline("main");
+                encoder1->BindPipelineBufferResource(0, uniform.get(), 0, 0, 3);
+                encoder1->BindPipelineTextureResource(1, texture.get());
+                encoder1->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
+                encoder1->Draw(3, 0, 1);
+                encoder1->EndEncoding();
+                */
 
-            auto frameEncoder = renderContext->EncodeFrameRenderCommands();
-            frameEncoder->BindPipeline("main");
-            frameEncoder->BindPipelineBufferResource(0, uniform.get(), 1, 0, 1);
-            frameEncoder->FlushPipelineBindings();
-            frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
-            frameEncoder->Draw(3, 0, 1);
-            frameEncoder->EndEncoding();
+                auto frameEncoder = renderContext->EncodeFrameRenderCommands();
+                frameEncoder->BindPipeline("main");
+                frameEncoder->BindPipelineBufferResource(0, uniform.get(), 0, 0, 1);
+                frameEncoder->BindPipelineTextureResource(1, texture.get());
+                frameEncoder->FlushPipelineBindings();
+                frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
+                frameEncoder->Draw(3, 0, 1);
+                frameEncoder->EndEncoding();
+
+                renderContext->Present({ { cmdBuffer.get() } });
+            }
             
-            renderContext->Present({ { cmdBuffer.get() } });
             Flourish::Context::EndFrame();
         }
     }

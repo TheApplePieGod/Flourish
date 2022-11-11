@@ -73,6 +73,7 @@ namespace Flourish::Vulkan
     void Context::EndFrame()
     {
         s_DeleteQueue.Iterate();
+        s_Queues.IterateCommands();
         s_SubmissionHandler.ProcessSubmissions();
     }
 

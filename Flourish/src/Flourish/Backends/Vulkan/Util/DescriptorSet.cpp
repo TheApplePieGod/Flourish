@@ -3,6 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
+#include "Flourish/Backends/Vulkan/Texture.h"
 
 namespace Flourish::Vulkan
 {
@@ -146,18 +147,18 @@ namespace Flourish::Vulkan
 
             case ShaderResourceType::Texture:
             {
-                // Texture* texture = static_cast<Texture*>(resource);
-                // FL_ASSERT(texture->GetArrayCount() <= DescriptorSetLayout::MaxDescriptorArrayCount, "Image array count too large");
+                Texture* texture = static_cast<Texture*>(resource);
+                FL_ASSERT(texture->GetArrayCount() <= DescriptorSetLayout::MaxDescriptorArrayCount, "Image array count too large");
 
-                // for (u32 i = 0; i < texture->GetArrayCount(); i++)
-                // {
-                //     m_CachedImageInfos[imageInfoBaseIndex + i].sampler = texture->GetSampler();
-                //     m_CachedImageInfos[imageInfoBaseIndex + i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                //     if (useOffset)
-                //         m_CachedImageInfos[imageInfoBaseIndex + i].imageView = texture->GetLayerImageView(offset, size); // size is the mip level here
-                //     else
-                //         m_CachedImageInfos[imageInfoBaseIndex + i].imageView = texture->GetImageView();
-                // }
+                for (u32 i = 0; i < texture->GetArrayCount(); i++)
+                {
+                    m_CachedImageInfos[imageInfoBaseIndex + i].sampler = texture->GetSampler();
+                    m_CachedImageInfos[imageInfoBaseIndex + i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    if (useOffset)
+                        m_CachedImageInfos[imageInfoBaseIndex + i].imageView = texture->GetLayerImageView(offset, size); // size is the mip level here
+                    else
+                        m_CachedImageInfos[imageInfoBaseIndex + i].imageView = texture->GetImageView();
+                }
             } break;
 
             case ShaderResourceType::SubpassInput:

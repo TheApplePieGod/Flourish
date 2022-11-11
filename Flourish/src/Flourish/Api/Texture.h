@@ -67,6 +67,9 @@ namespace Flourish
             : m_Info(createInfo)
         {}
         virtual ~Texture() = default;
+        
+        // TS
+        virtual bool IsReady() const = 0;
 
         // TS  
         inline u32 GetArrayCount() const { return m_Info.ArrayCount; }

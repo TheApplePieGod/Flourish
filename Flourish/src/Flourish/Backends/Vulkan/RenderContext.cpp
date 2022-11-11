@@ -55,6 +55,7 @@ namespace Flourish::Vulkan
 
     void RenderContext::Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers)
     {
+        FL_CRASH_ASSERT(m_LastEncodingFrame == Flourish::Context::FrameCount(), "Cannot present render context that has not been encoded");
         if (m_LastPresentFrame == Flourish::Context::FrameCount())
         {
             FL_ASSERT(false, "Cannot present render context multiple times per frame");

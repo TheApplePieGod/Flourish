@@ -190,6 +190,28 @@ namespace Flourish::Vulkan
         );
     }
 
+    void RenderCommandEncoder::BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture)
+    {
+        // Ensure the texture to bind is not an output attachment
+        FL_CRASH_ASSERT(
+            std::find_if(
+                m_BoundFramebuffer->GetColorAttachments().begin(),
+                m_BoundFramebuffer->GetColorAttachments().end(),
+                [texture](const FramebufferColorAttachment& att){ return att.Texture.get() == texture; }
+            ) == m_BoundFramebuffer->GetColorAttachments().end(),
+            "Cannot bind a texture resource that is currently being written to"
+        )
+        
+        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+
+        m_BoundDescriptorSet->UpdateBinding(
+            bindingIndex, 
+            ShaderResourceType::Texture, 
+            texture,
+            false, 0, 0
+        );
+    }
+
     void RenderCommandEncoder::FlushPipelineBindings()
     {
         FL_CRASH_ASSERT(!m_BoundPipelineName.empty(), "Must call BindPipeline and bind all resources before FlushBindings");

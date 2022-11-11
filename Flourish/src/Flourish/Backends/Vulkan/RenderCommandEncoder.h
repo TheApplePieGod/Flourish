@@ -27,6 +27,7 @@ namespace Flourish::Vulkan
         void DrawIndexedIndirect(Flourish::Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) override;
         
         void BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
+        void BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture) override;
         void FlushPipelineBindings() override;
         
         // TS

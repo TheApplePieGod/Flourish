@@ -17,6 +17,7 @@ namespace Flourish
         #endif
         u32 Width;
         u32 Height;
+        std::array<float, 4> ClearColor = { 0.f, 0.f, 0.f, 0.f };
     };
 
     class RenderCommandEncoder;

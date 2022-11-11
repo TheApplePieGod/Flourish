@@ -24,11 +24,15 @@ namespace Flourish::Vulkan
         ~Texture() override;
 
         // TS
+        bool IsReady() const override;
+
+        // TS
         VkImageView GetImageView() const;
         VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
         VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
-
+        VkSampler GetSampler() const { return m_Sampler; }
+        
     public:
         static void GenerateMipmaps(
             VkImage image,
@@ -40,7 +44,8 @@ namespace Flourish::Vulkan
             VkImageLayout initialLayout,
             VkImageLayout finalLayout,
             VkFilter sampleFilter,
-            VkCommandBuffer buffer = nullptr
+            VkCommandBuffer buffer = nullptr,
+            std::function<void()> completionCallback = nullptr
         );
         static void TransitionImageLayout(
             VkImage image,
@@ -73,5 +78,6 @@ namespace Flourish::Vulkan
         ColorFormat m_GeneralFormat;
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
+        u32* m_ReadyState;
     };
 }
