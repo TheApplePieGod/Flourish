@@ -71,7 +71,9 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
         m_BoundFramebuffer = nullptr;
-        m_BoundPipeline.clear();
+        m_BoundDescriptorSet = nullptr;
+        m_BoundPipeline = nullptr;
+        m_BoundPipelineName.clear();
         m_SubpassIndex = 0;
 
         VkCommandBuffer buffer = GetCommandBuffer();
@@ -82,14 +84,16 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BindPipeline(const std::string_view pipelineName)
     {
-        if (m_BoundPipeline == pipelineName) return;
-        m_BoundPipeline = pipelineName;
+        if (m_BoundPipelineName == pipelineName) return;
+        m_BoundPipelineName = pipelineName;
 
-        VkPipeline pipeline = static_cast<GraphicsPipeline*>(
+        GraphicsPipeline* pipeline = static_cast<GraphicsPipeline*>(
             m_BoundFramebuffer->GetRenderPass()->GetPipeline(pipelineName).get()
-        )->GetPipeline(m_SubpassIndex);
+        );
+        m_BoundPipeline = pipeline;
+        m_BoundDescriptorSet = m_BoundFramebuffer->GetPipelineDescriptorSet(pipelineName, pipeline->GetDescriptorSetLayout());
 
-        vkCmdBindPipeline(GetCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        vkCmdBindPipeline(GetCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetPipeline(m_SubpassIndex));
     }
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
@@ -152,7 +156,7 @@ namespace Flourish::Vulkan
         vkCmdDrawIndexed(GetCommandBuffer(), indexCount, instanceCount, indexOffset, vertexOffset, 0);
     }
 
-    void RenderCommandEncoder::DrawIndexedIndirect(Buffer* indirectBuffer, u32 commandOffset, u32 drawCount)
+    void RenderCommandEncoder::DrawIndexedIndirect(Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexedIndirect after encoding has ended");
 
@@ -161,14 +165,67 @@ namespace Flourish::Vulkan
         vkCmdDrawIndexedIndirect(
             GetCommandBuffer(),
             buffer,
-            commandOffset * indirectBuffer->GetLayout().GetStride(),
+            commandOffset * _buffer->GetLayout().GetStride(),
             drawCount,
-            indirectBuffer->GetLayout().GetStride()
+            _buffer->GetLayout().GetStride()
+        );
+    }
+
+    void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
+    {
+        FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");
+        FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
+
+        ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
+        ValidatePipelineBinding(bindingIndex, bufferType, buffer);
+
+        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * buffer->GetLayout().GetStride());
+        m_BoundDescriptorSet->UpdateBinding(
+            bindingIndex, 
+            bufferType, 
+            buffer,
+            true,
+            buffer->GetLayout().GetStride() * bufferOffset,
+            buffer->GetLayout().GetStride() * elementCount
+        );
+    }
+
+    void RenderCommandEncoder::FlushPipelineBindings()
+    {
+        FL_CRASH_ASSERT(!m_BoundPipelineName.empty(), "Must call BindPipeline and bind all resources before FlushBindings");
+
+        // Update a newly allocated descriptor set based on the current bindings or return
+        // a cached one that was created before with the same binding info
+        m_BoundDescriptorSet->FlushBindings();
+
+        FL_CRASH_ASSERT(m_BoundDescriptorSet->GetMostRecentDescriptorSet() != nullptr);
+
+        // Bind the new set
+        VkDescriptorSet sets[1] = { m_BoundDescriptorSet->GetMostRecentDescriptorSet() };
+        vkCmdBindDescriptorSets(
+            GetCommandBuffer(),
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_BoundPipeline->GetLayout(),
+            0, 1,
+            sets,
+            static_cast<u32>(m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().size()),
+            m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().data()
         );
     }
 
     VkCommandBuffer RenderCommandEncoder::GetCommandBuffer() const
     {
         return m_CommandBuffers[Flourish::Context::FrameIndex()];
+    }
+    
+    void RenderCommandEncoder::ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource)
+    {
+        FL_CRASH_ASSERT(!m_BoundPipelineName.empty(), "Must call BindPipeline before BindPipelineResource");
+        FL_CRASH_ASSERT(resource != nullptr, "Cannot bind a null resource to a shader");
+
+        if (!m_BoundDescriptorSet->GetLayout().DoesBindingExist(bindingIndex))
+            return; // Silently ignore, TODO: warning once in the console when this happens
+
+        FL_CRASH_ASSERT(m_BoundDescriptorSet->GetLayout().IsResourceCorrectType(bindingIndex, resourceType), "Attempting to bind a resource that does not match the bind index type");
     }
 }

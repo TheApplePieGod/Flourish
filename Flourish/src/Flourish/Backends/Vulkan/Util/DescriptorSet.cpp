@@ -113,18 +113,17 @@ namespace Flourish::Vulkan
 
     void DescriptorSet::UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource, bool useOffset, u32 offset, u32 size)
     {
-        m_Mutex.lock();
         CheckFrameUpdate();
 
         auto& boundResource = m_BoundResources[bindingIndex];
-        if (boundResource.Resource == resource && boundResource.Offset == offset && boundResource.Size == size) // don't do anything if this resource is already bound
+        if (boundResource.Resource == resource && boundResource.Offset == offset && boundResource.Size == size) // Don't do anything if this resource is already bound
             return;
         boundResource.Resource = resource;
         boundResource.Offset = offset;
         boundResource.Size = size;
 
-        FL_ASSERT(
-            bindingIndex >= m_Layout.GetBindings().size() || !m_Layout.GetBindings()[bindingIndex].Exists,
+        FL_CRASH_ASSERT(
+            bindingIndex < m_Layout.GetBindings().size() && m_Layout.GetBindings()[bindingIndex].Exists,
             "Attempting to update a descriptor binding that doesn't exist in the shader"
         );
 
@@ -141,7 +140,7 @@ namespace Flourish::Vulkan
                 FL_ASSERT(bindingIndex < m_CachedBufferInfos.size(), "Binding index for buffer resource is too large");
 
                 m_CachedBufferInfos[bufferInfoBaseIndex].buffer = buffer->GetBuffer();
-                m_CachedBufferInfos[bufferInfoBaseIndex].offset = 0;
+                m_CachedBufferInfos[bufferInfoBaseIndex].offset = offset;
                 m_CachedBufferInfos[bufferInfoBaseIndex].range = size;
             } break;
 
@@ -178,13 +177,10 @@ namespace Flourish::Vulkan
 
         descriptorWrite.pBufferInfo = &m_CachedBufferInfos[bufferInfoBaseIndex];
         descriptorWrite.pImageInfo = &m_CachedImageInfos[imageInfoBaseIndex];
-
-        m_Mutex.unlock();
     }
 
     void DescriptorSet::FlushBindings()
     {
-        m_Mutex.lock();
         CheckFrameUpdate();
 
         FL_ASSERT(m_WritesReadyCount == m_Layout.GetDescriptorWrites().size(), "Cannot flush bindings until all binding slots have been bound");
@@ -209,8 +205,6 @@ namespace Flourish::Vulkan
         );
 
         m_CachedDescriptorSets[frameIndex][hash] = m_MostRecentDescriptorSet;
-
-        m_Mutex.unlock();
     }
 
     void DescriptorSet::CheckFrameUpdate()

@@ -13,7 +13,9 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "stb_image/stb_image.h"
 
-#ifdef FL_PLATFORM_MACOS
+#ifdef FL_PLATFORM_WINDOWS
+    #include "FlourishTesting/WindowsWindow.h"
+#elif defined(FL_PLATFORM_MACOS)
     #include "FlourishTesting/MacWindow.h"
 #endif
 
@@ -46,28 +48,11 @@ int main(int argc, char** argv)
         contextCreateInfo.Height = 1080;
         #ifdef FL_PLATFORM_WINDOWS
             HINSTANCE instance = GetModuleHandle(NULL);
-            WNDCLASS wc{};
-            wc.lpfnWndProc = DefWindowProc;
-            wc.hInstance = instance;
-            wc.lpszClassName = "Window";
-            RegisterClass(&wc);
-            HWND hwnd = CreateWindow(
-                "Window",
-                "Flourish",
-                WS_OVERLAPPEDWINDOW,
-                CW_USEDEFAULT, CW_USEDEFAULT,
-                (int)contextCreateInfo.Width, (int)contextCreateInfo.Height,
-                NULL,
-                NULL,
-                instance,
-                NULL
-            );
-            ShowWindow(hwnd, SW_SHOW);
-
+            HWND window = Windows::CreateWindowAndGet((int)contextCreateInfo.Width, (int)contextCreateInfo.Height);
             contextCreateInfo.Instance = instance;
-            contextCreateInfo.Window = hwnd;
+            contextCreateInfo.Window = window;
         #elif defined(FL_PLATFORM_MACOS)
-            void* view = MacOS::CreateWindowAndGetView();
+            void* view = MacOS::CreateWindowAndGetView((int)contextCreateInfo.Width, (int)contextCreateInfo.Height);
             contextCreateInfo.NSView = view;
         #endif
         auto renderContext = Flourish::RenderContext::Create(contextCreateInfo);
@@ -78,6 +63,12 @@ int main(int argc, char** argv)
         bufCreateInfo.Layout = { { Flourish::BufferDataType::Float3 } };
         bufCreateInfo.ElementCount = 3;
         auto buffer = Flourish::Buffer::Create(bufCreateInfo);
+
+        bufCreateInfo.Type = Flourish::BufferType::Storage;
+        bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
+        bufCreateInfo.Layout = { { Flourish::BufferDataType::Float4 } };
+        bufCreateInfo.ElementCount = 2;
+        auto uniform = Flourish::Buffer::Create(bufCreateInfo);
 
         Flourish::RenderPassCreateInfo rpCreateInfo;
         rpCreateInfo.ColorAttachments = {
@@ -110,8 +101,13 @@ int main(int argc, char** argv)
 
             layout(location = 0) out vec4 outColor;
 
+            layout(binding = 0) readonly buffer ColorBuffer {
+                vec4 color;
+            } colorBuffer;
+
             void main() {
-                outColor = vec4(1.f, 0.f, 0.f, 1.f);
+                // outColor = vec4(1.f, 0.f, 0.f, 1.f);
+                outColor = vec4(colorBuffer.color.rgb, 1.f);
             }
         )";
         auto fragShader = Flourish::Shader::Create(fsCreateInfo);
@@ -161,7 +157,9 @@ int main(int argc, char** argv)
         {
             Flourish::Context::BeginFrame();
 
-            #ifdef FL_PLATFORM_MACOS
+            #ifdef FL_PLATFORM_WINDOWS
+                Windows::PollEvents(window);
+            #elif defined(FL_PLATFORM_MACOS)
                 MacOS::PollEvents();
             #endif
 
@@ -169,13 +167,24 @@ int main(int argc, char** argv)
             buffer->SetBytes(vertices, sizeof(vertices), 0);
             buffer->Flush();
 
+            float color[8] = { 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f, 1.f };
+            uniform->SetBytes(color, sizeof(color), 0);
+
+            /*
             auto encoder1 = cmdBuffer->EncodeRenderCommands(framebuffer.get());
             encoder1->BindPipeline("main");
+            encoder1->BindPipelineBufferResource(0, uniform.get(), 0, 0, 3);
             encoder1->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
             encoder1->Draw(3, 0, 1);
             encoder1->EndEncoding();
+            */
 
             auto frameEncoder = renderContext->EncodeFrameRenderCommands();
+            frameEncoder->BindPipeline("main");
+            frameEncoder->BindPipelineBufferResource(0, uniform.get(), 1, 0, 1);
+            frameEncoder->FlushPipelineBindings();
+            frameEncoder->BindVertexBuffer(buffer.get()); // TODO: validate buffer is actually a vertex
+            frameEncoder->Draw(3, 0, 1);
             frameEncoder->EndEncoding();
             
             renderContext->Present({ { cmdBuffer.get() } });

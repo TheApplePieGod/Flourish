@@ -9,12 +9,12 @@ void MacOS::PollEvents()
     [event release];
 }
 
-void* MacOS::CreateWindowAndGetView()
+void* MacOS::CreateWindowAndGetView(int width, int height)
 {
     NSApplication* app = NSApplication.sharedApplication;
     app.activationPolicy = NSApplicationActivationPolicyRegular;
 
-    NSRect frame = NSMakeRect(100, 250, 900, 700);
+    NSRect frame = NSMakeRect(100, 250, width, height);
     NSUInteger windowStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
 
     NSWindow* window = [[NSWindow alloc] initWithContentRect:frame styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO];

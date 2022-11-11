@@ -36,8 +36,8 @@ namespace Flourish::Vulkan
                 {
                     VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
                     FL_ASSERT(
-                        m_Info.Layout.GetStride() % minAlignment != 0,
-                        "Uniform buffer layout must be a multiple of {0} but is {1}",
+                        m_Info.Layout.GetStride() % minAlignment == 0,
+                        "Uniform buffer layout must be a multiple of %d but is %d",
                         minAlignment,
                         m_Info.Layout.GetStride()
                     );
@@ -53,8 +53,8 @@ namespace Flourish::Vulkan
                 {
                     VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
                     FL_ASSERT(
-                        m_Info.Layout.GetStride() % minAlignment != 0,
-                        "Storage buffer layout must be a multiple of {0} but is {1}",
+                        m_Info.Layout.GetStride() % minAlignment == 0,
+                        "Storage buffer layout must be a multiple of %d but is %d",
                         minAlignment,
                         m_Info.Layout.GetStride()
                     );
