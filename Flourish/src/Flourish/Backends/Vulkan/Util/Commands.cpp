@@ -28,6 +28,9 @@ namespace Flourish::Vulkan
             DestroyPools(pair.second);
         for (auto& pools : m_UnusedPools)
             DestroyPools(pools);
+        
+        m_PoolsInUse.clear();
+        m_UnusedPools.clear();
     }
 
     VkCommandPool Commands::GetPool(GPUWorkloadType workloadType)
