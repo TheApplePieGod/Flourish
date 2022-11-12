@@ -30,7 +30,7 @@ namespace Flourish::Vulkan
         m_QueueLock.lock();
         for (u32 i = 0; i < m_Queue.size(); i++)
         {
-            auto& value = m_Queue.front();
+            auto& value = m_Queue.at(i);
             if (!force && value.Lifetime > 0)
                 value.Lifetime -= 1;
             else

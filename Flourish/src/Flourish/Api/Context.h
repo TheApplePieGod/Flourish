@@ -32,9 +32,6 @@ namespace Flourish
         static void EndFrame();
 
         // TS
-        static bool IsThreadRegistered(std::thread::id thread = std::this_thread::get_id());
-        static void RegisterThread();
-        static void UnregisterThread();
         static int SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers);
 
         // TS
@@ -56,8 +53,6 @@ namespace Flourish
         inline static u64 s_FrameCount = 0;
         inline static u32 s_FrameIndex = 0;
         inline static Flourish::FeatureTable s_FeatureTable;
-        inline static std::unordered_set<std::thread::id> s_RegisteredThreads;
-        inline static std::mutex s_RegisteredThreadsLock;
         inline static std::vector<std::vector<const CommandBuffer*>> s_SubmittedCommandBuffers;
         inline static std::vector<u32> s_SubmittedCommandBufferCounts;
         inline static std::mutex s_SubmittedCommandBuffersLock;

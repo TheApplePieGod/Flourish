@@ -23,9 +23,6 @@ namespace Flourish
             default: { FL_ASSERT(false, "Context initialization is missing for selected api type"); } return;
             case BackendType::Vulkan: { Vulkan::Context::Initialize(initInfo); } break;
         }
-
-        // Register main thread
-        RegisterThread();
     }
 
     void Context::Shutdown()
@@ -65,46 +62,6 @@ namespace Flourish
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    bool Context::IsThreadRegistered(std::thread::id thread)
-    {
-        s_RegisteredThreadsLock.lock();
-        bool found = s_RegisteredThreads.find(thread) != s_RegisteredThreads.end();
-        s_RegisteredThreadsLock.unlock();
-        return found;
-    }
-
-    void Context::RegisterThread()
-    {
-        FL_ASSERT(s_BackendType != BackendType::None, "Cannot register thread, context has not been initialized");        
-
-        auto thread = std::this_thread::get_id();
-        s_RegisteredThreadsLock.lock();
-        FL_ASSERT(s_RegisteredThreads.find(thread) == s_RegisteredThreads.end(), "Cannot register thread that has already been registered");
-        s_RegisteredThreads.emplace(thread);
-        s_RegisteredThreadsLock.unlock();
-
-        switch (s_BackendType)
-        {
-            case BackendType::Vulkan: { Vulkan::Context::RegisterThread(); } return;
-        }
-    }
-
-    void Context::UnregisterThread()
-    {
-        FL_ASSERT(s_BackendType != BackendType::None, "Cannot unregister thread, context has not been initialized");
-
-        auto thread = std::this_thread::get_id();
-        s_RegisteredThreadsLock.lock();
-        FL_ASSERT(s_RegisteredThreads.find(thread) != s_RegisteredThreads.end(), "Cannot unregister thread that has not been registered");
-        s_RegisteredThreads.erase(thread);
-        s_RegisteredThreadsLock.unlock();
-
-        switch (s_BackendType)
-        {
-            case BackendType::Vulkan: { Vulkan::Context::UnregisterThread(); } return;
-        }
-    }
-
     int Context::SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers)
     {
         if (buffers.empty()) return -1;

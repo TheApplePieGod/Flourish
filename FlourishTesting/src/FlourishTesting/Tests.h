@@ -21,17 +21,18 @@ namespace FlourishTesting
     private:
         struct Vertex
         {
-            float Position[3];
-            float TexCoord[2];
+            std::array<float, 3> Position;
+            std::array<float, 2> TexCoord;
         };
         
         struct ObjectData
         {
-            float Scale[2];
-            float Offset[2];
+            std::array<float, 2> Scale;
+            std::array<float, 2> Offset;
         };
     
     private:
+        void RunMultiThreadedTest();
         void RunSingleThreadedTest();
 
         void CreateRenderPasses();
@@ -54,7 +55,7 @@ namespace FlourishTesting
 
         std::shared_ptr<Flourish::RenderPass> m_SimplePassNoDepth;
 
-        std::shared_ptr<Flourish::Framebuffer> m_SimplePassNoDepthFrameTexFB;
+        std::vector<std::shared_ptr<Flourish::Framebuffer>> m_FrameTextureBuffers;
         
         std::shared_ptr<Flourish::Buffer> m_FullTriangleVertices;
         std::shared_ptr<Flourish::Buffer> m_QuadVertices;
@@ -62,7 +63,7 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::Buffer> m_ObjectData;
         
         std::shared_ptr<Flourish::Texture> m_DogTexture;
-        std::shared_ptr<Flourish::Texture> m_UIntFrameTex;
+        std::vector<std::shared_ptr<Flourish::Texture>> m_FrameTextures;
         
         std::vector<std::shared_ptr<Flourish::CommandBuffer>> m_CommandBuffers;
     };

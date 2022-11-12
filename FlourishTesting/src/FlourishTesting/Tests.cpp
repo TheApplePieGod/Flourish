@@ -1,6 +1,8 @@
 #include "flpch.h"
 #include "Tests.h"
 
+#include <future>
+
 #ifdef FL_PLATFORM_WINDOWS
     #include "FlourishTesting/WindowsWindow.h"
 #elif defined(FL_PLATFORM_MACOS)
@@ -27,10 +29,72 @@ namespace FlourishTesting
                 MacOS::PollEvents();
             #endif
 
-            RunSingleThreadedTest();
+            // RunSingleThreadedTest();
+            RunMultiThreadedTest();
 
             Flourish::Context::EndFrame();
         }
+    }
+
+    void Tests::RunMultiThreadedTest()
+    {
+        if (!m_DogTexture->IsReady()) return;
+
+        u32 objectCount = 5;
+        float scale = 0.25f;
+        float offsetStep = 2.f / objectCount;
+        float offsetStart = -1.f + 0.5f * scale;
+        for (u32 i = 0; i < objectCount; i++)
+        {
+            ObjectData data;
+            data.Offset = { offsetStart + offsetStep * i, offsetStart + offsetStep * i };
+            data.Scale = { scale, scale };
+            m_ObjectData->SetElements(&data, 1, i);
+        }
+
+        std::vector<std::future<void>> jobs;
+        std::vector<const Flourish::CommandBuffer*> parallelBuffers;
+        for (u32 i = 0; i < objectCount; i++)
+        {
+            jobs.push_back(std::async(std::launch::async, [&, i]()
+            {
+                auto encoder = m_CommandBuffers[i]->EncodeRenderCommands(m_FrameTextureBuffers[i].get());
+                encoder->BindPipeline("simple_image");
+                encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+                encoder->FlushPipelineBindings();
+                encoder->BindVertexBuffer(m_FullTriangleVertices.get()); 
+                encoder->Draw(3, 0, 1);
+                encoder->EndEncoding();
+            }));
+            
+            parallelBuffers.push_back(m_CommandBuffers[i].get());
+        }
+        
+        auto encoder = m_CommandBuffers[objectCount]->EncodeRenderCommands(m_FrameTextureBuffers[objectCount].get());
+        encoder->BindPipeline("object_image");
+        for (u32 i = 0; i < objectCount; i++)
+        {
+            encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+            encoder->BindPipelineBufferResource(1, m_ObjectData.get(), 0, i, objectCount);
+            encoder->FlushPipelineBindings();
+            encoder->BindVertexBuffer(m_QuadVertices.get()); 
+            encoder->BindIndexBuffer(m_QuadIndices.get());
+            encoder->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1);
+        }
+        encoder->EndEncoding();
+
+        auto frameEncoder = m_RenderContext->EncodeFrameRenderCommands();
+        frameEncoder->BindPipeline("main");
+        frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[objectCount].get());
+        frameEncoder->FlushPipelineBindings();
+        frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
+        frameEncoder->Draw(3, 0, 1);
+        frameEncoder->EndEncoding();
+        
+        for (auto& job : jobs)
+            job.wait();
+
+        m_RenderContext->Present({ parallelBuffers, { m_CommandBuffers[objectCount].get() } });
     }
     
     void Tests::RunSingleThreadedTest()
@@ -49,19 +113,30 @@ namespace FlourishTesting
         */
         
         u32 objectCount = 5;
-        auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_SimplePassNoDepthFrameTexFB.get());
+        float scale = 0.25f;
+        float offsetStep = 2.f / objectCount;
+        float offsetStart = -1.f + 0.5f * scale;
+        for (u32 i = 0; i < objectCount; i++)
+        {
+            ObjectData data;
+            data.Offset = { offsetStart + offsetStep * i, offsetStart + offsetStep * i };
+            data.Scale = { scale, scale };
+            m_ObjectData->SetElements(&data, 1, i);
+        }
+
+        auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_FrameTextureBuffers[0].get());
         encoder1->BindPipeline("object_image");
         encoder1->BindPipelineTextureResource(0, m_DogTexture.get());
         encoder1->BindPipelineBufferResource(1, m_ObjectData.get(), 0, 0, objectCount);
         encoder1->FlushPipelineBindings();
-        encoder1->BindVertexBuffer(m_QuadVertices.get()); // TODO: validate buffer is actually a vertex
-        encoder1->BindIndexBuffer(m_QuadIndices.get()); // TODO: validate buffer is actually a vertex
-        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1);
+        encoder1->BindVertexBuffer(m_QuadVertices.get()); 
+        encoder1->BindIndexBuffer(m_QuadIndices.get());
+        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount);
         encoder1->EndEncoding();
 
         auto frameEncoder = m_RenderContext->EncodeFrameRenderCommands();
         frameEncoder->BindPipeline("main");
-        frameEncoder->BindPipelineTextureResource(0, m_UIntFrameTex.get());
+        frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[0].get());
         frameEncoder->FlushPipelineBindings();
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1);
@@ -292,18 +367,22 @@ namespace FlourishTesting
         texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         texCreateInfo.InitialData = nullptr;
-        m_UIntFrameTex = Flourish::Texture::Create(texCreateInfo);
+        for (u32 i = 0; i < 10; i++)
+            m_FrameTextures.push_back(Flourish::Texture::Create(texCreateInfo));
     }
     
     void Tests::CreateFramebuffers()
     {
         Flourish::FramebufferCreateInfo fbCreateInfo;
         fbCreateInfo.RenderPass = m_SimplePassNoDepth;
-        fbCreateInfo.ColorAttachments = { { { 0.f, 0.f, 0.f, 0.f }, m_UIntFrameTex } };
         fbCreateInfo.DepthAttachments = { {} };
         fbCreateInfo.Width = m_ScreenWidth;
         fbCreateInfo.Height = m_ScreenHeight;
-        m_SimplePassNoDepthFrameTexFB = Flourish::Framebuffer::Create(fbCreateInfo);
+        for (u32 i = 0; i < m_FrameTextures.size(); i++)
+        {
+            fbCreateInfo.ColorAttachments = { { { 0.f, 0.f, 0.f, 0.f }, m_FrameTextures[i] } };
+            m_FrameTextureBuffers.push_back(Flourish::Framebuffer::Create(fbCreateInfo));
+        }
     }
     
     void Tests::CreateCommandBuffers()

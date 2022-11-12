@@ -5,6 +5,16 @@
 
 namespace Flourish::Vulkan
 {
+    ThreadCommandPools::ThreadCommandPools()
+    {
+        Context::Commands().CreatePoolsForThread();
+    }
+
+    ThreadCommandPools::~ThreadCommandPools()
+    {
+        Context::Commands().DestroyPoolsForThread();
+    }
+
     void Commands::Initialize()
     {
 
@@ -14,27 +24,22 @@ namespace Flourish::Vulkan
     {
         auto device = Context::Devices().Device();
 
-        for (auto& pair : m_ThreadCommandPools)
+        for (auto& pair : m_PoolsInUse)
             DestroyPools(pair.second);
         for (auto& pools : m_UnusedPools)
             DestroyPools(pools);
     }
 
-    VkCommandPool Commands::GetPool(GPUWorkloadType workloadType, std::thread::id thread)
+    VkCommandPool Commands::GetPool(GPUWorkloadType workloadType)
     {
-        FL_ASSERT(Flourish::Context::IsThreadRegistered(), "Attempting to perform operations on a non-registered thread");
-
-        m_ThreadCommandPoolsLock.lock();
-        auto pools = m_ThreadCommandPools[thread];
-        m_ThreadCommandPoolsLock.unlock();
         switch (workloadType)
         {
             case GPUWorkloadType::Graphics:
-            { return pools.GraphicsPool; }
+            { return s_ThreadPools.GraphicsPool; }
             case GPUWorkloadType::Transfer:
-            { return pools.TransferPool; }
+            { return s_ThreadPools.TransferPool; }
             case GPUWorkloadType::Compute:
-            { return pools.ComputePool; }
+            { return s_ThreadPools.ComputePool; }
         }
 
         FL_ASSERT(false, "Command pool for workload not supported");
@@ -43,16 +48,14 @@ namespace Flourish::Vulkan
 
     void Commands::CreatePoolsForThread()
     {
-        std::thread::id thread = std::this_thread::get_id();
         auto device = Context::Devices().Device();
 
-        ThreadCommandPools pools;
         if (m_UnusedPools.size() > 0)
         {
-            m_UnusedPoolsLock.lock();
-            pools = m_UnusedPools.back();
+            m_PoolsLock.lock();
+            s_ThreadPools = m_UnusedPools.back();
             m_UnusedPools.pop_back();
-            m_UnusedPoolsLock.unlock();
+            m_PoolsLock.unlock();
         }
         else
         {
@@ -61,81 +64,67 @@ namespace Flourish::Vulkan
             poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Graphics);
             poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // allow resetting
 
-            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools.GraphicsPool));
+            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &s_ThreadPools.GraphicsPool));
             
             poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Compute);
 
-            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools.ComputePool));
+            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &s_ThreadPools.ComputePool));
 
             poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Transfer);
 
-            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools.TransferPool));
+            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &s_ThreadPools.TransferPool));
         }
 
-        m_ThreadCommandPoolsLock.lock();
-        m_ThreadCommandPools.emplace(thread, pools);
-        m_ThreadCommandPoolsLock.unlock();
+        m_PoolsLock.lock();
+        //m_PoolsInUse[std::this_thread::get_id()] = s_ThreadPools;
+        m_PoolsLock.unlock();
     }
 
     void Commands::DestroyPoolsForThread()
     {
-        std::thread::id thread = std::this_thread::get_id();
-        m_ThreadCommandPoolsLock.lock();
-        auto pools = m_ThreadCommandPools[thread];
-        m_ThreadCommandPools.erase(thread);
-        m_ThreadCommandPoolsLock.unlock();
-
-        m_UnusedPoolsLock.lock();
-        m_UnusedPools.push_back(pools);
-        m_UnusedPoolsLock.unlock();
+        m_PoolsLock.lock();
+        m_UnusedPools.push_back(s_ThreadPools);
+        m_PoolsInUse.erase(std::this_thread::get_id());
+        m_PoolsLock.unlock();
     }
 
-    void Commands::AllocateBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount, std::thread::id thread)
+    void Commands::AllocateBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount)
     {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = secondary ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = bufferCount;
-        allocInfo.commandPool = GetPool(workloadType, thread);
+        allocInfo.commandPool = GetPool(workloadType);
 
-        // Not optimal to lock all pools for every thread here, but it removes the need for complex
-        // overhead and tracking, and it should be relatively negligible due to the low frequency
-        // of buffer allocations (especially parallel)
-        m_ThreadCommandPoolsLock.lock();
         FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, buffers));
-        m_ThreadCommandPoolsLock.unlock();
     }
 
-    void Commands::FreeBuffers(GPUWorkloadType workloadType, const std::vector<VkCommandBuffer>& buffers, std::thread::id thread)
+    void Commands::FreeBuffers(GPUWorkloadType workloadType, const std::vector<VkCommandBuffer>& buffers)
     {
-        auto pool = GetPool(workloadType, thread);
+        auto pool = GetPool(workloadType);
         auto bufs = buffers;
         Context::DeleteQueue().Push([this, pool, bufs]()
         {
-            m_ThreadCommandPoolsLock.lock();
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
                 pool,
                 bufs.size(),
                 bufs.data()
             );
-            m_ThreadCommandPoolsLock.unlock();
         });
     }
 
-    void Commands::FreeBuffer(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::thread::id thread)
+    void Commands::FreeBuffer(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
-        auto pool = GetPool(workloadType, thread);
+        auto pool = GetPool(workloadType);
         Context::DeleteQueue().Push([this, pool, buffer]()
         {
-            m_ThreadCommandPoolsLock.lock();
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
                 pool,
                 1,
                 &buffer
             );
-            m_ThreadCommandPoolsLock.unlock();
         });
     }
 

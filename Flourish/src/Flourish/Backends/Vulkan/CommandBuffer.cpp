@@ -15,13 +15,9 @@ namespace Flourish::Vulkan
 
     CommandBuffer::~CommandBuffer()
     {
-        FL_ASSERT(
+        FL_CRASH_ASSERT(
             m_AllocatedThread == std::this_thread::get_id(),
             "Command buffer should never be destroyed from a thread different than the one that created it"
-        );
-        FL_ASSERT(
-            Flourish::Context::IsThreadRegistered(),
-            "Destroying command buffer on deregistered thread, which can cause a memory leak"
         );
     }
     

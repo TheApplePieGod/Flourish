@@ -37,7 +37,7 @@ namespace Flourish::Vulkan
         void WaitForQueueFences();
 
         // TS
-        void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback);
+        void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
         void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
         void IterateCommands(GPUWorkloadType workloadType);
         void IterateCommands();

@@ -12,7 +12,6 @@ namespace Flourish::Vulkan
     RenderCommandEncoder::RenderCommandEncoder(CommandBuffer* parentBuffer)
     {
         m_ParentBuffer = parentBuffer;
-        m_AllocatedThread = std::this_thread::get_id();
         Context::Commands().AllocateBuffers(
             GPUWorkloadType::Graphics,
             false,
@@ -29,8 +28,7 @@ namespace Flourish::Vulkan
         std::vector<VkCommandBuffer> buffers(m_CommandBuffers.begin(), m_CommandBuffers.begin() + Flourish::Context::FrameBufferCount());
         Context::Commands().FreeBuffers(
             GPUWorkloadType::Graphics,
-            buffers,
-            m_AllocatedThread
+            buffers
         );
     }
 

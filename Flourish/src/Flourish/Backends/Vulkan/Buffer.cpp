@@ -172,10 +172,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            auto thread = std::this_thread::get_id();
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer, thread);
-            });
+            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
+            
+            // Safe to free here because commands guaranteed to be complete before deletion runs
+            Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
         }
     }
 
@@ -212,10 +212,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
             
-            auto thread = std::this_thread::get_id();
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer, thread);
-            });
+            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
+            
+            // Safe to free here because commands guaranteed to be complete before deletion runs
+            Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
         }
     }
 

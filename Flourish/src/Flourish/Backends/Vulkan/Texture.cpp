@@ -201,14 +201,20 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-        auto thread = std::this_thread::get_id();
         auto readyState = m_ReadyState;
-        Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread, stagingBuffer, stagingAlloc, readyState, hasInitialData](){
-            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer, thread);
+        Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
             *readyState += 1;
-            if (hasInitialData)
-                vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
         });
+
+        // Safe to free here because commands guaranteed to be complete before deletion runs
+        Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+        if (hasInitialData)
+        {
+            Context::DeleteQueue().Push([stagingBuffer, stagingAlloc]()
+            {
+                vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
+            });
+        }
     }
 
     Texture::Texture(const TextureCreateInfo& createInfo, VkImageView imageView)
@@ -294,8 +300,7 @@ namespace Flourish::Vulkan
         VkImageLayout initialLayout,
         VkImageLayout finalLayout,
         VkFilter sampleFilter,
-        VkCommandBuffer buffer,
-        std::function<void()> completionCallback)
+        VkCommandBuffer buffer)
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
@@ -400,11 +405,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            auto thread = std::this_thread::get_id();
-            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread, completionCallback](){
-                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer, thread);
-                if (completionCallback) completionCallback();
-            });
+            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
+            
+            // Safe to free here because commands guaranteed to be complete before deletion runs
+            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
         }
     }
 
@@ -528,10 +532,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            auto thread = std::this_thread::get_id();
-            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer, thread);
-            });
+            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
+            
+            // Safe to free here because commands guaranteed to be complete before deletion runs
+            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
         }
     }
 

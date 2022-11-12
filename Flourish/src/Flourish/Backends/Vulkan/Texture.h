@@ -44,8 +44,7 @@ namespace Flourish::Vulkan
             VkImageLayout initialLayout,
             VkImageLayout finalLayout,
             VkFilter sampleFilter,
-            VkCommandBuffer buffer = nullptr,
-            std::function<void()> completionCallback = nullptr
+            VkCommandBuffer buffer = nullptr
         );
         static void TransitionImageLayout(
             VkImage image,

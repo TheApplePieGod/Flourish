@@ -67,7 +67,7 @@ namespace Flourish::Vulkan
         vkWaitForFences(Context::Devices().Device(), 3, fences, VK_TRUE, UINT64_MAX);
     }
     
-    void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback)
+    void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback)
     {
         auto& queueData = GetQueueData(workloadType);
         queueData.CommandQueueLock.lock();
@@ -103,7 +103,7 @@ namespace Flourish::Vulkan
                 vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
                 if (semaphoreVal > 0) // Completed
                 {
-                    value.Callback();
+                    if (value.Callback) value.Callback();
                     m_UnusedSemaphoresLock.lock();
                     m_UnusedSemaphores.push_back(value.WaitSemaphore);
                     m_UnusedSemaphoresLock.unlock();
@@ -153,7 +153,7 @@ namespace Flourish::Vulkan
         queueData.CommandQueueLock.lock();
         for (u32 i = 0; i < queueData.CommandQueue.size(); i++)
         {
-            auto& value = queueData.CommandQueue.front();
+            auto& value = queueData.CommandQueue.at(i);
             value.Callback();
             m_UnusedSemaphoresLock.lock();
             m_UnusedSemaphores.push_back(value.WaitSemaphore);
