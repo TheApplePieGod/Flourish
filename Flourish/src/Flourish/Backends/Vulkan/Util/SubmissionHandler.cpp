@@ -54,6 +54,8 @@ namespace Flourish::Vulkan
         commandBuffers.reserve(150);
         std::vector<VkSemaphore> syncSemaphores;
         syncSemaphores.reserve(150);
+        std::vector<VkPipelineStageFlags> waitStages;
+        waitStages.reserve(150);
         std::vector<VkSemaphore> completionSemaphores;
         completionSemaphores.reserve(150);
         std::vector<u64> completionSemaphoreValues;
@@ -71,7 +73,7 @@ namespace Flourish::Vulkan
                 for (auto _buffer : submission)
                 {
                     u64 syncSemaphoreValue = 0;
-                    
+                   
                     // Create a semaphore that will be used to sync sub buffers and also signal total completion of a buffer
                     VkSemaphore syncSemaphore = GetTimelineSemaphore();
 
@@ -146,26 +148,45 @@ namespace Flourish::Vulkan
                             case GPUWorkloadType::Graphics:
                             {
                                 encodedCommandSubmitInfo.pWaitDstStageMask = drawWaitStages;
+                                if (encodedCommandSubmitInfo.waitSemaphoreCount > 1)
+                                {
+                                    encodedCommandSubmitInfo.pWaitDstStageMask = waitStages.data();
+                                    for (u32 i = 0; i < encodedCommandSubmitInfo.waitSemaphoreCount; i++)
+                                        waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+                                }
                                 graphicsSubmitInfos.emplace_back(encodedCommandSubmitInfo);
                             } break;
                             case GPUWorkloadType::Compute:
                             {
                                 encodedCommandSubmitInfo.pWaitDstStageMask = computeWaitStages;
+                                if (encodedCommandSubmitInfo.waitSemaphoreCount > 1)
+                                {
+                                    encodedCommandSubmitInfo.pWaitDstStageMask = waitStages.data();
+                                    for (u32 i = 0; i < encodedCommandSubmitInfo.waitSemaphoreCount; i++)
+                                        waitStages.push_back(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+                                }
                                 computeSubmitInfos.emplace_back(encodedCommandSubmitInfo);
                             } break;
                             case GPUWorkloadType::Transfer:
                             {
                                 encodedCommandSubmitInfo.pWaitDstStageMask = transferWaitStages;
+                                if (encodedCommandSubmitInfo.waitSemaphoreCount > 1)
+                                {
+                                    encodedCommandSubmitInfo.pWaitDstStageMask = waitStages.data();
+                                    for (u32 i = 0; i < encodedCommandSubmitInfo.waitSemaphoreCount; i++)
+                                        waitStages.push_back(VK_PIPELINE_STAGE_TRANSFER_BIT);
+                                }
                                 transferSubmitInfos.emplace_back(encodedCommandSubmitInfo);
                             } break;
                         }
                     }
                 }
+
+                completionSemaphoresStartIndex += completionSemaphoresWaitCount;
+                completionSemaphoresWaitCount = completionSemaphores.size() - completionSemaphoresStartIndex;
             }
             
             submissionStartIndex += submissionCount;
-            completionSemaphoresStartIndex += completionSemaphoresWaitCount;
-            completionSemaphoresWaitCount = completionSemaphores.size() - completionSemaphoresStartIndex;
 
             processedSubmissions.emplace_back(completionSemaphoresStartIndex, completionSemaphoresWaitCount);
         }
