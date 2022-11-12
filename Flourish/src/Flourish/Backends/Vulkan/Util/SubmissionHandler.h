@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
@@ -39,11 +40,6 @@ namespace Flourish::Vulkan
             int DependencySubmissionId;
         };
         
-        struct SemaphorePool
-        {
-            std::vector<VkSemaphore> Semaphores;
-            u32 FreeIndex;
-        };
 
     private:
         VkSemaphore GetTimelineSemaphore();

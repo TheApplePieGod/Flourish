@@ -29,6 +29,19 @@ namespace Flourish::Vulkan
             GPUWorkloadType WorkloadType;
         };
         
+        struct SubmissionData
+        {
+            std::vector<VkSubmitInfo> GraphicsSubmitInfos;
+            std::vector<VkSubmitInfo> ComputeSubmitInfos;
+            std::vector<VkSubmitInfo> TransferSubmitInfos;
+            std::vector<VkTimelineSemaphoreSubmitInfo> TimelineSubmitInfos;
+            std::vector<u64> SyncSemaphoreValues;
+            std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SyncSemaphores;
+            VkPipelineStageFlags DrawWaitStages[1] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+            VkPipelineStageFlags TransferWaitStages[1] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
+            VkPipelineStageFlags ComputeWaitStages[1] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+        };
+        
     private:
         void CheckFrameUpdate();
 
@@ -37,6 +50,7 @@ namespace Flourish::Vulkan
         std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
         u32 m_RenderCommandEncoderCachePtr = 0;
         std::vector<EncoderSubmission> m_EncoderSubmissions;
+        SubmissionData m_SubmissionData;
         std::thread::id m_AllocatedThread;
     };
 }
