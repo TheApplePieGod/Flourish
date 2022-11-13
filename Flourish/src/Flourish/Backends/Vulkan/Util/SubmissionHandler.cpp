@@ -30,36 +30,20 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::ProcessSubmissions()
     {
-        m_SemaphorePools[Flourish::Context::FrameIndex()].FreeIndex = 0;
-        m_TimelineSemaphorePools[Flourish::Context::FrameIndex()].FreeIndex = 0;
-        
         u32 submissionStartIndex = 0;
         u32 completionSemaphoresStartIndex = 0;
         u32 completionSemaphoresWaitCount = 0;
-        u64 semaphoreBaseValue = Flourish::Context::FrameCount();
-        VkPipelineStageFlags drawWaitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-        VkPipelineStageFlags transferWaitStages[] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
-        VkPipelineStageFlags computeWaitStages[] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+
         std::vector<VkSubmitInfo> graphicsSubmitInfos;
         std::vector<VkSubmitInfo> computeSubmitInfos;
         std::vector<VkSubmitInfo> transferSubmitInfos;
-        
-        // TODO: move buffers to a permanent member variable.
-        std::vector<u64> semaphoreValues;
-        semaphoreValues.reserve(150);
-        std::vector<VkTimelineSemaphoreSubmitInfo> timelineSubmitInfos;
-        timelineSubmitInfos.reserve(150);
-        std::vector<VkCommandBuffer> commandBuffers;
-        commandBuffers.reserve(150);
-        std::vector<VkSemaphore> syncSemaphores;
-        syncSemaphores.reserve(150);
-        std::vector<VkPipelineStageFlags> waitStages;
-        waitStages.reserve(150);
+
         std::vector<VkSemaphore> completionSemaphores;
         completionSemaphores.reserve(150);
         std::vector<u64> completionSemaphoreValues;
         completionSemaphoreValues.reserve(150);
-        std::vector<ProcessedSubmissionInfo> processedSubmissions;
+        std::vector<VkPipelineStageFlags> completionWaitStages;
+        completionWaitStages.reserve(150);
 
         // Each submission gets executed in parallel
         for (auto submissionCount : Flourish::Context::SubmittedCommandBufferCounts())
@@ -71,199 +55,44 @@ namespace Flourish::Vulkan
                 auto& submission = Flourish::Context::SubmittedCommandBuffers()[submissionIndex];
                 for (auto _buffer : submission)
                 {
-                    u64 syncSemaphoreValue = 0;
-                   
-                    // Create a semaphore that will be used to sync sub buffers and also signal total completion of a buffer
-                    VkSemaphore syncSemaphore = GetTimelineSemaphore();
+                    CommandBuffer* buffer = static_cast<CommandBuffer*>(_buffer);
+                    if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
 
-                    // Each sub buffer executes sequentially
-                    auto buffer = static_cast<const CommandBuffer*>(_buffer);
-                    for (u32 i = 0; i < buffer->GetEncoderSubmissions().size(); i++)
+                    auto& subData = buffer->GetSubmissionData();
+                    
+                    // If this is not the first batch then we must wait on the previous batch to complete
+                    if (completionSemaphoresWaitCount > 0)
                     {
-                        const auto& encodedSubmission = buffer->GetEncoderSubmissions()[i];
-                        bool isFirstSubBuffer = i == 0;
-                        bool isLastSubBuffer = i == buffer->GetEncoderSubmissions().size() - 1;
-
-                        VkSubmitInfo encodedCommandSubmitInfo{};
-                        encodedCommandSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-                        encodedCommandSubmitInfo.pNext = timelineSubmitInfos.data() + timelineSubmitInfos.size();
-                        encodedCommandSubmitInfo.commandBufferCount = 1;
-                        encodedCommandSubmitInfo.pCommandBuffers = &encodedSubmission.Buffer;
-
-                        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
-                        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-                        
-                        // Last sub buffer of the batch must signal the batch completion semaphore
-                        if (isLastSubBuffer)
-                        {
-                            encodedCommandSubmitInfo.signalSemaphoreCount = 1;
-                            encodedCommandSubmitInfo.pSignalSemaphores = completionSemaphores.data() + completionSemaphores.size();
-                            timelineSubmitInfo.signalSemaphoreValueCount = 1;
-                            timelineSubmitInfo.pSignalSemaphoreValues = completionSemaphoreValues.data() + completionSemaphoreValues.size();
-
-                            completionSemaphores.push_back(syncSemaphore);
-                            completionSemaphoreValues.push_back(semaphoreBaseValue + syncSemaphoreValue + 1);
-                        }
-                        else
-                        {
-                            encodedCommandSubmitInfo.signalSemaphoreCount = 1;
-                            encodedCommandSubmitInfo.pSignalSemaphores = syncSemaphores.data() + syncSemaphores.size();
-                            timelineSubmitInfo.signalSemaphoreValueCount = 1;
-                            timelineSubmitInfo.pSignalSemaphoreValues = semaphoreValues.data() + semaphoreValues.size();
-
-                            syncSemaphores.push_back(syncSemaphore);
-                            semaphoreValues.push_back(semaphoreBaseValue + syncSemaphoreValue + 1);
-                        }
-
-                        // First sub buffer is not subject to the normal waiting process
-                        if (isFirstSubBuffer)
-                        {
-                            // If this is not the first batch then we must wait on the previous batch to complete
-                            if (completionSemaphoresWaitCount > 0)
-                            {
-                                encodedCommandSubmitInfo.waitSemaphoreCount = completionSemaphoresWaitCount;
-                                encodedCommandSubmitInfo.pWaitSemaphores = completionSemaphores.data() + completionSemaphoresStartIndex;
-                                timelineSubmitInfo.waitSemaphoreValueCount = completionSemaphoresWaitCount;
-                                timelineSubmitInfo.pWaitSemaphoreValues = completionSemaphoreValues.data() + completionSemaphoresStartIndex;
-                            }
-                        }
-                        else // Otherwise wait for the last sub buffer to complete
-                        {
-                            encodedCommandSubmitInfo.waitSemaphoreCount = 1;
-                            encodedCommandSubmitInfo.pWaitSemaphores = syncSemaphores.data() + syncSemaphores.size();
-                            timelineSubmitInfo.waitSemaphoreValueCount = 1;
-                            timelineSubmitInfo.pWaitSemaphoreValues = semaphoreValues.data() + semaphoreValues.size();
-
-                            syncSemaphores.push_back(syncSemaphore);
-                            semaphoreValues.push_back(semaphoreBaseValue + syncSemaphoreValue);
-                        }
-
-                        syncSemaphoreValue++;
-                        timelineSubmitInfos.emplace_back(timelineSubmitInfo);
-
-                        // Send submission to the appropriate queue and set the stage
-                        switch (encodedSubmission.WorkloadType)
-                        {
-                            case GPUWorkloadType::Graphics:
-                            {
-                                encodedCommandSubmitInfo.pWaitDstStageMask = drawWaitStages;
-                                if (encodedCommandSubmitInfo.waitSemaphoreCount > 1)
-                                {
-                                    encodedCommandSubmitInfo.pWaitDstStageMask = waitStages.data();
-                                    for (u32 i = 0; i < encodedCommandSubmitInfo.waitSemaphoreCount; i++)
-                                        waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-                                }
-                                graphicsSubmitInfos.emplace_back(encodedCommandSubmitInfo);
-                            } break;
-                            case GPUWorkloadType::Compute:
-                            {
-                                encodedCommandSubmitInfo.pWaitDstStageMask = computeWaitStages;
-                                if (encodedCommandSubmitInfo.waitSemaphoreCount > 1)
-                                {
-                                    encodedCommandSubmitInfo.pWaitDstStageMask = waitStages.data();
-                                    for (u32 i = 0; i < encodedCommandSubmitInfo.waitSemaphoreCount; i++)
-                                        waitStages.push_back(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-                                }
-                                computeSubmitInfos.emplace_back(encodedCommandSubmitInfo);
-                            } break;
-                            case GPUWorkloadType::Transfer:
-                            {
-                                encodedCommandSubmitInfo.pWaitDstStageMask = transferWaitStages;
-                                if (encodedCommandSubmitInfo.waitSemaphoreCount > 1)
-                                {
-                                    encodedCommandSubmitInfo.pWaitDstStageMask = waitStages.data();
-                                    for (u32 i = 0; i < encodedCommandSubmitInfo.waitSemaphoreCount; i++)
-                                        waitStages.push_back(VK_PIPELINE_STAGE_TRANSFER_BIT);
-                                }
-                                transferSubmitInfos.emplace_back(encodedCommandSubmitInfo);
-                            } break;
-                        }
+                        subData.FirstSubmitInfo->waitSemaphoreCount = completionSemaphoresWaitCount;
+                        subData.FirstSubmitInfo->pWaitSemaphores = completionSemaphores.data() + completionSemaphoresStartIndex;
+                        subData.FirstSubmitInfo->pWaitDstStageMask = completionWaitStages.data() + completionSemaphoresStartIndex;
+                        subData.TimelineSubmitInfos[0].waitSemaphoreValueCount = completionSemaphoresWaitCount;
+                        subData.TimelineSubmitInfos[0].pWaitSemaphoreValues = completionSemaphoreValues.data() + completionSemaphoresStartIndex;
                     }
+                    
+                    // Add final sub buffer semaphore to completion list for later awaiting
+                    completionSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
+                    completionSemaphoreValues.push_back(subData.SyncSemaphoreValues.back());
+                    completionWaitStages.push_back(subData.FinalSubBufferWaitStage);
+                    
+                    // Copy submission info
+                    graphicsSubmitInfos.insert(graphicsSubmitInfos.end(), subData.GraphicsSubmitInfos.begin(), subData.GraphicsSubmitInfos.end());
+                    computeSubmitInfos.insert(computeSubmitInfos.end(), subData.ComputeSubmitInfos.begin(), subData.ComputeSubmitInfos.end());
+                    transferSubmitInfos.insert(transferSubmitInfos.end(), subData.TransferSubmitInfos.begin(), subData.TransferSubmitInfos.end());
                 }
 
+                // Move completion pointer so that next batch will wait on semaphores from last batch
                 completionSemaphoresStartIndex += completionSemaphoresWaitCount;
                 completionSemaphoresWaitCount = completionSemaphores.size() - completionSemaphoresStartIndex;
             }
             
             submissionStartIndex += submissionCount;
-
-            processedSubmissions.emplace_back(completionSemaphoresStartIndex, completionSemaphoresWaitCount);
         }
-        
-        std::vector<VkSwapchainKHR> presentingSwapchains;
-        presentingSwapchains.reserve(m_PresentingContexts.size());
-        std::vector<u32> presentingImageIndices;
-        presentingImageIndices.reserve(m_PresentingContexts.size());
-        std::vector<VkSemaphore> finalWaitSemaphores;
-        finalWaitSemaphores.reserve(150);
-        std::vector<u64> finalWaitSemaphoreValues;
-        finalWaitSemaphoreValues.reserve(150);
-        std::vector<VkPipelineStageFlags> finalWaitStages;
-        finalWaitStages.reserve(150);
-        std::vector<VkSemaphore> finalSignalSemaphores;
-        finalSignalSemaphores.reserve(50);
 
-        // TODO: this wont work with multiple submissions
-        for (auto contextSubmission : m_PresentingContexts)
-        {
-            u32 waitSemaphoreCount = 1;
-            finalWaitSemaphores.push_back(contextSubmission.Context->GetImageAvailableSemaphore());
-            finalWaitSemaphoreValues.push_back(semaphoreBaseValue);
-            finalWaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-            if (contextSubmission.DependencySubmissionId != -1)
-            {
-                auto& processedSubmission = processedSubmissions[contextSubmission.DependencySubmissionId];
-                waitSemaphoreCount += processedSubmission.CompletionSemaphoresCount;
-
-                finalWaitSemaphores.insert(
-                    finalWaitSemaphores.end(),
-                    completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex,
-                    completionSemaphores.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
-                );
-
-                finalWaitSemaphoreValues.insert(
-                    finalWaitSemaphoreValues.end(),
-                    completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex,
-                    completionSemaphoreValues.begin() + processedSubmission.CompletionSemaphoresStartIndex + processedSubmission.CompletionSemaphoresCount
-                );
-
-                finalWaitStages.insert(
-                    finalWaitStages.end(),
-                    processedSubmission.CompletionSemaphoresCount + 1,
-                    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-                );
-            }
-
-            finalSignalSemaphores.push_back(GetSemaphore());
-
-            VkTimelineSemaphoreSubmitInfo finalTimelineSubmitInfo{};
-            finalTimelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-            finalTimelineSubmitInfo.waitSemaphoreValueCount = waitSemaphoreCount;
-            finalTimelineSubmitInfo.pWaitSemaphoreValues = finalWaitSemaphoreValues.data();
-            // We need this even though we aren't signaling a timeline semaphore. Removing this causes
-            // an extremely hard to find crash on macos
-            finalTimelineSubmitInfo.signalSemaphoreValueCount = 1;
-            finalTimelineSubmitInfo.pSignalSemaphoreValues = finalWaitSemaphoreValues.data();
-
-            VkSubmitInfo finalSubmitInfo{};
-            finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            finalSubmitInfo.pNext = timelineSubmitInfos.data() + timelineSubmitInfos.size();
-            finalSubmitInfo.waitSemaphoreCount = waitSemaphoreCount;
-            finalSubmitInfo.pWaitSemaphores = finalWaitSemaphores.data();
-            finalSubmitInfo.pWaitDstStageMask = finalWaitStages.data();
-            finalSubmitInfo.signalSemaphoreCount = 1;
-            finalSubmitInfo.pSignalSemaphores = finalSignalSemaphores.data();
-            finalSubmitInfo.commandBufferCount = 1;
-            finalSubmitInfo.pCommandBuffers = &contextSubmission.Context->CommandBuffer().GetEncoderSubmissions()[0].Buffer;
-            
-            // TODO: stop doing a copy here
-            graphicsSubmitInfos.emplace_back(finalSubmitInfo);
-            timelineSubmitInfos.emplace_back(finalTimelineSubmitInfo);
-
-            presentingSwapchains.push_back(contextSubmission.Context->Swapchain().GetSwapchain());
-            presentingImageIndices.push_back(contextSubmission.Context->Swapchain().GetActiveImageIndex());
-        }
+        // We need to do an initial loop over contexts to ensure that the graphics gets submitted before we present otherwise
+        // vulkan will not be happy
+        for (auto& contextSubmission : m_PresentingContexts)
+            graphicsSubmitInfos.push_back(contextSubmission.Context->GetSubmissionData().SubmitInfo);
         
         if (!graphicsSubmitInfos.empty())
         {
@@ -295,16 +124,19 @@ namespace Flourish::Vulkan
                 Context::Queues().QueueFence(GPUWorkloadType::Transfer)
             ));
         }
-        
-        if (!m_PresentingContexts.empty())
+
+        for (auto& contextSubmission : m_PresentingContexts)
         {
+            VkSwapchainKHR swapchain[1] = { contextSubmission.Context->Swapchain().GetSwapchain() };
+            u32 imageIndex[1] = { contextSubmission.Context->Swapchain().GetActiveImageIndex() };
+
             VkPresentInfoKHR presentInfo{};
             presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
             presentInfo.waitSemaphoreCount = 1;
-            presentInfo.pWaitSemaphores = finalSignalSemaphores.data();
-            presentInfo.swapchainCount = presentingSwapchains.size();
-            presentInfo.pSwapchains = presentingSwapchains.data();
-            presentInfo.pImageIndices = presentingImageIndices.data();
+            presentInfo.pWaitSemaphores = &contextSubmission.Context->GetSubmissionData().SignalSemaphores[Flourish::Context::FrameIndex()];
+            presentInfo.swapchainCount = 1;
+            presentInfo.pSwapchains = swapchain;
+            presentInfo.pImageIndices = imageIndex;
         
             vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
         }

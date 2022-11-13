@@ -32,7 +32,7 @@ namespace Flourish
         static void EndFrame();
 
         // TS
-        static int SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers);
+        static int SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }
@@ -41,8 +41,8 @@ namespace Flourish
         inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
-        inline static const auto& SubmittedCommandBuffers() { return s_SubmittedCommandBuffers; }
-        inline static const auto& SubmittedCommandBufferCounts() { return s_SubmittedCommandBufferCounts; }
+        inline static auto& SubmittedCommandBuffers() { return s_SubmittedCommandBuffers; }
+        inline static auto& SubmittedCommandBufferCounts() { return s_SubmittedCommandBufferCounts; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
 
@@ -53,7 +53,7 @@ namespace Flourish
         inline static u64 s_FrameCount = 0;
         inline static u32 s_FrameIndex = 0;
         inline static Flourish::FeatureTable s_FeatureTable;
-        inline static std::vector<std::vector<const CommandBuffer*>> s_SubmittedCommandBuffers;
+        inline static std::vector<std::vector<CommandBuffer*>> s_SubmittedCommandBuffers;
         inline static std::vector<u32> s_SubmittedCommandBufferCounts;
         inline static std::mutex s_SubmittedCommandBuffersLock;
     };

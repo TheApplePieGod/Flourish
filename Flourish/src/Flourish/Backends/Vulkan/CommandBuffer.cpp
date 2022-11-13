@@ -36,7 +36,7 @@ namespace Flourish::Vulkan
         Context::DeleteQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                vkDestroySemaphore(Context::Devices().Device(), m_SubmissionData.SyncSemaphores[frame], nullptr);
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
         });
     }
     
@@ -55,18 +55,21 @@ namespace Flourish::Vulkan
         {
             case GPUWorkloadType::Graphics:
             {
+                m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.DrawWaitStages;
                 encodedCommandSubmitInfo = &m_SubmissionData.GraphicsSubmitInfos.emplace_back();
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.DrawWaitStages;
             } break;
             case GPUWorkloadType::Compute:
             {
+                m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.ComputeWaitStages;
                 encodedCommandSubmitInfo = &m_SubmissionData.ComputeSubmitInfos.emplace_back();
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.ComputeWaitStages;
             } break;
             case GPUWorkloadType::Transfer:
             {
+                m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.TransferWaitStages;
                 encodedCommandSubmitInfo = &m_SubmissionData.TransferSubmitInfos.emplace_back();
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.TransferWaitStages;
@@ -100,6 +103,8 @@ namespace Flourish::Vulkan
 
             m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size());
         }
+        else 
+            m_SubmissionData.FirstSubmitInfo = encodedCommandSubmitInfo;
     }
 
     Flourish::RenderCommandEncoder* CommandBuffer::EncodeRenderCommands(Flourish::Framebuffer* framebuffer)

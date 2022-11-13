@@ -62,7 +62,7 @@ namespace Flourish
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    int Context::SubmitCommandBuffers(const std::vector<std::vector<const CommandBuffer*>>& buffers)
+    int Context::SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
     {
         if (buffers.empty()) return -1;
 
