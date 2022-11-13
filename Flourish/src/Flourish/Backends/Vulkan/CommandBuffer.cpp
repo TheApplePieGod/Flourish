@@ -88,10 +88,12 @@ namespace Flourish::Vulkan
         VkTimelineSemaphoreSubmitInfo* timelineSubmitInfo = &m_SubmissionData.TimelineSubmitInfos.emplace_back();
         timelineSubmitInfo->sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
         timelineSubmitInfo->signalSemaphoreValueCount = 1;
+        timelineSubmitInfo->pSignalSemaphoreValues = m_SubmissionData.SyncSemaphoreValues.data() + m_SubmissionData.SyncSemaphoreValues.size();
+        m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size() + 1);
+
         timelineSubmitInfo->waitSemaphoreValueCount = 0;
         timelineSubmitInfo->pWaitSemaphoreValues = m_SubmissionData.SyncSemaphoreValues.data() + m_SubmissionData.SyncSemaphoreValues.size();
-
-        m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size() + 1);
+        m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size());
 
         // Wait for the last sub buffer if this is not the first one
         if (m_EncoderSubmissions.size() > 1)
