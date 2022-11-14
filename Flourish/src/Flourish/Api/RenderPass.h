@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Flourish/Api/Texture.h"
-#include "Flourish/Api/Pipeline.h"
+#include "Flourish/Api/GraphicsPipeline.h"
 
 namespace Flourish
 {

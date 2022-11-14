@@ -133,13 +133,11 @@ namespace Flourish::Vulkan
         dynamicState.dynamicStateCount = 3;
         dynamicState.pDynamicStates = dynamicStates;
 
-        std::vector<VkDescriptorSetLayout> layouts;
-        layouts.emplace_back(m_DescriptorSetLayout.GetLayout());
-
+        VkDescriptorSetLayout layout[1] = { m_DescriptorSetLayout.GetLayout() };
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = static_cast<u32>(layouts.size());
-        pipelineLayoutInfo.pSetLayouts = layouts.data();
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = layout;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
         FL_VK_ENSURE_RESULT(vkCreatePipelineLayout(Context::Devices().Device(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout));
