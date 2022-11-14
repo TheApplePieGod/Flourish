@@ -53,7 +53,7 @@ namespace FlourishTesting
         }
 
         std::vector<std::future<void>> jobs;
-        std::vector<const Flourish::CommandBuffer*> parallelBuffers;
+        std::vector<Flourish::CommandBuffer*> parallelBuffers;
         for (u32 i = 0; i < objectCount; i++)
         {
             jobs.push_back(std::async(std::launch::async, [&, i]()
@@ -101,17 +101,6 @@ namespace FlourishTesting
     {
         if (!m_DogTexture->IsReady()) return;
 
-        /*
-        auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_SimplePassNoDepthFrameTexFB.get());
-        encoder1->BindPipeline("image");
-        encoder1->BindPipelineTextureResource(0, m_DogTexture.get());
-        encoder1->FlushPipelineBindings();
-        encoder1->BindVertexBuffer(m_QuadVertices.get()); // TODO: validate buffer is actually a vertex
-        encoder1->BindIndexBuffer(m_QuadIndices.get()); // TODO: validate buffer is actually a vertex
-        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1);
-        encoder1->EndEncoding();
-        */
-        
         u32 objectCount = 5;
         float scale = 0.25f;
         float offsetStep = 2.f / objectCount;

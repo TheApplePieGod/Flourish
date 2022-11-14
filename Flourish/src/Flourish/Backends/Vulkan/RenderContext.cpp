@@ -2,6 +2,7 @@
 #include "RenderContext.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
@@ -40,6 +41,9 @@ namespace Flourish::Vulkan
         if (!m_Surface) return;
 
         m_Swapchain.Initialize(createInfo, m_Surface);
+        
+        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            m_SubmissionData.SignalSemaphores[frame] = Synchronization::CreateSemaphore();
     }
 
     RenderContext::~RenderContext()
@@ -47,13 +51,16 @@ namespace Flourish::Vulkan
         m_Swapchain.Shutdown();
 
         auto surface = m_Surface;
+        auto semaphores = m_SubmissionData.SignalSemaphores;
         Context::DeleteQueue().Push([=]()
         {
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
+            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
         });
     }
 
-    void RenderContext::Present(const std::vector<std::vector<const Flourish::CommandBuffer*>>& dependencyBuffers)
+    void RenderContext::Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers)
     {
         FL_CRASH_ASSERT(m_LastEncodingFrame == Flourish::Context::FrameCount(), "Cannot present render context that has not been encoded");
         if (m_LastPresentFrame == Flourish::Context::FrameCount())
@@ -61,11 +68,51 @@ namespace Flourish::Vulkan
             FL_ASSERT(false, "Cannot present render context multiple times per frame");
             return;
         }
-
         m_LastPresentFrame = Flourish::Context::FrameCount();
+        
+        Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
+        Context::SubmissionHandler().PresentRenderContext(this);
 
-        u32 submissionId = Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
-        Context::SubmissionHandler().PresentRenderContext(this, submissionId);
+        m_SubmissionData.WaitSemaphores.clear();
+        m_SubmissionData.WaitSemaphoreValues.clear();
+        m_SubmissionData.WaitStages.clear();
+        
+        // Add semaphore to wait for the image to be available
+        m_SubmissionData.WaitSemaphores.push_back(GetImageAvailableSemaphore());
+        m_SubmissionData.WaitSemaphoreValues.push_back(Flourish::Context::FrameCount());
+        m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+        for (auto& _buffer : dependencyBuffers.back())
+        {
+            Vulkan::CommandBuffer* buffer = static_cast<Vulkan::CommandBuffer*>(_buffer);
+            if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
+
+            auto& subData = buffer->GetSubmissionData();
+                    
+            // Add each final sub buffer semaphore to wait on
+            m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
+            m_SubmissionData.WaitSemaphoreValues.push_back(subData.SyncSemaphoreValues.back());
+            m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
+        }
+
+        m_SubmissionData.TimelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        m_SubmissionData.TimelineSubmitInfo.pNext = nullptr;
+        m_SubmissionData.TimelineSubmitInfo.waitSemaphoreValueCount = m_SubmissionData.WaitSemaphoreValues.size();
+        m_SubmissionData.TimelineSubmitInfo.pWaitSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
+        // We need this even though we aren't signaling a timeline semaphore. Removing this causes
+        // an extremely hard to find crash on macos
+        m_SubmissionData.TimelineSubmitInfo.signalSemaphoreValueCount = 1;
+        m_SubmissionData.TimelineSubmitInfo.pSignalSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
+        
+        m_SubmissionData.SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        m_SubmissionData.SubmitInfo.pNext = &m_SubmissionData.TimelineSubmitInfo;
+        m_SubmissionData.SubmitInfo.waitSemaphoreCount = m_SubmissionData.WaitSemaphores.size();
+        m_SubmissionData.SubmitInfo.pWaitSemaphores = m_SubmissionData.WaitSemaphores.data();
+        m_SubmissionData.SubmitInfo.pWaitDstStageMask = m_SubmissionData.WaitStages.data();
+        m_SubmissionData.SubmitInfo.signalSemaphoreCount = 1;
+        m_SubmissionData.SubmitInfo.pSignalSemaphores = &m_SubmissionData.SignalSemaphores[Flourish::Context::FrameIndex()];
+        m_SubmissionData.SubmitInfo.commandBufferCount = 1;
+        m_SubmissionData.SubmitInfo.pCommandBuffers = &m_CommandBuffer.GetEncoderSubmissions()[0].Buffer;
     }
 
     RenderPass* RenderContext::GetRenderPass() const

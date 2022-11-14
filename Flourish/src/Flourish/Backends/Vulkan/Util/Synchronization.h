@@ -4,6 +4,12 @@
 
 namespace Flourish::Vulkan
 {
+    struct SemaphorePool
+    {
+        std::vector<VkSemaphore> Semaphores;
+        u32 FreeIndex;
+    };
+
     struct Synchronization
     {
         // TS
