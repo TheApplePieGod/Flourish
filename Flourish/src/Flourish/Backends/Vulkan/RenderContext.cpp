@@ -96,13 +96,14 @@ namespace Flourish::Vulkan
         }
 
         m_SubmissionData.TimelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        m_SubmissionData.TimelineSubmitInfo.pNext = nullptr;
         m_SubmissionData.TimelineSubmitInfo.waitSemaphoreValueCount = m_SubmissionData.WaitSemaphoreValues.size();
         m_SubmissionData.TimelineSubmitInfo.pWaitSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
         // We need this even though we aren't signaling a timeline semaphore. Removing this causes
         // an extremely hard to find crash on macos
         m_SubmissionData.TimelineSubmitInfo.signalSemaphoreValueCount = 1;
         m_SubmissionData.TimelineSubmitInfo.pSignalSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
-
+        
         m_SubmissionData.SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         m_SubmissionData.SubmitInfo.pNext = &m_SubmissionData.TimelineSubmitInfo;
         m_SubmissionData.SubmitInfo.waitSemaphoreCount = m_SubmissionData.WaitSemaphores.size();
