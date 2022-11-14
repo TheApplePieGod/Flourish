@@ -15,40 +15,22 @@ namespace Flourish::Vulkan
         void ProcessSubmissions();
 
         // TS
-        void PresentRenderContext(const RenderContext* context, int dependencySubmissionId);
+        void PresentRenderContext(const RenderContext* context);
         
     private:
-        struct ProcessedSubmissionInfo
+        struct SubmissionData
         {
-            ProcessedSubmissionInfo(u32 startIndex, u32 count)
-                : CompletionSemaphoresStartIndex(startIndex),
-                  CompletionSemaphoresCount(count)
-            {}
-
-            u32 CompletionSemaphoresStartIndex;
-            u32 CompletionSemaphoresCount;
+            std::vector<VkSubmitInfo> GraphicsSubmitInfos;
+            std::vector<VkSubmitInfo> ComputeSubmitInfos;
+            std::vector<VkSubmitInfo> TransferSubmitInfos;
+            std::vector<VkSemaphore> CompletionSemaphores;
+            std::vector<u64> CompletionSemaphoreValues;
+            std::vector<VkPipelineStageFlags> CompletionWaitStages;
         };
-        
-        struct RenderContextSubmission
-        {
-            RenderContextSubmission(const RenderContext* context, int dependencySubmissionId)
-                : Context(context),
-                  DependencySubmissionId(dependencySubmissionId)
-            {}
-
-            const RenderContext* Context;
-            int DependencySubmissionId;
-        };
-        
 
     private:
-        VkSemaphore GetTimelineSemaphore();
-        VkSemaphore GetSemaphore();
-
-    private:
-        std::array<SemaphorePool, Flourish::Context::MaxFrameBufferCount> m_TimelineSemaphorePools;
-        std::array<SemaphorePool, Flourish::Context::MaxFrameBufferCount> m_SemaphorePools;
-        std::vector<RenderContextSubmission> m_PresentingContexts;
+        std::vector<const RenderContext*> m_PresentingContexts;
+        SubmissionData m_SubmissionData;
         std::mutex m_PresentingContextsLock;
     };
 }

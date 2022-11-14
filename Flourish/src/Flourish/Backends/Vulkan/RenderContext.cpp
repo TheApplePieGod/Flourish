@@ -70,8 +70,8 @@ namespace Flourish::Vulkan
         }
         m_LastPresentFrame = Flourish::Context::FrameCount();
         
-        u32 submissionId = Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
-        Context::SubmissionHandler().PresentRenderContext(this, submissionId);
+        Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
+        Context::SubmissionHandler().PresentRenderContext(this);
 
         m_SubmissionData.WaitSemaphores.clear();
         m_SubmissionData.WaitSemaphoreValues.clear();

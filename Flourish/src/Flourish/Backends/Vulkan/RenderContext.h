@@ -37,8 +37,6 @@ namespace Flourish::Vulkan
         inline const RenderContextSubmissionData& GetSubmissionData() const { return m_SubmissionData; }
 
     private:
-    
-    private:
         VkSurfaceKHR m_Surface;
         Vulkan::Swapchain m_Swapchain;
         Vulkan::CommandBuffer m_CommandBuffer;

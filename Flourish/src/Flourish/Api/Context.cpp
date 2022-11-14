@@ -62,16 +62,13 @@ namespace Flourish
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    int Context::SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    void Context::SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
     {
-        if (buffers.empty()) return -1;
+        if (buffers.empty()) return;
 
         s_SubmittedCommandBuffersLock.lock();
-        int submissionId = s_SubmittedCommandBufferCounts.size();
         s_SubmittedCommandBuffers.insert(s_SubmittedCommandBuffers.end(), buffers.begin(), buffers.end());
         s_SubmittedCommandBufferCounts.push_back(buffers.size());
         s_SubmittedCommandBuffersLock.unlock();
-
-        return submissionId;
     }
 }

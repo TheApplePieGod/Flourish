@@ -32,7 +32,7 @@ namespace Flourish
         static void EndFrame();
 
         // TS
-        static int SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
+        static void SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }
