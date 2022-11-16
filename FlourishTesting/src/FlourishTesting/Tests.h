@@ -7,7 +7,8 @@
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"
 #include "Flourish/Api/Framebuffer.h"
-#include "Flourish/Api/RenderCommandEncoder.h"
+#include "Flourish/Api/ComputeTarget.h"
+#include "Flourish/Api/ComputePipeline.h"
 
 namespace FlourishTesting
 {
@@ -56,6 +57,8 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::RenderPass> m_SimplePassNoDepth;
 
         std::vector<std::shared_ptr<Flourish::Framebuffer>> m_FrameTextureBuffers;
+        std::shared_ptr<Flourish::ComputePipeline> m_ComputePipeline;
+        std::shared_ptr<Flourish::ComputeTarget> m_ComputeTarget;
         
         std::shared_ptr<Flourish::Buffer> m_FullTriangleVertices;
         std::shared_ptr<Flourish::Buffer> m_QuadVertices;

@@ -19,20 +19,13 @@ namespace Flourish
             ConsolidateReflectionData();
         }
         virtual ~ComputePipeline() = default;
-
-        inline u32 GetDispatchCountX() const { return m_DispatchCountX; }
-        inline u32 GetDispatchCountY() const { return m_DispatchCountY; }
-        inline u32 GetDispatchCountZ() const { return m_DispatchCountZ; }
-        inline void SetDispatchCountX(u32 count) { m_DispatchCountX = count; }
-        inline void SetDispatchCountY(u32 count) { m_DispatchCountY = count; }
-        inline void SetDispatchCountZ(u32 count) { m_DispatchCountZ = count; }
-        inline void SetDispatchCount(u32 x, u32 y, u32 z) { m_DispatchCountX = x; m_DispatchCountY = y; m_DispatchCountZ = z; }
+        
+    public:
+        // TS
+        static std::shared_ptr<ComputePipeline> Create(const ComputePipelineCreateInfo& createInfo);
 
     protected:
         ComputePipelineCreateInfo m_Info;
-        u32 m_DispatchCountX = 1;
-        u32 m_DispatchCountY = 1;
-        u32 m_DispatchCountZ = 1;
 
     private:
         void ConsolidateReflectionData();

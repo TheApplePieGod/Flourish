@@ -1,11 +1,11 @@
 #include "flpch.h"
 #include "RenderCommandEncoder.h"
+
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/Framebuffer.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
-#include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
 
 namespace Flourish::Vulkan
 {

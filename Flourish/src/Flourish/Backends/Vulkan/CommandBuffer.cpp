@@ -3,8 +3,8 @@
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Api/RenderCommandEncoder.h"
-#include "Flourish/Backends/Vulkan/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Framebuffer.h"
+#include "Flourish/Backends/Vulkan/ComputeTarget.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
@@ -126,6 +126,24 @@ namespace Flourish::Vulkan
 
         return static_cast<Flourish::RenderCommandEncoder*>(&m_RenderCommandEncoderCache[m_RenderCommandEncoderCachePtr++]);
     }
+
+    Flourish::ComputeCommandEncoder* CommandBuffer::EncodeComputeCommands(Flourish::ComputeTarget* target)
+    {
+        FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
+        FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
+        m_Encoding = true;
+
+        CheckFrameUpdate();
+
+        if (m_ComputeCommandEncoderCachePtr >= m_ComputeCommandEncoderCache.size())
+            m_ComputeCommandEncoderCache.emplace_back(this);
+
+        m_ComputeCommandEncoderCache[m_ComputeCommandEncoderCachePtr].BeginEncoding(
+            static_cast<ComputeTarget*>(target)
+        );
+
+        return static_cast<Flourish::ComputeCommandEncoder*>(&m_ComputeCommandEncoderCache[m_ComputeCommandEncoderCachePtr++]);
+    }
     
     void CommandBuffer::CheckFrameUpdate()
     {
@@ -135,6 +153,7 @@ namespace Flourish::Vulkan
             m_EncoderSubmissions.clear();
             m_LastFrameEncoding = Flourish::Context::FrameCount();
             m_RenderCommandEncoderCachePtr = 0;
+            m_ComputeCommandEncoderCachePtr = 0;
             
             m_SubmissionData.GraphicsSubmitInfos.clear();
             m_SubmissionData.ComputeSubmitInfos.clear();

@@ -15,7 +15,9 @@ namespace Flourish
     };
 
     class Framebuffer;
+    class ComputeTarget;
     class RenderCommandEncoder;
+    class ComputeCommandEncoder;
     class CommandBuffer
     {
     public:
@@ -25,6 +27,7 @@ namespace Flourish
         virtual ~CommandBuffer() = default;
         
         virtual RenderCommandEncoder* EncodeRenderCommands(Framebuffer* framebuffer) = 0;
+        virtual ComputeCommandEncoder* EncodeComputeCommands(ComputeTarget* target) = 0;
 
         // TS
         inline bool IsEncoding() const { return m_Encoding; }

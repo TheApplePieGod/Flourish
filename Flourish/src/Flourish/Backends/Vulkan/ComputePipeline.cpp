@@ -10,6 +10,7 @@ namespace Flourish::Vulkan
         : Flourish::ComputePipeline(createInfo)
     {
         m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
+        m_DescriptorSet = std::make_shared<DescriptorSet>(m_DescriptorSetLayout);
 
         VkPipelineShaderStageCreateInfo shaderStage = static_cast<Shader*>(createInfo.ComputeShader.get())->DefineShaderStage();
 
