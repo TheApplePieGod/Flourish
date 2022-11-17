@@ -24,7 +24,7 @@ target_include_directories(
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/vma/include>"
-  "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
+  "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/macOS/include>"
 )
 
 # Link vulkan related libraries
@@ -50,25 +50,25 @@ if (WIN32)
 elseif(APPLE)
   find_library(shaderc
     NAMES "libshaderc_shared.dylib"
-    PATHS "$ENV{VULKAN_SDK}/lib"
+    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(Core ${shaderc})
   find_library(spirvcore
     NAMES "libspirv-cross-core.a"
-    PATHS "$ENV{VULKAN_SDK}/lib"
+    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(Core ${spirvcore})
   find_library(spirvglsl
     NAMES "libspirv-cross-glsl.a"
-    PATHS "$ENV{VULKAN_SDK}/lib"
+    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(Core ${sprivglsl})
+  message($ENV{VULKAN_SDK})
 else()
   find_library(shaderc
     NAMES "libshaderc_shared.so"
-    PATHS "$ENV{VULKAN_SDK}/lib"
+    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
-  target_link_libraries(Core ${shaderc})
 endif()
 
 # PCH

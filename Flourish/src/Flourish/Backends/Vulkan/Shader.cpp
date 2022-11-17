@@ -3,7 +3,6 @@
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "shaderc/shaderc.hpp"
-#include "spirv_cross/spirv_cross.hpp"
 #include "spirv_cross/spirv_glsl.hpp"
 
 namespace Flourish::Vulkan
@@ -182,7 +181,11 @@ namespace Flourish::Vulkan
         // For some reason, compiler needs to be heap allocated because otherwise it causes
         // a crash on macos
         auto compiler = std::make_unique<spirv_cross::Compiler>(compiledData.data(), compiledData.size());
+        
+        // Again on macos something is broken, so we need to zero out these struct members otherwise it crashes
 		spirv_cross::ShaderResources resources = compiler->get_shader_resources();
+        memset(&resources.builtin_inputs, 0, sizeof(resources.builtin_inputs));
+        memset(&resources.builtin_outputs, 0, sizeof(resources.builtin_outputs));
 
         ShaderResourceAccessType accessType;
         switch (m_Type)
