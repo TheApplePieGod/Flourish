@@ -23,6 +23,7 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessSubmissions()
     {
         u32 submissionStartIndex = 0;
+        u32 completionSemaphoresAdded = 0;
         u32 completionSemaphoresStartIndex = 0;
         u32 completionSemaphoresWaitCount = 0;
         
@@ -36,6 +37,9 @@ namespace Flourish::Vulkan
         // Each submission gets executed in parallel
         for (auto submissionCount : Flourish::Context::SubmittedCommandBufferCounts())
         {
+            completionSemaphoresWaitCount = 0;
+            completionSemaphoresAdded = 0;
+
             // Each submission executes buffers sequentially
             for (u32 submissionIndex = submissionStartIndex; submissionIndex < submissionStartIndex + submissionCount; submissionIndex++)
             {
@@ -62,6 +66,7 @@ namespace Flourish::Vulkan
                     m_SubmissionData.CompletionSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
                     m_SubmissionData.CompletionSemaphoreValues.push_back(subData.SyncSemaphoreValues.back());
                     m_SubmissionData.CompletionWaitStages.push_back(subData.FinalSubBufferWaitStage);
+                    completionSemaphoresAdded++;
                     
                     // Copy submission info
                     m_SubmissionData.GraphicsSubmitInfos.insert(m_SubmissionData.GraphicsSubmitInfos.end(), subData.GraphicsSubmitInfos.begin(), subData.GraphicsSubmitInfos.end());
@@ -71,10 +76,12 @@ namespace Flourish::Vulkan
 
                 // Move completion pointer so that next batch will wait on semaphores from last batch
                 completionSemaphoresStartIndex += completionSemaphoresWaitCount;
-                completionSemaphoresWaitCount = m_SubmissionData.CompletionSemaphores.size() - completionSemaphoresStartIndex;
+                completionSemaphoresWaitCount = completionSemaphoresAdded;
+                completionSemaphoresAdded = 0;
             }
             
             submissionStartIndex += submissionCount;
+            completionSemaphoresStartIndex += completionSemaphoresWaitCount;
         }
 
         // We need to do an initial loop over contexts to ensure that the graphics gets submitted before we present otherwise
