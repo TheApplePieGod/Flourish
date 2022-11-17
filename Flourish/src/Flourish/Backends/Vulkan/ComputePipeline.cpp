@@ -40,6 +40,6 @@ namespace Flourish::Vulkan
         {
             vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
             vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
-        });
+        }, "Compute pipeline free");
     }
 }

@@ -37,7 +37,7 @@ namespace Flourish::Vulkan
         {
             for (auto semaphore : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
-        });
+        }, "Queues free");
     }
     
     void Queues::ResetQueueFence(GPUWorkloadType workloadType)

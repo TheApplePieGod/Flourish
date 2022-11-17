@@ -197,6 +197,6 @@ namespace Flourish::Vulkan
             for (auto pipeline : pipelines)
                 vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
             vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
-        });
+        }, "Graphics pipeline free");
     }
 }

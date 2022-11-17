@@ -156,7 +156,7 @@ namespace Flourish::Vulkan
                     vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
                 }
             }
-        });
+        }, "Framebuffer free");
     }
     
     void Framebuffer::PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags, u32 frame)

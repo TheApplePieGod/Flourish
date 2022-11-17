@@ -203,6 +203,7 @@ namespace Flourish::Vulkan
 
         auto readyState = m_ReadyState;
         Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
+            FL_LOG_WARN("TEX COMPLETE");
             *readyState += 1;
         });
 
@@ -213,7 +214,7 @@ namespace Flourish::Vulkan
             Context::DeleteQueue().Push([stagingBuffer, stagingAlloc]()
             {
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
-            });
+            }, "Texture staging free");
         }
     }
 
@@ -258,7 +259,7 @@ namespace Flourish::Vulkan
             }
             if (sampler) 
                 vkDestroySampler(device, sampler, nullptr);
-        });
+        }, "Texture free");
     }
 
     bool Texture::IsReady() const

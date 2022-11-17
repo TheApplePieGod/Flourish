@@ -57,7 +57,7 @@ namespace Flourish::Vulkan
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
-        });
+        }, "Render context free");
     }
 
     void RenderContext::Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers)

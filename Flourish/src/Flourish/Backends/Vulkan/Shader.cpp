@@ -152,7 +152,7 @@ namespace Flourish::Vulkan
         Context::DeleteQueue().Push([=]()
         {
             vkDestroyShaderModule(Context::Devices().Device(), mod, nullptr);
-        });
+        }, "Shader free");
     }
 
     VkPipelineShaderStageCreateInfo Shader::DefineShaderStage(const char* entrypoint)

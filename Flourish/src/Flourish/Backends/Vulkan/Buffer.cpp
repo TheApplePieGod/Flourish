@@ -110,7 +110,7 @@ namespace Flourish::Vulkan
                     vmaDestroyBuffer(Context::Allocator(), stagingBuffers[i].Buffer, stagingBuffers[i].Allocation);
                 vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
             }
-        });
+        }, "Buffer free");
     }
 
     void Buffer::SetBytes(void* data, u32 byteCount, u32 byteOffset)
@@ -340,7 +340,7 @@ namespace Flourish::Vulkan
             Context::DeleteQueue().Push([initialDataStagingBuf]()
             {
                 vmaDestroyBuffer(Context::Allocator(), initialDataStagingBuf.Buffer, initialDataStagingBuf.Allocation);
-            });
+            }, "Buffer free staging");
         }
     }
 }

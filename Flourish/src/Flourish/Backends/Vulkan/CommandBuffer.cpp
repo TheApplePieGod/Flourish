@@ -37,7 +37,7 @@ namespace Flourish::Vulkan
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
-        });
+        }, "Command buffer free");
     }
     
     void CommandBuffer::SubmitEncodedCommands(VkCommandBuffer buffer, GPUWorkloadType workloadType)

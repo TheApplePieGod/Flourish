@@ -15,12 +15,13 @@ namespace Flourish::Vulkan
         Iterate(true);
     }
 
-    void DeleteQueue::Push(std::function<void()>&& executeFunc)
+    void DeleteQueue::Push(std::function<void()>&& executeFunc, const char* debugName)
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
             Flourish::Context::FrameBufferCount() + 1,
-            executeFunc
+            executeFunc,
+            debugName
         );
         m_QueueLock.unlock();
     }
@@ -35,6 +36,8 @@ namespace Flourish::Vulkan
                 value.Lifetime -= 1;
             else
             {
+                if (value.DebugName)
+                    FL_LOG_WARN("Delete queue: %s", value.DebugName);
                 m_QueueLock.unlock();
                 value.Execute();
                 m_QueueLock.lock();

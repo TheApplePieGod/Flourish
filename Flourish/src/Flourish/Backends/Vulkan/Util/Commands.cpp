@@ -118,7 +118,7 @@ namespace Flourish::Vulkan
                 bufs.size(),
                 bufs.data()
             );
-        });
+        }, "Generic commands free");
     }
 
     void Commands::FreeBuffer(GPUWorkloadType workloadType, VkCommandBuffer buffer)
@@ -132,7 +132,7 @@ namespace Flourish::Vulkan
                 1,
                 &buffer
             );
-        });
+        }, "Generic command free");
     }
 
     void Commands::DestroyPools(const ThreadCommandPools& pools)
