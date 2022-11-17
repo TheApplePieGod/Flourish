@@ -7,17 +7,21 @@ namespace Flourish::Vulkan
 {
     ThreadCommandPools::ThreadCommandPools()
     {
+        // Ensure this does not run before vulkan is initialized
+        if (!Context::Devices().Device()) return;
         Context::Commands().CreatePoolsForThread();
     }
 
     ThreadCommandPools::~ThreadCommandPools()
     {
+        if (!Context::Devices().Device()) return;
         Context::Commands().DestroyPoolsForThread();
     }
 
     void Commands::Initialize()
     {
-
+        // Ensure pools for the main thread have been initialized
+        if (!s_ThreadPools.GraphicsPool) CreatePoolsForThread();
     }
 
     void Commands::Shutdown()
