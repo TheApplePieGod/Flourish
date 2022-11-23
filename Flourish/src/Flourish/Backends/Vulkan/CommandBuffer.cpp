@@ -45,7 +45,6 @@ namespace Flourish::Vulkan
         m_EncoderSubmissions.emplace_back(buffer, workloadType);
         m_Encoding = false;
         
-        u64 semaphoreBaseValue = Flourish::Context::FrameCount();
         VkSemaphore* syncSemaphore = &m_SubmissionData.SyncSemaphores[Flourish::Context::FrameIndex()];
         
         // Retrieve submission from the appropriate queue 
@@ -87,13 +86,10 @@ namespace Flourish::Vulkan
 
         VkTimelineSemaphoreSubmitInfo* timelineSubmitInfo = &m_SubmissionData.TimelineSubmitInfos.emplace_back();
         timelineSubmitInfo->sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineSubmitInfo->waitSemaphoreValueCount = 0;
         timelineSubmitInfo->signalSemaphoreValueCount = 1;
         timelineSubmitInfo->pSignalSemaphoreValues = m_SubmissionData.SyncSemaphoreValues.data() + m_SubmissionData.SyncSemaphoreValues.size();
-        m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size() + 1);
-
-        timelineSubmitInfo->waitSemaphoreValueCount = 0;
-        timelineSubmitInfo->pWaitSemaphoreValues = m_SubmissionData.SyncSemaphoreValues.data() + m_SubmissionData.SyncSemaphoreValues.size();
-        m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size());
+        m_SubmissionData.SyncSemaphoreValues.push_back(m_SemaphoreBaseValue + m_EncoderSubmissions.size() + 1);
 
         // Wait for the last sub buffer if this is not the first one
         if (m_EncoderSubmissions.size() > 1)
@@ -103,7 +99,7 @@ namespace Flourish::Vulkan
             timelineSubmitInfo->waitSemaphoreValueCount = 1;
             timelineSubmitInfo->pWaitSemaphoreValues = m_SubmissionData.SyncSemaphoreValues.data() + m_SubmissionData.SyncSemaphoreValues.size();
 
-            m_SubmissionData.SyncSemaphoreValues.push_back(semaphoreBaseValue + m_EncoderSubmissions.size());
+            m_SubmissionData.SyncSemaphoreValues.push_back(m_SemaphoreBaseValue + m_EncoderSubmissions.size());
         }
         else 
             m_SubmissionData.FirstSubmitInfo = encodedCommandSubmitInfo;
@@ -150,6 +146,7 @@ namespace Flourish::Vulkan
         // Each new frame, we need to clear the previous encoder submissions
         if (m_LastFrameEncoding != Flourish::Context::FrameCount())
         {
+            m_SemaphoreBaseValue += m_EncoderSubmissions.size() + 1;
             m_EncoderSubmissions.clear();
             m_LastFrameEncoding = Flourish::Context::FrameCount();
             m_RenderCommandEncoderCachePtr = 0;

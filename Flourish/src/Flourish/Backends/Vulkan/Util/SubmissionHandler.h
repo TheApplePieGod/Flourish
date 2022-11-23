@@ -12,6 +12,7 @@ namespace Flourish::Vulkan
         void Initialize();
         void Shutdown();
 
+        void WaitOnFrameSemaphores();
         void ProcessSubmissions();
 
         // TS
@@ -27,9 +28,20 @@ namespace Flourish::Vulkan
             std::vector<u64> CompletionSemaphoreValues;
             std::vector<VkPipelineStageFlags> CompletionWaitStages;
         };
+        
+        struct SemaphoreWaitInfo
+        {
+            SemaphoreWaitInfo(VkSemaphore sem, u64 val)
+                : Semaphore(sem), WaitValue(val)
+            {}
+
+            VkSemaphore Semaphore;
+            u64 WaitValue;
+        };
 
     private:
         std::vector<const RenderContext*> m_PresentingContexts;
+        std::array<std::vector<SemaphoreWaitInfo>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
         SubmissionData m_SubmissionData;
         std::mutex m_PresentingContextsLock;
     };

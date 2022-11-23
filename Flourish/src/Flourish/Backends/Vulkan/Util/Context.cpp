@@ -67,7 +67,7 @@ namespace Flourish::Vulkan
 
     void Context::BeginFrame()
     {
-        s_Queues.WaitForQueueFences();
+        s_SubmissionHandler.WaitOnFrameSemaphores();
     }
 
     void Context::EndFrame()

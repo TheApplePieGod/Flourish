@@ -33,8 +33,6 @@ namespace Flourish::Vulkan
     public:
         void Initialize();
         void Shutdown();
-        void ResetQueueFence(GPUWorkloadType workloadType);
-        void WaitForQueueFences();
 
         // TS
         void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
@@ -49,7 +47,6 @@ namespace Flourish::Vulkan
         VkQueue Queue(GPUWorkloadType workloadType) const;
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
         u32 QueueIndex(GPUWorkloadType workloadType) const;
-        VkFence QueueFence(GPUWorkloadType workloadType) const;
 
     public:
         // TS
@@ -71,14 +68,13 @@ namespace Flourish::Vulkan
         struct QueueData
         {
             std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> Queues;
-            std::array<VkFence, Flourish::Context::MaxFrameBufferCount> Fences;
             u32 QueueIndex;
             std::deque<QueueCommandEntry> CommandQueue;
             std::mutex CommandQueueLock;
 
             std::vector<VkCommandBuffer> Buffers;
             std::vector<VkSemaphore> Semaphores;
-            std::vector<u64> SignalValues; 
+            std::vector<u64> SignalValues;
         };
 
     private:

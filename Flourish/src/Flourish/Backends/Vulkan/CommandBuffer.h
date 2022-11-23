@@ -36,6 +36,7 @@ namespace Flourish::Vulkan
 
         // TS
         inline const auto& GetEncoderSubmissions() const { return m_EncoderSubmissions; }
+        inline u64 GetFinalSemaphoreValue() const { return m_SemaphoreBaseValue + m_EncoderSubmissions.size() + 1; }
 
     private:
         struct EncoderSubmission
@@ -53,6 +54,7 @@ namespace Flourish::Vulkan
 
     private:
         u64 m_LastFrameEncoding = 0;
+        u64 m_SemaphoreBaseValue = 1;
         std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
         std::vector<ComputeCommandEncoder> m_ComputeCommandEncoderCache;
         u32 m_RenderCommandEncoderCachePtr = 0;

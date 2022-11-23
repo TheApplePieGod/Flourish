@@ -21,10 +21,6 @@ namespace Flourish::Vulkan
             vkGetDeviceQueue(Context::Devices().Device(), m_GraphicsQueue.QueueIndex, std::min(i, indices.GraphicsQueueCount - 1), &m_GraphicsQueue.Queues[i]);
             vkGetDeviceQueue(Context::Devices().Device(), m_ComputeQueue.QueueIndex, std::min(i, indices.ComputeQueueCount - 1), &m_ComputeQueue.Queues[i]);
             vkGetDeviceQueue(Context::Devices().Device(), m_TransferQueue.QueueIndex, std::min(i, indices.TransferQueueCount - 1), &m_TransferQueue.Queues[i]);
-            
-            m_GraphicsQueue.Fences[i] = Synchronization::CreateFence();
-            m_ComputeQueue.Fences[i] = Synchronization::CreateFence();
-            m_TransferQueue.Fences[i] = Synchronization::CreateFence();
         }
     }
 
@@ -38,33 +34,6 @@ namespace Flourish::Vulkan
             for (auto semaphore : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
         }, "Queues free");
-    }
-    
-    void Queues::ResetQueueFence(GPUWorkloadType workloadType)
-    {
-        VkFence fence = nullptr;
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { fence = m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()]; } break;
-            case GPUWorkloadType::Transfer:
-            { fence = m_TransferQueue.Fences[Flourish::Context::FrameIndex()]; } break;
-            case GPUWorkloadType::Compute:
-            { fence = m_ComputeQueue.Fences[Flourish::Context::FrameIndex()]; } break;
-        }
-
-        vkResetFences(Context::Devices().Device(), 1, &fence);
-    }
-    
-    void Queues::WaitForQueueFences()
-    {
-        VkFence fences[3] = {
-            m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()],
-            m_ComputeQueue.Fences[Flourish::Context::FrameIndex()],
-            m_TransferQueue.Fences[Flourish::Context::FrameIndex()]
-        };
-
-        vkWaitForFences(Context::Devices().Device(), 3, fences, VK_TRUE, UINT64_MAX);
     }
     
     void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback)
@@ -200,22 +169,6 @@ namespace Flourish::Vulkan
             { return m_TransferQueue.QueueIndex; }
             case GPUWorkloadType::Compute:
             { return m_ComputeQueue.QueueIndex; }
-        }
-
-        FL_ASSERT(false, "QueueIndex for workload not supported");
-        return 0;
-    }
-
-    VkFence Queues::QueueFence(GPUWorkloadType workloadType) const
-    {
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { return m_GraphicsQueue.Fences[Flourish::Context::FrameIndex()]; }
-            case GPUWorkloadType::Transfer:
-            { return m_TransferQueue.Fences[Flourish::Context::FrameIndex()]; }
-            case GPUWorkloadType::Compute:
-            { return m_ComputeQueue.Fences[Flourish::Context::FrameIndex()]; }
         }
 
         FL_ASSERT(false, "QueueIndex for workload not supported");
