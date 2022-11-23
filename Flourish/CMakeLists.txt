@@ -24,8 +24,20 @@ target_include_directories(
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/vma/include>"
-  "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/macOS/include>"
 )
+if (APPLE)
+  target_include_directories(
+    Core
+    PUBLIC
+    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/macOS/include>"
+  )
+else()
+  target_include_directories(
+    Core
+    PUBLIC
+    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
+  )
+endif()
 
 # Link vulkan related libraries
 if (WIN32)
