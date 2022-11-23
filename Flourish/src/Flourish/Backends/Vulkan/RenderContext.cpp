@@ -91,7 +91,7 @@ namespace Flourish::Vulkan
                     
             // Add each final sub buffer semaphore to wait on
             m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
-            m_SubmissionData.WaitSemaphoreValues.push_back(subData.SyncSemaphoreValues.back());
+            m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
             m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
         }
 
