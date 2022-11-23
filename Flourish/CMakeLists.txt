@@ -44,16 +44,16 @@ if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(DEBUG_LIB_EXTRAS "d")
   endif()
-  find_library(shaderc
+  find_library(shaderc${DEBUG_LIB_EXTRAS}
     NAMES "shaderc_combined${DEBUG_LIB_EXTRAS}"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
-  target_link_libraries(Core ${shaderc})
-  find_library(spirvcore
+  target_link_libraries(Core ${shaderc${DEBUG_LIB_EXTRAS}})
+  find_library(spirvcore${DEBUG_LIB_EXTRAS}
     NAMES "spirv-cross-core${DEBUG_LIB_EXTRAS}"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
-  target_link_libraries(Core ${spirvcore})
+  target_link_libraries(Core ${spirvcore${DEBUG_LIB_EXTRAS}})
   find_library(spirvglsl
     NAMES "spirv-cross-glsl"
     PATHS "$ENV{VULKAN_SDK}/lib"
