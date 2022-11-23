@@ -101,6 +101,7 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
+        //Flourish::Context::SubmitCommandBuffers({{ m_CommandBuffers[objectCount].get() }});
         m_RenderContext->Present({ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } });
     }
     

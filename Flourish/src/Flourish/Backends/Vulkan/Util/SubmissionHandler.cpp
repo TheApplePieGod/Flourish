@@ -78,6 +78,43 @@ namespace Flourish::Vulkan
                 completionSemaphoresStartIndex += completionSemaphoresWaitCount;
                 completionSemaphoresWaitCount = completionSemaphoresAdded;
                 completionSemaphoresAdded = 0;
+
+                #ifdef FL_PLATFORM_MACOS
+                    if (!m_SubmissionData.GraphicsSubmitInfos.empty())
+                    {
+                        Context::Queues().ResetQueueFence(GPUWorkloadType::Graphics);
+                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                            Context::Queues().Queue(GPUWorkloadType::Graphics),
+                            static_cast<u32>(m_SubmissionData.GraphicsSubmitInfos.size()),
+                            m_SubmissionData.GraphicsSubmitInfos.data(),
+                            nullptr
+                        ));
+                    }
+                    if (!m_SubmissionData.ComputeSubmitInfos.empty())
+                    {
+                        Context::Queues().ResetQueueFence(GPUWorkloadType::Compute);
+                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                            Context::Queues().Queue(GPUWorkloadType::Compute),
+                            static_cast<u32>(m_SubmissionData.ComputeSubmitInfos.size()),
+                            m_SubmissionData.ComputeSubmitInfos.data(),
+                            nullptr
+                        ));
+                    }
+                    if (!m_SubmissionData.TransferSubmitInfos.empty())
+                    {
+                        Context::Queues().ResetQueueFence(GPUWorkloadType::Transfer);
+                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                            Context::Queues().Queue(GPUWorkloadType::Transfer),
+                            static_cast<u32>(m_SubmissionData.TransferSubmitInfos.size()),
+                            m_SubmissionData.TransferSubmitInfos.data(),
+                            nullptr
+                        ));
+                    }
+                    
+                    m_SubmissionData.GraphicsSubmitInfos.clear();
+                    m_SubmissionData.ComputeSubmitInfos.clear();
+                    m_SubmissionData.TransferSubmitInfos.clear();
+                #endif
             }
             
             submissionStartIndex += submissionCount;
