@@ -22,12 +22,15 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::WaitOnFrameSemaphores()
     {
-        u64 semaphoreVal = 0;
-        for (auto& waitInfo : m_FrameWaitSemaphores[Flourish::Context::FrameIndex()])
-        {
-            while (semaphoreVal != waitInfo.WaitValue)
-                vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), waitInfo.Semaphore, &semaphoreVal);
-        }
+        if (m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].empty()) return;
+
+        VkSemaphoreWaitInfo waitInfo{};
+        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].size();
+        waitInfo.pSemaphores = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].data();
+        waitInfo.pValues = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].data();
+
+        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     void SubmissionHandler::ProcessSubmissions()
@@ -44,6 +47,7 @@ namespace Flourish::Vulkan
         m_SubmissionData.CompletionSemaphoreValues.clear();
         m_SubmissionData.CompletionWaitStages.clear();
         m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].clear();
+        m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].clear();
 
         // Each submission gets executed in parallel
         for (auto submissionCount : Flourish::Context::SubmittedCommandBufferCounts())
@@ -85,10 +89,8 @@ namespace Flourish::Vulkan
                     // so we can keep track of what needs to be waited on to ensure all processing has been completed
                     if (isLastSubmission)
                     {
-                        m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].emplace_back(
-                            m_SubmissionData.CompletionSemaphores.back(),
-                            m_SubmissionData.CompletionSemaphoreValues.back()
-                        );
+                        m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].push_back(m_SubmissionData.CompletionSemaphores.back());
+                        m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].push_back(m_SubmissionData.CompletionSemaphoreValues.back());
                     }
                     
                     // Copy submission info

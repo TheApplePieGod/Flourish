@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
         std::vector<VkTimelineSemaphoreSubmitInfo> TimelineSubmitInfos;
         std::vector<u64> SyncSemaphoreValues;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SyncSemaphores;
-        VkPipelineStageFlags DrawWaitStages[1] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        VkPipelineStageFlags DrawWaitStages[1] = { VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT };
         VkPipelineStageFlags TransferWaitStages[1] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
         VkPipelineStageFlags ComputeWaitStages[1] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
         VkSubmitInfo* FirstSubmitInfo;

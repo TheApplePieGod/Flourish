@@ -27,6 +27,7 @@ namespace Flourish::Vulkan
         VkBufferCreateInfo bufCreateInfo{};
         bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufCreateInfo.size = bufSize;
+        bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         switch (m_Info.Type)
         {
             default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;

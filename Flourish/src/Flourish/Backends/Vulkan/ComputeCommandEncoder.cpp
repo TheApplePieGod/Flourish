@@ -87,7 +87,7 @@ namespace Flourish::Vulkan
             commandOffset * sizeof(VkDispatchIndirectCommand)
         );
     }
-
+    
     void ComputeCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
     {
         FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");

@@ -32,7 +32,7 @@ namespace Flourish::Vulkan
 #ifdef FL_DEBUG
     #define FL_VK_CHECK_RESULT(func) { auto result = func; FL_ASSERT(result == VK_SUCCESS, "Vulkan function failed with error %d", result); }
 #else
-    #define FL_VK_CHECK_RESULT(func)
+    #define FL_VK_CHECK_RESULT(func) func
 #endif
 
 #define FL_VK_ENSURE_RESULT(func) { auto result = func; FL_CRASH_ASSERT(result == VK_SUCCESS, "Critical vulkan function failed with error %d", result); }

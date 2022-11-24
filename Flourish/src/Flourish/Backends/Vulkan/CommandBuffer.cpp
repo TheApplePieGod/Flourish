@@ -19,7 +19,7 @@ namespace Flourish::Vulkan
         m_SubmissionData.ComputeSubmitInfos.reserve(m_Info.MaxEncoders);
         m_SubmissionData.TransferSubmitInfos.reserve(m_Info.MaxEncoders);
         m_SubmissionData.TimelineSubmitInfos.reserve(m_Info.MaxEncoders);
-        m_SubmissionData.SyncSemaphoreValues.reserve(m_Info.MaxEncoders);
+        m_SubmissionData.SyncSemaphoreValues.reserve(m_Info.MaxEncoders * 2);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             m_SubmissionData.SyncSemaphores[frame] = Synchronization::CreateTimelineSemaphore(0);
