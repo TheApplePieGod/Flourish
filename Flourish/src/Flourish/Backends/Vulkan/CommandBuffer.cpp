@@ -76,7 +76,7 @@ namespace Flourish::Vulkan
         }
 
         encodedCommandSubmitInfo->sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        encodedCommandSubmitInfo->pNext = m_SubmissionData.TimelineSubmitInfos.data() + m_SubmissionData.TransferSubmitInfos.size();
+        encodedCommandSubmitInfo->pNext = m_SubmissionData.TimelineSubmitInfos.data() + m_SubmissionData.TimelineSubmitInfos.size();
         encodedCommandSubmitInfo->commandBufferCount = 1;
         encodedCommandSubmitInfo->pCommandBuffers = &m_EncoderSubmissions.back().Buffer;
         // Always signaling next sub buffer or potentially completion
