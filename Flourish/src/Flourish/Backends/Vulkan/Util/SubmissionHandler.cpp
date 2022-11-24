@@ -92,54 +92,28 @@ namespace Flourish::Vulkan
                         m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].push_back(m_SubmissionData.CompletionSemaphores.back());
                         m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].push_back(m_SubmissionData.CompletionSemaphoreValues.back());
                     }
-                    
-                    // Copy submission info
-                    m_SubmissionData.GraphicsSubmitInfos.insert(m_SubmissionData.GraphicsSubmitInfos.end(), subData.GraphicsSubmitInfos.begin(), subData.GraphicsSubmitInfos.end());
-                    m_SubmissionData.ComputeSubmitInfos.insert(m_SubmissionData.ComputeSubmitInfos.end(), subData.ComputeSubmitInfos.begin(), subData.ComputeSubmitInfos.end());
-                    m_SubmissionData.TransferSubmitInfos.insert(m_SubmissionData.TransferSubmitInfos.end(), subData.TransferSubmitInfos.begin(), subData.TransferSubmitInfos.end());
+
+                    // If we are on mac, we need to submit each submitinfo individually. Otherwise, we can group them up to be submitted all at once.
+                    #ifdef FL_PLATFORM_MACOS
+                        for (u32 i = 0; i < subData.SubmitInfos.size(); i++)
+                        {
+                            FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                                Context::Queues().Queue(buffer->GetEncoderSubmissions()[i].WorkloadType),
+                                1, &subData.SubmitInfos[i], nullptr
+                            ));
+                        }
+                    #else
+                        // Copy submission info
+                        m_SubmissionData.GraphicsSubmitInfos.insert(m_SubmissionData.GraphicsSubmitInfos.end(), subData.GraphicsSubmitInfos.begin(), subData.GraphicsSubmitInfos.end());
+                        m_SubmissionData.ComputeSubmitInfos.insert(m_SubmissionData.ComputeSubmitInfos.end(), subData.ComputeSubmitInfos.begin(), subData.ComputeSubmitInfos.end());
+                        m_SubmissionData.TransferSubmitInfos.insert(m_SubmissionData.TransferSubmitInfos.end(), subData.TransferSubmitInfos.begin(), subData.TransferSubmitInfos.end());
+                    #endif
                 }
 
                 // Move completion pointer so that next batch will wait on semaphores from last batch
                 completionSemaphoresStartIndex += completionSemaphoresWaitCount;
                 completionSemaphoresWaitCount = completionSemaphoresAdded;
                 completionSemaphoresAdded = 0;
-
-                #ifdef FL_PLATFORM_MACOS
-                    if (!m_SubmissionData.GraphicsSubmitInfos.empty())
-                    {
-                        Context::Queues().ResetQueueFence(GPUWorkloadType::Graphics);
-                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                            Context::Queues().Queue(GPUWorkloadType::Graphics),
-                            static_cast<u32>(m_SubmissionData.GraphicsSubmitInfos.size()),
-                            m_SubmissionData.GraphicsSubmitInfos.data(),
-                            nullptr
-                        ));
-                    }
-                    if (!m_SubmissionData.ComputeSubmitInfos.empty())
-                    {
-                        Context::Queues().ResetQueueFence(GPUWorkloadType::Compute);
-                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                            Context::Queues().Queue(GPUWorkloadType::Compute),
-                            static_cast<u32>(m_SubmissionData.ComputeSubmitInfos.size()),
-                            m_SubmissionData.ComputeSubmitInfos.data(),
-                            nullptr
-                        ));
-                    }
-                    if (!m_SubmissionData.TransferSubmitInfos.empty())
-                    {
-                        Context::Queues().ResetQueueFence(GPUWorkloadType::Transfer);
-                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                            Context::Queues().Queue(GPUWorkloadType::Transfer),
-                            static_cast<u32>(m_SubmissionData.TransferSubmitInfos.size()),
-                            m_SubmissionData.TransferSubmitInfos.data(),
-                            nullptr
-                        ));
-                    }
-                    
-                    m_SubmissionData.GraphicsSubmitInfos.clear();
-                    m_SubmissionData.ComputeSubmitInfos.clear();
-                    m_SubmissionData.TransferSubmitInfos.clear();
-                #endif
             }
             
             submissionStartIndex += submissionCount;

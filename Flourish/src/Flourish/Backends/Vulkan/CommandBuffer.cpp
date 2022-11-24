@@ -49,27 +49,41 @@ namespace Flourish::Vulkan
         
         // Retrieve submission from the appropriate queue 
         // Only set the stage for non-first sub buffers because they will be overridden later
+        // On macos, we submit each submission sequentially without grouping, so we need to store them sequentially.
+        // otherwise we group them by queue type
         VkSubmitInfo* encodedCommandSubmitInfo;
         switch (workloadType)
         {
             case GPUWorkloadType::Graphics:
             {
                 m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.DrawWaitStages;
-                encodedCommandSubmitInfo = &m_SubmissionData.GraphicsSubmitInfos.emplace_back();
+                #ifdef FL_PLATFORM_MACOS
+                    encodedCommandSubmitInfo = &m_SubmissionData.SubmitInfos.emplace_back();
+                #else
+                    encodedCommandSubmitInfo = &m_SubmissionData.GraphicsSubmitInfos.emplace_back();
+                #endif
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.DrawWaitStages;
             } break;
             case GPUWorkloadType::Compute:
             {
                 m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.ComputeWaitStages;
-                encodedCommandSubmitInfo = &m_SubmissionData.ComputeSubmitInfos.emplace_back();
+                #ifdef FL_PLATFORM_MACOS
+                    encodedCommandSubmitInfo = &m_SubmissionData.SubmitInfos.emplace_back();
+                #else
+                    encodedCommandSubmitInfo = &m_SubmissionData.ComputeSubmitInfos.emplace_back();
+                #endif
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.ComputeWaitStages;
             } break;
             case GPUWorkloadType::Transfer:
             {
                 m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.TransferWaitStages;
-                encodedCommandSubmitInfo = &m_SubmissionData.TransferSubmitInfos.emplace_back();
+                #ifdef FL_PLATFORM_MACOS
+                    encodedCommandSubmitInfo = &m_SubmissionData.SubmitInfos.emplace_back();
+                #else
+                    encodedCommandSubmitInfo = &m_SubmissionData.TransferSubmitInfos.emplace_back();
+                #endif
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.TransferWaitStages;
             } break;
@@ -152,6 +166,7 @@ namespace Flourish::Vulkan
             m_RenderCommandEncoderCachePtr = 0;
             m_ComputeCommandEncoderCachePtr = 0;
             
+            m_SubmissionData.SubmitInfos.clear();
             m_SubmissionData.GraphicsSubmitInfos.clear();
             m_SubmissionData.ComputeSubmitInfos.clear();
             m_SubmissionData.TransferSubmitInfos.clear();

@@ -12,6 +12,7 @@ namespace Flourish::Vulkan
         std::vector<VkSubmitInfo> GraphicsSubmitInfos;
         std::vector<VkSubmitInfo> ComputeSubmitInfos;
         std::vector<VkSubmitInfo> TransferSubmitInfos;
+        std::vector<VkSubmitInfo> SubmitInfos;
         std::vector<VkTimelineSemaphoreSubmitInfo> TimelineSubmitInfos;
         std::vector<u64> SyncSemaphoreValues;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SyncSemaphores;
