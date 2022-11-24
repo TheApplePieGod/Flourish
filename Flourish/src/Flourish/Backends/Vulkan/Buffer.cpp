@@ -173,10 +173,12 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
             
-            // Safe to free here because commands guaranteed to be complete before deletion runs
-            Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToBuffer command free");
         }
     }
 
@@ -213,10 +215,12 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
             
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
             
-            // Safe to free here because commands guaranteed to be complete before deletion runs
-            Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToImage command free");
         }
     }
 

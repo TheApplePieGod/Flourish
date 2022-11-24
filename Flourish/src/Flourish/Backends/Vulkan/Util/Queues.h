@@ -28,6 +28,12 @@ namespace Flourish::Vulkan
         }
     };
 
+    struct PushCommandResult
+    {
+        VkSemaphore SignalSemaphore;
+        u64 SignalValue;
+    };
+
     class Queues
     {
     public:
@@ -35,7 +41,7 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
+        PushCommandResult PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
         void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
         void IterateCommands(GPUWorkloadType workloadType);
         void IterateCommands();
@@ -55,13 +61,14 @@ namespace Flourish::Vulkan
     private:
         struct QueueCommandEntry
         {
-            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore)
-                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore)
+            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore, u64 val)
+                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore), SignalValue(val)
             {}
 
             VkCommandBuffer Buffer;
             std::function<void()> Callback;
             VkSemaphore WaitSemaphore;
+            u64 SignalValue;
             bool Submitted = false;
         };
 

@@ -36,12 +36,15 @@ namespace Flourish::Vulkan
         }, "Queues free");
     }
     
-    void Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback)
+    PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback)
     {
         auto& queueData = GetQueueData(workloadType);
         queueData.CommandQueueLock.lock();
-        queueData.CommandQueue.emplace_back(buffer, completionCallback, RetrieveSemaphore());
+        VkSemaphore semaphore = RetrieveSemaphore();
+        u64 signalValue = Flourish::Context::FrameCount() + 1;
+        queueData.CommandQueue.emplace_back(buffer, completionCallback, semaphore, signalValue);
         queueData.CommandQueueLock.unlock();
+        return { semaphore, signalValue };
     }
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer)
@@ -70,13 +73,13 @@ namespace Flourish::Vulkan
             {
                 u64 semaphoreVal;
                 vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
-                if (semaphoreVal > 0) // Completed
+                if (semaphoreVal == value.SignalValue) // Completed
                 {
                     if (value.Callback) value.Callback();
                     m_UnusedSemaphoresLock.lock();
                     m_UnusedSemaphores.push_back(value.WaitSemaphore);
                     m_UnusedSemaphoresLock.unlock();
-                    queueData.CommandQueue.pop_front();
+                    queueData.CommandQueue.erase(queueData.CommandQueue.begin() + i);
                     i--;
                 }
             }
@@ -84,7 +87,7 @@ namespace Flourish::Vulkan
             {
                 queueData.Buffers.push_back(value.Buffer);
                 queueData.Semaphores.push_back(value.WaitSemaphore);
-                queueData.SignalValues.push_back(1);
+                queueData.SignalValues.push_back(value.SignalValue);
                 value.Submitted = true;
             }
         }

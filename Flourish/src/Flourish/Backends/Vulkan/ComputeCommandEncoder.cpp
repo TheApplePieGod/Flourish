@@ -25,10 +25,13 @@ namespace Flourish::Vulkan
         // already does this and it is the only class who will own this object. Also, FreeBuffers()
         // already handles a delete queue entry
         std::vector<VkCommandBuffer> buffers(m_CommandBuffers.begin(), m_CommandBuffers.begin() + Flourish::Context::FrameBufferCount());
-        Context::Commands().FreeBuffers(
-            GPUWorkloadType::Compute,
-            buffers
-        );
+        Context::DeleteQueue().Push([buffers]()
+        {
+            Context::Commands().FreeBuffers(
+                GPUWorkloadType::Compute,
+                buffers
+            );
+        }, "Compute command encoder free");
     }
 
     void ComputeCommandEncoder::BeginEncoding(ComputeTarget* target)

@@ -108,31 +108,22 @@ namespace Flourish::Vulkan
 
     void Commands::FreeBuffers(GPUWorkloadType workloadType, const std::vector<VkCommandBuffer>& buffers)
     {
-        auto pool = GetPool(workloadType);
-        auto bufs = buffers;
-        Context::DeleteQueue().Push([this, pool, bufs]()
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                pool,
-                bufs.size(),
-                bufs.data()
-            );
-        }, "Generic commands free");
+        vkFreeCommandBuffers(
+            Context::Devices().Device(),
+            GetPool(workloadType),
+            buffers.size(),
+            buffers.data()
+        );
     }
 
     void Commands::FreeBuffer(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
-        auto pool = GetPool(workloadType);
-        Context::DeleteQueue().Push([this, pool, buffer]()
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                pool,
-                1,
-                &buffer
-            );
-        }, "Generic command free");
+        vkFreeCommandBuffers(
+            Context::Devices().Device(),
+            GetPool(workloadType),
+            1,
+            &buffer
+        );
     }
 
     void Commands::DestroyPools(const ThreadCommandPools& pools)
