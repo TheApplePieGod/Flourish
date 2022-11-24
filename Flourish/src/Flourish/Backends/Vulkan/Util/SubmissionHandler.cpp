@@ -30,7 +30,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].data();
         waitInfo.pValues = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].data();
 
-        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     void SubmissionHandler::ProcessSubmissions()
