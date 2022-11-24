@@ -42,6 +42,7 @@ namespace FlourishTesting
     void Tests::RunMultiThreadedTest()
     {
         if (!m_DogTexture->IsReady()) return;
+        if (!m_CatTexture->IsReady()) return;
 
         u32 objectCount = 5;
 
@@ -53,7 +54,10 @@ namespace FlourishTesting
             {
                 auto encoder = m_CommandBuffers[i]->EncodeRenderCommands(m_FrameTextureBuffers[i].get());
                 encoder->BindPipeline("simple_image");
-                encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+                if (Flourish::Context::FrameCount() % 100 < 50)
+                    encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+                else
+                    encoder->BindPipelineTextureResource(0, m_CatTexture.get());
                 encoder->FlushPipelineBindings();
                 encoder->BindVertexBuffer(m_FullTriangleVertices.get()); 
                 encoder->Draw(3, 0, 1);
@@ -81,7 +85,7 @@ namespace FlourishTesting
         encoder->BindPipeline("object_image");
         for (u32 i = 0; i < objectCount; i++)
         {
-            encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+            encoder->BindPipelineTextureResource(0, m_FrameTextures[i].get());
             encoder->BindPipelineBufferResource(1, m_ObjectData.get(), 0, i, 1);
             encoder->FlushPipelineBindings();
             encoder->BindVertexBuffer(m_QuadVertices.get()); 
@@ -211,7 +215,10 @@ namespace FlourishTesting
                 float offsetStep = 2.f / objectCount;
                 float offsetStart = -1.f + 0.5f * scale;
                 uint id = gl_GlobalInvocationID.x;
-                objectBuffer.data[id].Offset = vec2(offsetStart + offsetStep * id, offsetStart + offsetStep * id);
+                if (objectBuffer.data[id].Offset == vec2(0.f))
+                    objectBuffer.data[id].Offset = vec2(offsetStart + offsetStep * id, offsetStart + offsetStep * id);
+                else 
+                    objectBuffer.data[id].Offset += vec2(0.0003f);
                 objectBuffer.data[id].Scale = vec2(scale, scale);
             }
         )";
@@ -389,10 +396,27 @@ namespace FlourishTesting
         }
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         m_DogTexture = Flourish::Texture::Create(texCreateInfo);
-        delete[] imagePixels;
+        if (imagePixels)
+            delete[] imagePixels;
+
+        imagePixels = stbi_load("resources/image2.jpg", &imageWidth, &imageHeight, &imageChannels, 4);
+        texCreateInfo.Width = static_cast<u32>(imageWidth);
+        texCreateInfo.Height = static_cast<u32>(imageHeight);
+        texCreateInfo.InitialData = nullptr;
+        texCreateInfo.InitialDataSize = 0;
+        if (!imagePixels) { FL_LOG_WARN("Cat image failed to load"); }
+        if (imagePixels)
+        {
+            texCreateInfo.InitialData = imagePixels;
+            texCreateInfo.InitialDataSize = imageWidth * imageHeight * 4;
+        }
+        m_CatTexture = Flourish::Texture::Create(texCreateInfo);
+        if (imagePixels)
+            delete[] imagePixels;
 
         texCreateInfo.Width = m_ScreenWidth;
         texCreateInfo.Height = m_ScreenHeight;
+        texCreateInfo.MipCount = 1;
         texCreateInfo.Channels = 4;
         texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
         texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;

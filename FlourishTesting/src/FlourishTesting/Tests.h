@@ -66,6 +66,7 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::Buffer> m_ObjectData;
         
         std::shared_ptr<Flourish::Texture> m_DogTexture;
+        std::shared_ptr<Flourish::Texture> m_CatTexture;
         std::vector<std::shared_ptr<Flourish::Texture>> m_FrameTextures;
         
         std::vector<std::shared_ptr<Flourish::CommandBuffer>> m_CommandBuffers;
