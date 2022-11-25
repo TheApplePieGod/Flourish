@@ -392,6 +392,7 @@ namespace FlourishTesting
         texCreateInfo.Channels = 4;
         texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
         texCreateInfo.UsageType = Flourish::BufferUsageType::Static;
+        texCreateInfo.AsyncCreation = true;
         if (imagePixels)
         {
             texCreateInfo.InitialData = imagePixels;
@@ -425,6 +426,7 @@ namespace FlourishTesting
         texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         texCreateInfo.InitialData = nullptr;
+        texCreateInfo.AsyncCreation = false;
         for (u32 i = 0; i < 10; i++)
             m_FrameTextures.push_back(Flourish::Texture::Create(texCreateInfo));
     }

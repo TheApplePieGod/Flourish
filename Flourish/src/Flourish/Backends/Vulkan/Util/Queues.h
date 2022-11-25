@@ -91,6 +91,7 @@ namespace Flourish::Vulkan
     private:
         QueueData m_GraphicsQueue, m_ComputeQueue, m_TransferQueue, m_PresentQueue;
         std::vector<VkSemaphore> m_UnusedSemaphores;
-        std::mutex m_UnusedSemaphoresLock;
+        std::mutex m_SemaphoresLock;
+        u64 m_ExecuteSemaphoreSignalValue = 0;
     };
 }

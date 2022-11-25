@@ -201,17 +201,28 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-        auto readyState = m_ReadyState;
-        auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
-            *readyState += 1;
-        });
-
-        Context::DeleteQueue().PushAsync([stagingBuffer, stagingAlloc, hasInitialData, cmdBuffer]()
+        if (m_Info.AsyncCreation)
         {
+            auto readyState = m_ReadyState;
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
+                *readyState += 1;
+            });
+
+            Context::DeleteQueue().PushAsync([stagingBuffer, stagingAlloc, hasInitialData, cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+                if (hasInitialData)
+                    vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "Texture init free");
+        }
+        else
+        {
+            Context::Queues().ExecuteCommand(GPUWorkloadType::Graphics, cmdBuffer);
+            *m_ReadyState += 1;
             Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
             if (hasInitialData)
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
-        }, pushResult.SignalSemaphore, pushResult.SignalValue, "Texture init free");
+        }
     }
 
     Texture::Texture(const TextureCreateInfo& createInfo, VkImageView imageView)

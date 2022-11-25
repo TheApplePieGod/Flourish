@@ -58,6 +58,7 @@ namespace Flourish
         TextureSamplerState SamplerState;
         void* InitialData = nullptr;
         u32 InitialDataSize = 0;
+        bool AsyncCreation = false;
     };
 
     class Texture

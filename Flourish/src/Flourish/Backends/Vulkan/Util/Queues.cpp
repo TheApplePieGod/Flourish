@@ -49,12 +49,40 @@ namespace Flourish::Vulkan
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
+        VkSemaphore semaphore = RetrieveSemaphore();
+
+        m_SemaphoresLock.lock();
+        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
+        m_SemaphoresLock.unlock();
+
+        VkTimelineSemaphoreSubmitInfo timelineInfo{};
+        timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineInfo.signalSemaphoreValueCount = 1;
+        timelineInfo.pSignalSemaphoreValues = &signalValue;
+
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.pNext = &timelineInfo;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &semaphore;
 
         FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
+        
+        VkSemaphoreWaitInfo waitInfo{};
+        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &semaphore;
+        waitInfo.pValues = &signalValue;
+
+        FL_LOG_ERROR("Waiting");
+        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        FL_LOG_ERROR("Done");
+
+        m_SemaphoresLock.lock();
+        m_UnusedSemaphores.push_back(semaphore);
+        m_SemaphoresLock.unlock();
     }
 
     void Queues::IterateCommands(GPUWorkloadType workloadType)
@@ -76,9 +104,9 @@ namespace Flourish::Vulkan
                 if (semaphoreVal == value.SignalValue) // Completed
                 {
                     if (value.Callback) value.Callback();
-                    m_UnusedSemaphoresLock.lock();
+                    m_SemaphoresLock.lock();
                     m_UnusedSemaphores.push_back(value.WaitSemaphore);
-                    m_UnusedSemaphoresLock.unlock();
+                    m_SemaphoresLock.unlock();
                     queueData.CommandQueue.erase(queueData.CommandQueue.begin() + i);
                     i--;
                 }
@@ -127,9 +155,9 @@ namespace Flourish::Vulkan
         {
             auto& value = queueData.CommandQueue.at(i);
             value.Callback();
-            m_UnusedSemaphoresLock.lock();
+            m_SemaphoresLock.lock();
             m_UnusedSemaphores.push_back(value.WaitSemaphore);
-            m_UnusedSemaphoresLock.unlock();
+            m_SemaphoresLock.unlock();
         }
         queueData.CommandQueueLock.unlock();
     }
@@ -275,10 +303,10 @@ namespace Flourish::Vulkan
     {
         if (m_UnusedSemaphores.size() > 0)
         {
-            m_UnusedSemaphoresLock.lock();
+            m_SemaphoresLock.lock();
             auto semaphore = m_UnusedSemaphores.back();
             m_UnusedSemaphores.pop_back();
-            m_UnusedSemaphoresLock.unlock();
+            m_SemaphoresLock.unlock();
             return semaphore;
         }
 
