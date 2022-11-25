@@ -47,14 +47,6 @@ namespace Flourish::Vulkan
             auto& value = m_Queue.at(i);
             
             bool execute = false;
-            /*
-            if (value.Lifetime > 0)
-                value.Lifetime -= 1;
-            else
-                execute = true;
-            */
-
-            
             if (value.WaitSemaphore)
             {
                 u64 semaphoreVal;
