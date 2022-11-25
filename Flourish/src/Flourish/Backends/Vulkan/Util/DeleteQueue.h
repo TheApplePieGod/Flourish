@@ -7,12 +7,15 @@ namespace Flourish::Vulkan
 {
     struct DeleteEntry
     {
-        DeleteEntry(u32 lifetime, std::function<void()> execute)
-            : Lifetime(lifetime), Execute(execute)
+        DeleteEntry(u32 lifetime, std::function<void()> execute, const char* debugName, VkSemaphore semaphore = nullptr, u64 val = 0)
+            : Lifetime(lifetime), Execute(execute), DebugName(debugName), WaitSemaphore(semaphore), WaitValue(val)
         {}
 
         u32 Lifetime = 0; // Frames
         std::function<void()> Execute;
+        const char* DebugName;
+        VkSemaphore WaitSemaphore;
+        u64 WaitValue;
     };
 
     class DeleteQueue
@@ -23,7 +26,11 @@ namespace Flourish::Vulkan
 
     public:
         // TS
-        void Push(std::function<void()>&& executeFunc);
+        // Will run a delete operation after FrameCount() + 1 frames
+        // Relies on work being synchronized by submission fences, so any async deletes must use
+        // the other version of push
+        void Push(std::function<void()>&& executeFunc, const char* debugName = nullptr);
+        void PushAsync(std::function<void()>&& executeFunc, VkSemaphore semaphore, u64 waitValue, const char* debugName = nullptr);
         void Iterate(bool force = false);
         
         // TS

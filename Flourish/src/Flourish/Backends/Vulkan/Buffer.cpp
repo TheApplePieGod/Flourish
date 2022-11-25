@@ -27,6 +27,7 @@ namespace Flourish::Vulkan
         VkBufferCreateInfo bufCreateInfo{};
         bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufCreateInfo.size = bufSize;
+        bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         switch (m_Info.Type)
         {
             default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
@@ -110,7 +111,7 @@ namespace Flourish::Vulkan
                     vmaDestroyBuffer(Context::Allocator(), stagingBuffers[i].Buffer, stagingBuffers[i].Allocation);
                 vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
             }
-        });
+        }, "Buffer free");
     }
 
     void Buffer::SetBytes(void* data, u32 byteCount, u32 byteOffset)
@@ -172,10 +173,12 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
             
-            // Safe to free here because commands guaranteed to be complete before deletion runs
-            Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToBuffer command free");
         }
     }
 
@@ -212,10 +215,12 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
             
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
             
-            // Safe to free here because commands guaranteed to be complete before deletion runs
-            Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToImage command free");
         }
     }
 
@@ -340,7 +345,7 @@ namespace Flourish::Vulkan
             Context::DeleteQueue().Push([initialDataStagingBuf]()
             {
                 vmaDestroyBuffer(Context::Allocator(), initialDataStagingBuf.Buffer, initialDataStagingBuf.Allocation);
-            });
+            }, "Buffer free staging");
         }
     }
 }

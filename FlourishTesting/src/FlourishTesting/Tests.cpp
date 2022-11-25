@@ -1,6 +1,9 @@
 #include "flpch.h"
 #include "Tests.h"
 
+#include "Flourish/Api/RenderCommandEncoder.h"
+#include "Flourish/Api/ComputeCommandEncoder.h"
+
 #include <future>
 
 #ifdef FL_PLATFORM_WINDOWS
@@ -39,18 +42,9 @@ namespace FlourishTesting
     void Tests::RunMultiThreadedTest()
     {
         if (!m_DogTexture->IsReady()) return;
+        if (!m_CatTexture->IsReady()) return;
 
         u32 objectCount = 5;
-        float scale = 0.25f;
-        float offsetStep = 2.f / objectCount;
-        float offsetStart = -1.f + 0.5f * scale;
-        for (u32 i = 0; i < objectCount; i++)
-        {
-            ObjectData data;
-            data.Offset = { offsetStart + offsetStep * i, offsetStart + offsetStep * i };
-            data.Scale = { scale, scale };
-            m_ObjectData->SetElements(&data, 1, i);
-        }
 
         std::vector<std::future<void>> jobs;
         std::vector<Flourish::CommandBuffer*> parallelBuffers;
@@ -60,7 +54,10 @@ namespace FlourishTesting
             {
                 auto encoder = m_CommandBuffers[i]->EncodeRenderCommands(m_FrameTextureBuffers[i].get());
                 encoder->BindPipeline("simple_image");
-                encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+                if (Flourish::Context::FrameCount() % 100 < 50)
+                    encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+                else
+                    encoder->BindPipelineTextureResource(0, m_CatTexture.get());
                 encoder->FlushPipelineBindings();
                 encoder->BindVertexBuffer(m_FullTriangleVertices.get()); 
                 encoder->Draw(3, 0, 1);
@@ -70,12 +67,26 @@ namespace FlourishTesting
             parallelBuffers.push_back(m_CommandBuffers[i].get());
         }
         
-        auto encoder = m_CommandBuffers[objectCount]->EncodeRenderCommands(m_FrameTextureBuffers[objectCount].get());
+        {
+            jobs.push_back(std::async(std::launch::async, [&]()
+            {
+                auto encoder = m_CommandBuffers[objectCount]->EncodeComputeCommands(m_ComputeTarget.get());
+                encoder->BindPipeline(m_ComputePipeline.get());
+                encoder->BindPipelineBufferResource(0, m_ObjectData.get(), 0, 0, objectCount);
+                encoder->FlushPipelineBindings();
+                encoder->Dispatch(objectCount, 1, 1);
+                encoder->EndEncoding();
+            }));
+            
+            parallelBuffers.push_back(m_CommandBuffers[objectCount].get());
+        }
+        
+        auto encoder = m_CommandBuffers[objectCount + 1]->EncodeRenderCommands(m_FrameTextureBuffers[objectCount].get());
         encoder->BindPipeline("object_image");
         for (u32 i = 0; i < objectCount; i++)
         {
-            encoder->BindPipelineTextureResource(0, m_DogTexture.get());
-            encoder->BindPipelineBufferResource(1, m_ObjectData.get(), 0, i, objectCount);
+            encoder->BindPipelineTextureResource(0, m_FrameTextures[i].get());
+            encoder->BindPipelineBufferResource(1, m_ObjectData.get(), 0, i, 1);
             encoder->FlushPipelineBindings();
             encoder->BindVertexBuffer(m_QuadVertices.get()); 
             encoder->BindIndexBuffer(m_QuadIndices.get());
@@ -94,7 +105,8 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        m_RenderContext->Present({ parallelBuffers, { m_CommandBuffers[objectCount].get() } });
+        //Flourish::Context::SubmitCommandBuffers({{ m_CommandBuffers[objectCount].get() }});
+        m_RenderContext->Present({ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } });
     }
     
     void Tests::RunSingleThreadedTest()
@@ -176,13 +188,45 @@ namespace FlourishTesting
 
     void Tests::CreatePipelines()
     {
-        Flourish::ShaderCreateInfo vsCreateInfo;
-        Flourish::ShaderCreateInfo fsCreateInfo;
+        Flourish::ShaderCreateInfo shaderCreateInfo;
         Flourish::GraphicsPipelineCreateInfo gpCreateInfo;
+        Flourish::ComputePipelineCreateInfo compCreateInfo;
+        
+        // Compute shader
+        shaderCreateInfo.Type = Flourish::ShaderType::Compute;
+        shaderCreateInfo.Source = R"(
+            #version 460
+
+            layout (local_size_x = 1) in;
+
+            struct Object
+            {
+                vec2 Scale;
+                vec2 Offset;
+            };
+
+            layout(binding = 0) buffer ObjectBuffer {
+                Object data[];
+            } objectBuffer;
+
+            void main() {
+                int objectCount = 5;
+                float scale = 0.25f;
+                float offsetStep = 2.f / objectCount;
+                float offsetStart = -1.f + 0.5f * scale;
+                uint id = gl_GlobalInvocationID.x;
+                if (objectBuffer.data[id].Offset == vec2(0.f))
+                    objectBuffer.data[id].Offset = vec2(offsetStart + offsetStep * id, offsetStart + offsetStep * id);
+                else 
+                    objectBuffer.data[id].Offset += vec2(0.0003f);
+                objectBuffer.data[id].Scale = vec2(scale, scale);
+            }
+        )";
+        auto computeShader = Flourish::Shader::Create(shaderCreateInfo);
 
         // Simple vert shader
-        vsCreateInfo.Type = Flourish::ShaderType::Vertex;
-        vsCreateInfo.Source = R"(
+        shaderCreateInfo.Type = Flourish::ShaderType::Vertex;
+        shaderCreateInfo.Source = R"(
             #version 460
 
             layout(location = 0) in vec3 inPosition;
@@ -195,11 +239,11 @@ namespace FlourishTesting
                 outTexCoord = inTexCoord;
             }
         )";
-        auto simpleVertShader = Flourish::Shader::Create(vsCreateInfo);
+        auto simpleVertShader = Flourish::Shader::Create(shaderCreateInfo);
 
         // Image frag shader
-        fsCreateInfo.Type = Flourish::ShaderType::Fragment;
-        fsCreateInfo.Source = R"(
+        shaderCreateInfo.Type = Flourish::ShaderType::Fragment;
+        shaderCreateInfo.Source = R"(
             #version 460
 
             layout(location = 0) in vec2 inTexCoord;
@@ -212,11 +256,11 @@ namespace FlourishTesting
                 outColor = texture(tex, inTexCoord);
             }
         )";
-        auto imageFragShader = Flourish::Shader::Create(fsCreateInfo);
+        auto imageFragShader = Flourish::Shader::Create(shaderCreateInfo);
 
         // Object vert shader
-        vsCreateInfo.Type = Flourish::ShaderType::Vertex;
-        vsCreateInfo.Source = R"(
+        shaderCreateInfo.Type = Flourish::ShaderType::Vertex;
+        shaderCreateInfo.Source = R"(
             #version 460
 
             struct Object
@@ -242,7 +286,12 @@ namespace FlourishTesting
                 outTexCoord = inTexCoord;
             }
         )";
-        auto objectVertShader = Flourish::Shader::Create(vsCreateInfo);
+        auto objectVertShader = Flourish::Shader::Create(shaderCreateInfo);
+        
+        m_ComputeTarget = Flourish::ComputeTarget::Create();
+
+        compCreateInfo.ComputeShader = computeShader;
+        m_ComputePipeline = Flourish::ComputePipeline::Create(compCreateInfo);
         
         // Render context primary pipeline
         gpCreateInfo.VertexShader = simpleVertShader;
@@ -347,10 +396,27 @@ namespace FlourishTesting
         }
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         m_DogTexture = Flourish::Texture::Create(texCreateInfo);
-        delete[] imagePixels;
+        if (imagePixels)
+            delete[] imagePixels;
+
+        imagePixels = stbi_load("resources/image2.jpg", &imageWidth, &imageHeight, &imageChannels, 4);
+        texCreateInfo.Width = static_cast<u32>(imageWidth);
+        texCreateInfo.Height = static_cast<u32>(imageHeight);
+        texCreateInfo.InitialData = nullptr;
+        texCreateInfo.InitialDataSize = 0;
+        if (!imagePixels) { FL_LOG_WARN("Cat image failed to load"); }
+        if (imagePixels)
+        {
+            texCreateInfo.InitialData = imagePixels;
+            texCreateInfo.InitialDataSize = imageWidth * imageHeight * 4;
+        }
+        m_CatTexture = Flourish::Texture::Create(texCreateInfo);
+        if (imagePixels)
+            delete[] imagePixels;
 
         texCreateInfo.Width = m_ScreenWidth;
         texCreateInfo.Height = m_ScreenHeight;
+        texCreateInfo.MipCount = 1;
         texCreateInfo.Channels = 4;
         texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
         texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;

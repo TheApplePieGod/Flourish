@@ -28,16 +28,20 @@ namespace Flourish::Vulkan
         }
     };
 
+    struct PushCommandResult
+    {
+        VkSemaphore SignalSemaphore;
+        u64 SignalValue;
+    };
+
     class Queues
     {
     public:
         void Initialize();
         void Shutdown();
-        void ResetQueueFence(GPUWorkloadType workloadType);
-        void WaitForQueueFences();
 
         // TS
-        void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
+        PushCommandResult PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
         void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
         void IterateCommands(GPUWorkloadType workloadType);
         void IterateCommands();
@@ -49,7 +53,6 @@ namespace Flourish::Vulkan
         VkQueue Queue(GPUWorkloadType workloadType) const;
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
         u32 QueueIndex(GPUWorkloadType workloadType) const;
-        VkFence QueueFence(GPUWorkloadType workloadType) const;
 
     public:
         // TS
@@ -58,27 +61,27 @@ namespace Flourish::Vulkan
     private:
         struct QueueCommandEntry
         {
-            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore)
-                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore)
+            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore, u64 val)
+                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore), SignalValue(val)
             {}
 
             VkCommandBuffer Buffer;
             std::function<void()> Callback;
             VkSemaphore WaitSemaphore;
+            u64 SignalValue;
             bool Submitted = false;
         };
 
         struct QueueData
         {
             std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> Queues;
-            std::array<VkFence, Flourish::Context::MaxFrameBufferCount> Fences;
             u32 QueueIndex;
             std::deque<QueueCommandEntry> CommandQueue;
             std::mutex CommandQueueLock;
 
             std::vector<VkCommandBuffer> Buffers;
             std::vector<VkSemaphore> Semaphores;
-            std::vector<u64> SignalValues; 
+            std::vector<u64> SignalValues;
         };
 
     private:

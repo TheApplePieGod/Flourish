@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/GraphicsPipeline.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 

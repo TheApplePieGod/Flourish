@@ -202,19 +202,17 @@ namespace Flourish::Vulkan
         FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
         auto readyState = m_ReadyState;
-        Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
+        auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
+            FL_LOG_WARN("TEX COMPLETE");
             *readyState += 1;
         });
 
-        // Safe to free here because commands guaranteed to be complete before deletion runs
-        Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
-        if (hasInitialData)
+        Context::DeleteQueue().PushAsync([stagingBuffer, stagingAlloc, hasInitialData, cmdBuffer]()
         {
-            Context::DeleteQueue().Push([stagingBuffer, stagingAlloc]()
-            {
+            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+            if (hasInitialData)
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
-            });
-        }
+        }, pushResult.SignalSemaphore, pushResult.SignalValue, "Texture init free");
     }
 
     Texture::Texture(const TextureCreateInfo& createInfo, VkImageView imageView)
@@ -258,7 +256,7 @@ namespace Flourish::Vulkan
             }
             if (sampler) 
                 vkDestroySampler(device, sampler, nullptr);
-        });
+        }, "Texture free");
     }
 
     bool Texture::IsReady() const
@@ -405,10 +403,12 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
             
-            // Safe to free here because commands guaranteed to be complete before deletion runs
-            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "GenerateMipmaps command free");
         }
     }
 
@@ -532,10 +532,12 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
             
-            // Safe to free here because commands guaranteed to be complete before deletion runs
-            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            {
+                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+            }, pushResult.SignalSemaphore, pushResult.SignalValue, "TransitionImageLayout command free");
         }
     }
 

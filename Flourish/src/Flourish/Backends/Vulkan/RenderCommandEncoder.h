@@ -34,7 +34,6 @@ namespace Flourish::Vulkan
         VkCommandBuffer GetCommandBuffer() const;
 
     private:
-        // buffer offset: bytes, image offset: layerIndex, buffer size: bytes
         void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource);
 
     private:

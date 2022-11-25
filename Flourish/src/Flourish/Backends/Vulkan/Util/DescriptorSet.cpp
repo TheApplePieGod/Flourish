@@ -85,7 +85,7 @@ namespace Flourish::Vulkan
         Context::DeleteQueue().Push([=]()
         {
             vkDestroyDescriptorSetLayout(Context::Devices().Device(), layout, nullptr);
-        });
+        }, "Descriptor set layout free");
     }
 
     DescriptorSet::DescriptorSet(const DescriptorSetLayout& layout)
@@ -109,7 +109,7 @@ namespace Flourish::Vulkan
             for (u32 i = 0; i < pools.size(); i++)
                 for (auto pool : pools[i])
                     vkDestroyDescriptorPool(Context::Devices().Device(), pool, nullptr);
-        });
+        }, "Descriptor set free");
     }
 
     void DescriptorSet::UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource, bool useOffset, u32 offset, u32 size)

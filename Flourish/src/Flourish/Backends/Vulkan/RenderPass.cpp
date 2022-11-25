@@ -201,7 +201,7 @@ namespace Flourish::Vulkan
         Context::DeleteQueue().Push([=]()
         {
             vkDestroyRenderPass(Context::Devices().Device(), renderPass, nullptr);
-        });
+        }, "RenderPass free");
     }
 
     std::shared_ptr<Flourish::GraphicsPipeline> RenderPass::CreatePipeline(const GraphicsPipelineCreateInfo& createInfo)

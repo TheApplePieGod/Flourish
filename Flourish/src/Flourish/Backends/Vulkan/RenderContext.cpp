@@ -57,7 +57,7 @@ namespace Flourish::Vulkan
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
-        });
+        }, "Render context free");
     }
 
     void RenderContext::Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers)
@@ -91,7 +91,7 @@ namespace Flourish::Vulkan
                     
             // Add each final sub buffer semaphore to wait on
             m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
-            m_SubmissionData.WaitSemaphoreValues.push_back(subData.SyncSemaphoreValues.back());
+            m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
             m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
         }
 

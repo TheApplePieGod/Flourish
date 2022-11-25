@@ -7,17 +7,21 @@ namespace Flourish::Vulkan
 {
     ThreadCommandPools::ThreadCommandPools()
     {
+        // Ensure this does not run before vulkan is initialized
+        if (!Context::Devices().Device()) return;
         Context::Commands().CreatePoolsForThread();
     }
 
     ThreadCommandPools::~ThreadCommandPools()
     {
+        if (!Context::Devices().Device()) return;
         Context::Commands().DestroyPoolsForThread();
     }
 
     void Commands::Initialize()
     {
-
+        // Ensure pools for the main thread have been initialized
+        if (!s_ThreadPools.GraphicsPool) CreatePoolsForThread();
     }
 
     void Commands::Shutdown()
@@ -104,31 +108,22 @@ namespace Flourish::Vulkan
 
     void Commands::FreeBuffers(GPUWorkloadType workloadType, const std::vector<VkCommandBuffer>& buffers)
     {
-        auto pool = GetPool(workloadType);
-        auto bufs = buffers;
-        Context::DeleteQueue().Push([this, pool, bufs]()
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                pool,
-                bufs.size(),
-                bufs.data()
-            );
-        });
+        vkFreeCommandBuffers(
+            Context::Devices().Device(),
+            GetPool(workloadType),
+            buffers.size(),
+            buffers.data()
+        );
     }
 
     void Commands::FreeBuffer(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
-        auto pool = GetPool(workloadType);
-        Context::DeleteQueue().Push([this, pool, buffer]()
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                pool,
-                1,
-                &buffer
-            );
-        });
+        vkFreeCommandBuffers(
+            Context::Devices().Device(),
+            GetPool(workloadType),
+            1,
+            &buffer
+        );
     }
 
     void Commands::DestroyPools(const ThreadCommandPools& pools)

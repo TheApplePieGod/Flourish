@@ -1,15 +1,13 @@
 #pragma once
 
-#include "Flourish/Api/Framebuffer.h"
+#include "Flourish/Api/CommandEncoder.h"
 
 namespace Flourish
 {
-    class RenderCommandEncoder  
+    class RenderCommandEncoder : public CommandEncoder
     {
     public:
         RenderCommandEncoder() = default;
-
-        virtual void EndEncoding() = 0;
 
         // All shader resources must be bound before drawing
         // TODO: pipeline ids?
@@ -26,11 +24,5 @@ namespace Flourish
         virtual void BindPipelineBufferResource(u32 bindingIndex, Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) = 0;
         virtual void BindPipelineTextureResource(u32 bindingIndex, Texture* texture) = 0;
         virtual void FlushPipelineBindings() = 0;
-
-        // TS
-        inline bool IsEncoding() const { return m_Encoding; }
-        
-    protected:
-        bool m_Encoding = false;
     };
 }

@@ -29,7 +29,7 @@ namespace Flourish::Vulkan
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
                 vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
-        });
+        }, "Swapchain shutdown");
     }
     
     void Swapchain::UpdateActiveImage()
@@ -273,7 +273,7 @@ namespace Flourish::Vulkan
                 vkDestroyImageView(device, data.ImageView, nullptr);
             
             vkDestroySwapchainKHR(device, swapchain, nullptr);
-        });
+        }, "Swapchain free");
 
         m_ImageData.clear();
     }
