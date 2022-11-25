@@ -24,14 +24,15 @@ namespace Flourish::Vulkan
         ~RenderContext() override;
 
         void Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers) override;
+        void UpdateDimensions(u32 width, u32 height) override;
         RenderPass* GetRenderPass() const override;
+        bool Validate() override;
 
-        // TODO: this can only be allowed once per frame
         [[nodiscard]] Flourish::RenderCommandEncoder* EncodeFrameRenderCommands() override; 
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }
-        inline const Vulkan::Swapchain& Swapchain() const { return m_Swapchain; }
+        inline Vulkan::Swapchain& Swapchain() { return m_Swapchain; }
         inline const Vulkan::CommandBuffer& CommandBuffer() const { return m_CommandBuffer; }
         inline VkSemaphore GetImageAvailableSemaphore() const { return m_Swapchain.GetImageAvailableSemaphore(); }
         inline const RenderContextSubmissionData& GetSubmissionData() const { return m_SubmissionData; }

@@ -70,6 +70,8 @@ namespace Flourish::Vulkan
         }
         m_LastPresentFrame = Flourish::Context::FrameCount();
         
+        if (!m_Swapchain.IsValid()) return;
+
         Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
         Context::SubmissionHandler().PresentRenderContext(this);
 
@@ -115,13 +117,26 @@ namespace Flourish::Vulkan
         m_SubmissionData.SubmitInfo.pCommandBuffers = &m_CommandBuffer.GetEncoderSubmissions()[0].Buffer;
     }
 
+    void RenderContext::UpdateDimensions(u32 width, u32 height)
+    {
+        m_Swapchain.UpdateDimensions(width, height);
+    }
+
     RenderPass* RenderContext::GetRenderPass() const
     {
         return m_Swapchain.GetRenderPass();
     }
 
+    bool RenderContext::Validate()
+    {
+        if (!m_Swapchain.IsValid())
+            m_Swapchain.RecreateImmediate();
+        return m_Swapchain.IsValid();
+    }
+
     Flourish::RenderCommandEncoder* RenderContext::EncodeFrameRenderCommands()
     {
+        FL_CRASH_ASSERT(m_Swapchain.IsValid(), "Cannot encode frame render commands on an invalid render context");
         if (m_LastEncodingFrame == Flourish::Context::FrameCount())
         {
             FL_ASSERT(false, "Cannot encode frame render commands multiple times per frame");

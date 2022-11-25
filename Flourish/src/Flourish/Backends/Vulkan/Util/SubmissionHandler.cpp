@@ -166,13 +166,15 @@ namespace Flourish::Vulkan
             presentInfo.pSwapchains = swapchain;
             presentInfo.pImageIndices = imageIndex;
         
-            vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+            auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+            if (result == VK_ERROR_OUT_OF_DATE_KHR)
+                context->Swapchain().Recreate();
         }
         
         m_PresentingContexts.clear();
     }
 
-    void SubmissionHandler::PresentRenderContext(const RenderContext* context)
+    void SubmissionHandler::PresentRenderContext(RenderContext* context)
     {
         m_PresentingContextsLock.lock();
         m_PresentingContexts.push_back(context);

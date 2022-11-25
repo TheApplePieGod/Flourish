@@ -53,7 +53,7 @@ namespace Flourish
             : m_Info(createInfo)
         {}
         virtual ~RenderPass() = default;
-
+        
         // TS
         std::shared_ptr<GraphicsPipeline> CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo);
         std::shared_ptr<GraphicsPipeline> GetPipeline(std::string_view name);

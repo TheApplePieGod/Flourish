@@ -32,7 +32,9 @@ namespace Flourish
         virtual ~RenderContext() = default;
 
         virtual void Present(const std::vector<std::vector<CommandBuffer*>>& dependencyBuffers) = 0;
+        virtual void UpdateDimensions(u32 width, u32 height) = 0;
         virtual RenderPass* GetRenderPass() const = 0;
+        virtual bool Validate() = 0;
         [[nodiscard]] virtual RenderCommandEncoder* EncodeFrameRenderCommands() = 0;
 
     public:

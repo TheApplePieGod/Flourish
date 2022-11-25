@@ -16,7 +16,7 @@ namespace Flourish::Vulkan
         void ProcessSubmissions();
 
         // TS
-        void PresentRenderContext(const RenderContext* context);
+        void PresentRenderContext(RenderContext* context);
         
     private:
         struct SubmissionData
@@ -30,7 +30,7 @@ namespace Flourish::Vulkan
         };
         
     private:
-        std::vector<const RenderContext*> m_PresentingContexts;
+        std::vector<RenderContext*> m_PresentingContexts;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
         std::array<std::vector<u64>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphoreValues;
         SubmissionData m_SubmissionData;

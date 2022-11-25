@@ -32,8 +32,11 @@ namespace FlourishTesting
                 MacOS::PollEvents();
             #endif
 
-            // RunSingleThreadedTest();
-            RunMultiThreadedTest();
+            if (m_RenderContext->Validate())
+            {
+                // RunSingleThreadedTest();
+                RunMultiThreadedTest();
+            }
 
             Flourish::Context::EndFrame();
         }

@@ -22,6 +22,8 @@ namespace Flourish::Vulkan
         void Shutdown();
         void UpdateActiveImage();
 
+        void UpdateDimensions(u32 width, u32 height);
+
         // TS
         VkSemaphore GetImageAvailableSemaphore() const;
         
@@ -30,6 +32,9 @@ namespace Flourish::Vulkan
         inline Framebuffer* GetFramebuffer() const { return m_ImageData[m_ActiveImageIndex].Framebuffer.get(); }
         inline RenderPass* GetRenderPass() const { return m_RenderPass.get(); }
         inline u32 GetActiveImageIndex() const { return m_ActiveImageIndex; }
+        inline void Recreate() { m_ShouldRecreate = true; }
+        inline void RecreateImmediate() { RecreateSwapchain(); m_ShouldRecreate = false; }
+        inline bool IsValid() const { return m_Valid; }
 
     private:
         struct ImageData
@@ -47,7 +52,6 @@ namespace Flourish::Vulkan
 
     private:
         VkSwapchainKHR m_Swapchain = nullptr;
-        bool m_Invalid = false;
         u32 m_CurrentWidth, m_CurrentHeight = 0;
         std::array<float, 4> m_ClearColor;
         std::vector<ImageData> m_ImageData;
@@ -55,6 +59,8 @@ namespace Flourish::Vulkan
         SwapchainInfo m_Info;
         u32 m_ActiveImageIndex = 0;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> m_ImageAvailableSemaphores;
+        bool m_ShouldRecreate = false;
+        bool m_Valid = true;
 
         // Copied from RenderContext so we won't need to free
         VkSurfaceKHR m_Surface;

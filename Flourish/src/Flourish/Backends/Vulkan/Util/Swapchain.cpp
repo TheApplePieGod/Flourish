@@ -34,6 +34,14 @@ namespace Flourish::Vulkan
     
     void Swapchain::UpdateActiveImage()
     {
+        if (m_ShouldRecreate)
+        {
+            RecreateSwapchain();
+            m_ShouldRecreate = false;
+        }
+
+        if (!m_Valid) return;
+
         VkResult result = vkAcquireNextImageKHR(
             Context::Devices().Device(),
             m_Swapchain,
@@ -42,16 +50,13 @@ namespace Flourish::Vulkan
             VK_NULL_HANDLE,
             &m_ActiveImageIndex
         );
-        
-        // TODO: implement this
-        /*if (result == VK_ERROR_OUT_OF_DATE_KHR)
-            m_ShouldPresentThisFrame = false;
-        else
-        {
-            HE_ENGINE_ASSERT(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR);
-            m_ShouldPresentThisFrame = true;
-        }
-        */
+    }
+
+    void Swapchain::UpdateDimensions(u32 width, u32 height)
+    {
+        m_CurrentWidth = width;
+        m_CurrentHeight = height;
+        m_ShouldRecreate = true;
     }
 
     VkSemaphore Swapchain::GetImageAvailableSemaphore() const
@@ -142,13 +147,16 @@ namespace Flourish::Vulkan
 
     void Swapchain::RecreateSwapchain()
     {
+        m_Valid = false;
+
         auto device = Context::Devices().Device();
         auto physicalDevice = Context::Devices().PhysicalDevice();
 
         VkSurfaceCapabilitiesKHR capabilities{};
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, m_Surface, &capabilities);
 
-        FL_CRASH_ASSERT(capabilities.minImageCount > 0, "Attempting to create a swapchain using a surface that doesn't have renderable images");
+        if (capabilities.minImageCount == 0)
+            return;
 
         // Determine the size for this swapchain
         VkExtent2D extent;
@@ -165,6 +173,9 @@ namespace Flourish::Vulkan
             extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
             extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
         }
+
+        if (extent.width == 0 || extent.height == 0)
+            return;
 
         // Choose an image count (this may differ from frame buffer count but optimally it is the same)
         u32 imageCount = Flourish::Context::FrameBufferCount();
@@ -210,14 +221,17 @@ namespace Flourish::Vulkan
         vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, chainImages.data());
 
         // Create renderpass compatible with all images
+        // Does not need to be recreated
         RenderPassCreateInfo rpCreateInfo;
         rpCreateInfo.ColorAttachments = { { Common::RevertColorFormat(m_Info.SurfaceFormat.format) } };
         rpCreateInfo.Subpasses = {{
             {}, {{ SubpassAttachmentType::Color, 0 }}
         }};
-        m_RenderPass = std::make_shared<RenderPass>(rpCreateInfo, true);
+        if (!m_RenderPass)
+            m_RenderPass = std::make_shared<RenderPass>(rpCreateInfo, true);
 
         // Populate image data
+        m_ImageData.clear();
         TextureCreateInfo texCreateInfo;
         texCreateInfo.Width = m_CurrentWidth;
         texCreateInfo.Height = m_CurrentHeight;
@@ -249,6 +263,8 @@ namespace Flourish::Vulkan
             
             m_ImageData.push_back(imageData);
         }
+        
+        m_Valid = true;
     }
 
     void Swapchain::CleanupSwapchain()
