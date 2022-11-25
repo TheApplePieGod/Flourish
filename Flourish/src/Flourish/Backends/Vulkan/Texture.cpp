@@ -203,7 +203,6 @@ namespace Flourish::Vulkan
 
         auto readyState = m_ReadyState;
         auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
-            FL_LOG_WARN("TEX COMPLETE");
             *readyState += 1;
         });
 
