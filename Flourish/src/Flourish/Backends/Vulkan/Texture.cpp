@@ -204,8 +204,11 @@ namespace Flourish::Vulkan
         if (m_Info.AsyncCreation)
         {
             auto readyState = m_ReadyState;
-            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState](){
+            auto callback = m_Info.CreationCallback;
+            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [readyState, callback](){
                 *readyState += 1;
+                if (callback)
+                    callback();
             });
 
             Context::DeleteQueue().PushAsync([stagingBuffer, stagingAlloc, hasInitialData, cmdBuffer]()
@@ -219,6 +222,8 @@ namespace Flourish::Vulkan
         {
             Context::Queues().ExecuteCommand(GPUWorkloadType::Graphics, cmdBuffer);
             *m_ReadyState += 1;
+            if (m_Info.CreationCallback)
+                m_Info.CreationCallback();
             Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
             if (hasInitialData)
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);

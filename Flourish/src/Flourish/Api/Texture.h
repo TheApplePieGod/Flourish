@@ -59,6 +59,7 @@ namespace Flourish
         void* InitialData = nullptr;
         u32 InitialDataSize = 0;
         bool AsyncCreation = false;
+        std::function<void()> CreationCallback = nullptr;
     };
 
     class Texture
