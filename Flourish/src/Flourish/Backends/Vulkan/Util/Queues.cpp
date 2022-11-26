@@ -76,9 +76,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = &semaphore;
         waitInfo.pValues = &signalValue;
 
-        FL_LOG_ERROR("Waiting");
-        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
-        FL_LOG_ERROR("Done");
+        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
 
         m_SemaphoresLock.lock();
         m_UnusedSemaphores.push_back(semaphore);
