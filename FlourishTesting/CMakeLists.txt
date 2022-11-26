@@ -42,7 +42,7 @@ target_include_directories(
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/spdlog/include>"
 )
 
-target_link_libraries(Tests Core)
+target_link_libraries(Tests FlourishCore)
 
 # PCH
-target_precompile_headers(Tests REUSE_FROM Core)
+target_precompile_headers(Tests REUSE_FROM FlourishCore)

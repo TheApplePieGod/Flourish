@@ -6,7 +6,9 @@ namespace Flourish
 {
     struct RenderContextCreateInfo
     {
-        #ifdef FL_PLATFORM_WINDOWS
+        #ifdef FL_USE_GLFW
+        GLFWwindow* Window;        
+        #elif defined(FL_PLATFORM_WINDOWS)
         HINSTANCE Instance;
         HWND Window;
         #elif defined(FL_PLATFORM_LINUX)

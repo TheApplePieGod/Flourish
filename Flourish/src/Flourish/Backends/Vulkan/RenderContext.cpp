@@ -13,7 +13,9 @@ namespace Flourish::Vulkan
         auto instance = Context::Instance();
 
         // Create the surface
-        #ifdef FL_PLATFORM_WINDOWS
+        #ifdef FL_USE_GLFW
+            glfwCreateWindowSurface(instance, createInfo.Window, nullptr, &m_Surface)
+        #elif defined(FL_PLATFORM_WINDOWS)
             VkWin32SurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
             surfaceInfo.pNext = nullptr;

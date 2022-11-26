@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Flourish/Core/Assert.h"
+
 namespace Flourish
 {
     /*! @brief The possible data types for elements within a buffer. */
