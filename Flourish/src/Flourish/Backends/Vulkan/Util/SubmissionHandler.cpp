@@ -120,10 +120,15 @@ namespace Flourish::Vulkan
             completionSemaphoresStartIndex += completionSemaphoresWaitCount;
         }
 
-        // We need to do an initial loop over contexts to ensure that the graphics gets submitted before we present otherwise
-        // vulkan will not be happy
+        // Loop over presenting contexts and add append graphics submissions before we submit
         for (auto context : m_PresentingContexts)
-            m_SubmissionData.GraphicsSubmitInfos.push_back(context->GetSubmissionData().SubmitInfo);
+        {
+            m_SubmissionData.GraphicsSubmitInfos.insert(
+                m_SubmissionData.GraphicsSubmitInfos.end(),
+                context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.begin(),
+                context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.end()
+            );
+        }
         
         if (!m_SubmissionData.GraphicsSubmitInfos.empty())
         {

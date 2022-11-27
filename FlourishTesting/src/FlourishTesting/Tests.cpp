@@ -97,7 +97,7 @@ namespace FlourishTesting
         }
         encoder->EndEncoding();
 
-        auto frameEncoder = m_RenderContext->EncodeFrameRenderCommands();
+        auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
         frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[objectCount].get());
         frameEncoder->FlushPipelineBindings();
@@ -138,7 +138,7 @@ namespace FlourishTesting
         encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount);
         encoder1->EndEncoding();
 
-        auto frameEncoder = m_RenderContext->EncodeFrameRenderCommands();
+        auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
         frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[0].get());
         frameEncoder->FlushPipelineBindings();

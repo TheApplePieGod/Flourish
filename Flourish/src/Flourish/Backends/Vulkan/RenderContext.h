@@ -13,8 +13,6 @@ namespace Flourish::Vulkan
         std::vector<u64> WaitSemaphoreValues;
         std::vector<VkPipelineStageFlags> WaitStages;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
-        VkSubmitInfo SubmitInfo;
-        VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
     };
 
     class RenderContext : public Flourish::RenderContext
@@ -28,12 +26,12 @@ namespace Flourish::Vulkan
         RenderPass* GetRenderPass() const override;
         bool Validate() override;
 
-        [[nodiscard]] Flourish::RenderCommandEncoder* EncodeFrameRenderCommands() override; 
+        [[nodiscard]] Flourish::RenderCommandEncoder* EncodeRenderCommands() override; 
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }
         inline Vulkan::Swapchain& Swapchain() { return m_Swapchain; }
-        inline const Vulkan::CommandBuffer& CommandBuffer() const { return m_CommandBuffer; }
+        inline Vulkan::CommandBuffer& CommandBuffer() { return m_CommandBuffer; }
         inline VkSemaphore GetImageAvailableSemaphore() const { return m_Swapchain.GetImageAvailableSemaphore(); }
         inline const RenderContextSubmissionData& GetSubmissionData() const { return m_SubmissionData; }
 

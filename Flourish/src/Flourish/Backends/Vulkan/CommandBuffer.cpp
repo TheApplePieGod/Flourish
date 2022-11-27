@@ -117,6 +117,8 @@ namespace Flourish::Vulkan
         }
         else 
             m_SubmissionData.FirstSubmitInfo = encodedCommandSubmitInfo;
+        
+        m_SubmissionData.LastSubmitInfo = encodedCommandSubmitInfo;
     }
 
     Flourish::RenderCommandEncoder* CommandBuffer::EncodeRenderCommands(Flourish::Framebuffer* framebuffer)
