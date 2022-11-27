@@ -121,6 +121,22 @@ namespace Flourish::Vulkan
         m_SubmissionData.LastSubmitInfo = encodedCommandSubmitInfo;
     }
 
+    Flourish::GraphicsCommandEncoder* CommandBuffer::EncodeGraphicsCommands()
+    {
+        FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
+        FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
+        m_Encoding = true;
+
+        CheckFrameUpdate();
+
+        if (m_GraphicsCommandEncoderCachePtr >= m_GraphicsCommandEncoderCache.size())
+            m_GraphicsCommandEncoderCache.emplace_back(this);
+
+        m_GraphicsCommandEncoderCache[m_GraphicsCommandEncoderCachePtr].BeginEncoding();
+
+        return static_cast<Flourish::GraphicsCommandEncoder*>(&m_GraphicsCommandEncoderCache[m_GraphicsCommandEncoderCachePtr++]);
+    }
+
     Flourish::RenderCommandEncoder* CommandBuffer::EncodeRenderCommands(Flourish::Framebuffer* framebuffer)
     {
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");

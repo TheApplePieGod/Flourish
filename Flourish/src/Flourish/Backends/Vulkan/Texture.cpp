@@ -279,6 +279,18 @@ namespace Flourish::Vulkan
         return *m_ReadyState == 1;
     }
 
+    VkImage Texture::GetImage() const
+    {
+        if (m_ImageCount == 1) return m_Images[0].Image;
+        return m_Images[Flourish::Context::FrameIndex()].Image;
+    }
+
+    VkImage Texture::GetImage(u32 frameIndex) const
+    {
+        if (m_ImageCount == 1) return m_Images[0].Image;
+        return m_Images[frameIndex].Image;
+    }
+
     VkImageView Texture::GetImageView() const
     {
         if (m_ImageCount == 1) return m_Images[0].ImageView;

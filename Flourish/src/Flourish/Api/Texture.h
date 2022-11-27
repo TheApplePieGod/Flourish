@@ -82,6 +82,7 @@ namespace Flourish
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Info.Channels; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
+        inline ColorFormat GetColorFormat() const { return BufferDataTypeColorFormat(m_Info.DataType, m_Info.Channels); }
 
     public:
         // TS

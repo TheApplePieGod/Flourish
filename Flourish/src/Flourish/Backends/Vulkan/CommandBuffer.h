@@ -2,6 +2,7 @@
 
 #include "Flourish/Api/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Backends/Vulkan/GraphicsCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/ComputeCommandEncoder.h"
 
@@ -31,6 +32,7 @@ namespace Flourish::Vulkan
         ~CommandBuffer() override;
 
         void SubmitEncodedCommands(VkCommandBuffer buffer, GPUWorkloadType workloadType);
+        Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
         Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
         Flourish::ComputeCommandEncoder* EncodeComputeCommands(Flourish::ComputeTarget* target) override;
 
@@ -57,8 +59,10 @@ namespace Flourish::Vulkan
     private:
         u64 m_LastFrameEncoding = 0;
         u64 m_SemaphoreBaseValue = 1;
+        std::vector<GraphicsCommandEncoder> m_GraphicsCommandEncoderCache;
         std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
         std::vector<ComputeCommandEncoder> m_ComputeCommandEncoderCache;
+        u32 m_GraphicsCommandEncoderCachePtr = 0;
         u32 m_RenderCommandEncoderCachePtr = 0;
         u32 m_ComputeCommandEncoderCachePtr = 0;
         std::vector<EncoderSubmission> m_EncoderSubmissions;

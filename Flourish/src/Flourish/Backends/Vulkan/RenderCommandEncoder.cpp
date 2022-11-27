@@ -2,6 +2,7 @@
 #include "RenderCommandEncoder.h"
 
 #include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Texture.h"
 #include "Flourish/Backends/Vulkan/Framebuffer.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
@@ -166,6 +167,19 @@ namespace Flourish::Vulkan
             drawCount,
             _buffer->GetLayout().GetStride()
         );
+    }
+    
+    void RenderCommandEncoder::StartNextSubpass()
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode StartNextSubpass after encoding has ended");
+
+        vkCmdNextSubpass(GetCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
+
+        // Pipeline must be reset between each subpass
+        m_SubpassIndex++;
+        m_BoundPipeline = nullptr;
+        m_BoundPipelineName.clear();
+        m_BoundDescriptorSet = nullptr;
     }
 
     void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)

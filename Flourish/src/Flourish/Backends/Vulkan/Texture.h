@@ -27,6 +27,8 @@ namespace Flourish::Vulkan
         bool IsReady() const override;
 
         // TS
+        VkImage GetImage() const;
+        VkImage GetImage(u32 frameIndex) const;
         VkImageView GetImageView() const;
         VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;

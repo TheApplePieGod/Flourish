@@ -19,6 +19,7 @@ namespace Flourish
         virtual void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) = 0;
         virtual void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount) = 0;
         virtual void DrawIndexedIndirect(Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) = 0;
+        virtual void StartNextSubpass() = 0;
         
         // Buffer offset refers to the element starting point in the buffer and dynamicOffset refers to a dynamic element offset
         virtual void BindPipelineBufferResource(u32 bindingIndex, Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) = 0;

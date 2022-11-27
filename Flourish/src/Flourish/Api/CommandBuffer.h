@@ -16,6 +16,7 @@ namespace Flourish
 
     class Framebuffer;
     class ComputeTarget;
+    class GraphicsCommandEncoder;
     class RenderCommandEncoder;
     class ComputeCommandEncoder;
     class CommandBuffer
@@ -26,6 +27,7 @@ namespace Flourish
         {}
         virtual ~CommandBuffer() = default;
         
+        virtual GraphicsCommandEncoder* EncodeGraphicsCommands() = 0;
         virtual RenderCommandEncoder* EncodeRenderCommands(Framebuffer* framebuffer) = 0;
         virtual ComputeCommandEncoder* EncodeComputeCommands(ComputeTarget* target) = 0;
 

@@ -9,6 +9,7 @@ namespace Flourish::Vulkan
 {
     class Framebuffer;
     class CommandBuffer;
+    class Texture;
     class RenderCommandEncoder : public Flourish::RenderCommandEncoder 
     {
     public:
@@ -25,6 +26,7 @@ namespace Flourish::Vulkan
         void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) override;
         void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount) override;
         void DrawIndexedIndirect(Flourish::Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) override;
+        void StartNextSubpass() override;
         
         void BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
         void BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture) override;
