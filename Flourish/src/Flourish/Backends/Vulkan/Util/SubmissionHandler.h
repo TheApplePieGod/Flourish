@@ -24,6 +24,9 @@ namespace Flourish::Vulkan
             std::vector<VkSubmitInfo> GraphicsSubmitInfos;
             std::vector<VkSubmitInfo> ComputeSubmitInfos;
             std::vector<VkSubmitInfo> TransferSubmitInfos;
+            std::vector<VkSemaphore> ExtraSemaphores;
+            std::vector<u64> ExtraSemaphoreValues;
+            std::vector<VkPipelineStageFlags> ExtraWaitStages;
             std::vector<VkSemaphore> CompletionSemaphores;
             std::vector<u64> CompletionSemaphoreValues;
             std::vector<VkPipelineStageFlags> CompletionWaitStages;

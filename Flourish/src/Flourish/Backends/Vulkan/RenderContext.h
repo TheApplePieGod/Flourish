@@ -9,12 +9,10 @@ namespace Flourish::Vulkan
 {
     struct RenderContextSubmissionData
     {
-        std::vector<VkSemaphore> WaitSemaphores;
-        std::vector<u64> WaitSemaphoreValues;
-        std::vector<VkPipelineStageFlags> WaitStages;
+        VkSemaphore WaitSemaphore;
+        u64 WaitSemaphoreValue;
+        VkPipelineStageFlags WaitStage;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
-        VkSubmitInfo SubmitInfo;
-        VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
     };
 
     class RenderContext : public Flourish::RenderContext
@@ -28,7 +26,7 @@ namespace Flourish::Vulkan
         RenderPass* GetRenderPass() const override;
         bool Validate() override;
 
-        [[nodiscard]] Flourish::RenderCommandEncoder* EncodeFrameRenderCommands() override; 
+        [[nodiscard]] Flourish::RenderCommandEncoder* EncodeRenderCommands() override; 
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }

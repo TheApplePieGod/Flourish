@@ -20,6 +20,7 @@ namespace Flourish::Vulkan
         VkPipelineStageFlags TransferWaitStages[1] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
         VkPipelineStageFlags ComputeWaitStages[1] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
         VkSubmitInfo* FirstSubmitInfo;
+        VkSubmitInfo* LastSubmitInfo;
         VkPipelineStageFlags FinalSubBufferWaitStage;
     };
 
@@ -36,7 +37,7 @@ namespace Flourish::Vulkan
         inline CommandBufferSubmissionData& GetSubmissionData() { return m_SubmissionData; }
 
         // TS
-        inline const auto& GetEncoderSubmissions() const { return m_EncoderSubmissions; }
+        inline const auto& GetEncoderSubmissions() { CheckFrameUpdate(); return m_EncoderSubmissions; }
         inline u64 GetFinalSemaphoreValue() const { return m_SemaphoreBaseValue + m_EncoderSubmissions.size() + 1; }
 
     private:

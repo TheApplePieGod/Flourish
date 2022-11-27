@@ -10,6 +10,9 @@ namespace Flourish::Vulkan
     void SubmissionHandler::Initialize()
     {
         // This will last for a very high number of submissions
+        m_SubmissionData.ExtraSemaphores.reserve(500);
+        m_SubmissionData.ExtraSemaphoreValues.reserve(500);
+        m_SubmissionData.ExtraWaitStages.reserve(500);
         m_SubmissionData.CompletionSemaphores.reserve(500);
         m_SubmissionData.CompletionSemaphoreValues.reserve(500);
         m_SubmissionData.CompletionWaitStages.reserve(500);
@@ -43,6 +46,9 @@ namespace Flourish::Vulkan
         m_SubmissionData.GraphicsSubmitInfos.clear();
         m_SubmissionData.ComputeSubmitInfos.clear();
         m_SubmissionData.TransferSubmitInfos.clear();
+        m_SubmissionData.ExtraSemaphores.clear();
+        m_SubmissionData.ExtraSemaphoreValues.clear();
+        m_SubmissionData.ExtraWaitStages.clear();
         m_SubmissionData.CompletionSemaphores.clear();
         m_SubmissionData.CompletionSemaphoreValues.clear();
         m_SubmissionData.CompletionWaitStages.clear();
@@ -72,11 +78,50 @@ namespace Flourish::Vulkan
                     // If this is not the first batch then we must wait on the previous batch to complete
                     if (completionSemaphoresWaitCount > 0)
                     {
-                        subData.FirstSubmitInfo->waitSemaphoreCount = completionSemaphoresWaitCount;
-                        subData.FirstSubmitInfo->pWaitSemaphores = m_SubmissionData.CompletionSemaphores.data() + completionSemaphoresStartIndex;
-                        subData.FirstSubmitInfo->pWaitDstStageMask = m_SubmissionData.CompletionWaitStages.data() + completionSemaphoresStartIndex;
-                        subData.TimelineSubmitInfos[0].waitSemaphoreValueCount = completionSemaphoresWaitCount;
-                        subData.TimelineSubmitInfos[0].pWaitSemaphoreValues = m_SubmissionData.CompletionSemaphoreValues.data() + completionSemaphoresStartIndex;
+                        if (subData.FirstSubmitInfo->waitSemaphoreCount > 0) // Already semaphores to wait on so we need to include those as well
+                        {
+                            u32 startingSize = m_SubmissionData.ExtraSemaphores.size();
+                            
+                            // Copy semaphores
+                            m_SubmissionData.ExtraSemaphores.insert(
+                                m_SubmissionData.ExtraSemaphores.end(),
+                                m_SubmissionData.CompletionSemaphores.begin() + completionSemaphoresStartIndex,
+                                m_SubmissionData.CompletionSemaphores.begin() + completionSemaphoresStartIndex + completionSemaphoresWaitCount
+                            );
+                            for (u32 i = 0; i < subData.FirstSubmitInfo->waitSemaphoreCount; i++)
+                                m_SubmissionData.ExtraSemaphores.emplace_back(subData.FirstSubmitInfo->pWaitSemaphores[i]);
+
+                            // Copy values
+                            m_SubmissionData.ExtraSemaphoreValues.insert(
+                                m_SubmissionData.ExtraSemaphoreValues.end(),
+                                m_SubmissionData.CompletionSemaphoreValues.begin() + completionSemaphoresStartIndex,
+                                m_SubmissionData.CompletionSemaphoreValues.begin() + completionSemaphoresStartIndex + completionSemaphoresWaitCount
+                            );
+                            for (u32 i = 0; i < subData.FirstSubmitInfo->waitSemaphoreCount; i++)
+                                m_SubmissionData.ExtraSemaphoreValues.emplace_back(subData.TimelineSubmitInfos.front().pWaitSemaphoreValues[i]);
+
+                            // Copy wait stages
+                            m_SubmissionData.ExtraWaitStages.insert(
+                                m_SubmissionData.ExtraWaitStages.end(),
+                                m_SubmissionData.CompletionWaitStages.begin() + completionSemaphoresStartIndex,
+                                m_SubmissionData.CompletionWaitStages.begin() + completionSemaphoresStartIndex + completionSemaphoresWaitCount
+                            );
+                            for (u32 i = 0; i < subData.FirstSubmitInfo->waitSemaphoreCount; i++)
+                                m_SubmissionData.ExtraWaitStages.emplace_back(subData.FirstSubmitInfo->pWaitDstStageMask[i]);
+
+                            subData.FirstSubmitInfo->pWaitSemaphores = m_SubmissionData.ExtraSemaphores.data() + startingSize;
+                            subData.FirstSubmitInfo->pWaitDstStageMask = m_SubmissionData.ExtraWaitStages.data() + startingSize;
+                            subData.TimelineSubmitInfos.front().pWaitSemaphoreValues = m_SubmissionData.ExtraSemaphoreValues.data() + startingSize;
+                        }
+                        else
+                        {
+                            subData.FirstSubmitInfo->pWaitSemaphores = m_SubmissionData.CompletionSemaphores.data() + completionSemaphoresStartIndex;
+                            subData.FirstSubmitInfo->pWaitDstStageMask = m_SubmissionData.CompletionWaitStages.data() + completionSemaphoresStartIndex;
+                            subData.TimelineSubmitInfos.front().pWaitSemaphoreValues = m_SubmissionData.CompletionSemaphoreValues.data() + completionSemaphoresStartIndex;
+                        }
+
+                        subData.FirstSubmitInfo->waitSemaphoreCount += completionSemaphoresWaitCount;
+                        subData.TimelineSubmitInfos.front().waitSemaphoreValueCount += completionSemaphoresWaitCount;
                     }
                     
                     // Add final sub buffer semaphore to completion list for later awaiting
@@ -120,11 +165,6 @@ namespace Flourish::Vulkan
             completionSemaphoresStartIndex += completionSemaphoresWaitCount;
         }
 
-        // We need to do an initial loop over contexts to ensure that the graphics gets submitted before we present otherwise
-        // vulkan will not be happy
-        for (auto context : m_PresentingContexts)
-            m_SubmissionData.GraphicsSubmitInfos.push_back(context->GetSubmissionData().SubmitInfo);
-        
         if (!m_SubmissionData.GraphicsSubmitInfos.empty())
         {
             FL_VK_ENSURE_RESULT(vkQueueSubmit(
