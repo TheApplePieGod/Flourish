@@ -76,18 +76,35 @@ namespace Flourish::Vulkan
 
         if (!m_CommandBuffer.GetEncoderSubmissions().empty())
         {
+            m_SubmissionData.WaitSemaphores.clear();
+            m_SubmissionData.WaitSemaphoreValues.clear();
+            m_SubmissionData.WaitStages.clear();
+            
             // Add semaphore to wait for the image to be available
-            m_SubmissionData.WaitSemaphore = GetImageAvailableSemaphore();
-            m_SubmissionData.WaitSemaphoreValue = Flourish::Context::FrameCount();
-            m_SubmissionData.WaitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            m_SubmissionData.WaitSemaphores.push_back(GetImageAvailableSemaphore());
+            m_SubmissionData.WaitSemaphoreValues.push_back(Flourish::Context::FrameCount());
+            m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
+            for (auto& _buffer : dependencyBuffers.back())
+            {
+                Vulkan::CommandBuffer* buffer = static_cast<Vulkan::CommandBuffer*>(_buffer);
+                if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
+
+                auto& subData = buffer->GetSubmissionData();
+                        
+                // Add each final sub buffer semaphore to wait on
+                m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
+                m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
+                m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
+            }
+            
             // Update the first encoded command to wait until the image is available
             auto& subData = m_CommandBuffer.GetSubmissionData();
-            subData.FirstSubmitInfo->waitSemaphoreCount = 1;
-            subData.FirstSubmitInfo->pWaitSemaphores = &m_SubmissionData.WaitSemaphore;
-            subData.FirstSubmitInfo->pWaitDstStageMask = &m_SubmissionData.WaitStage;
-            subData.TimelineSubmitInfos.front().waitSemaphoreValueCount = 1;
-            subData.TimelineSubmitInfos.front().pWaitSemaphoreValues = &m_SubmissionData.WaitSemaphoreValue;
+            subData.FirstSubmitInfo->waitSemaphoreCount = m_SubmissionData.WaitSemaphores.size();
+            subData.FirstSubmitInfo->pWaitSemaphores = m_SubmissionData.WaitSemaphores.data();
+            subData.FirstSubmitInfo->pWaitDstStageMask = m_SubmissionData.WaitStages.data();
+            subData.TimelineSubmitInfos.front().waitSemaphoreValueCount = m_SubmissionData.WaitSemaphores.size();
+            subData.TimelineSubmitInfos.front().pWaitSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
 
             // Update last encoded command to signal the final binary semaphore needed to present
             subData.LastSubmitInfo->signalSemaphoreCount = 1;
@@ -95,13 +112,10 @@ namespace Flourish::Vulkan
             // We need this even though we aren't signaling a timeline semaphore. Removing this causes
             // an extremely hard to find crash on macos
             subData.TimelineSubmitInfos.back().signalSemaphoreValueCount = 1;
-            subData.TimelineSubmitInfos.back().pSignalSemaphoreValues = &m_SubmissionData.WaitSemaphoreValue;
-
-            auto dependencies = dependencyBuffers;
-            dependencies.push_back({ &m_CommandBuffer });
-            Flourish::Context::SubmitCommandBuffers(dependencies);
+            subData.TimelineSubmitInfos.back().pSignalSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
         }
 
+        Flourish::Context::SubmitCommandBuffers(dependencyBuffers);
         Context::SubmissionHandler().PresentRenderContext(this);
     }
 

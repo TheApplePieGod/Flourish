@@ -9,9 +9,9 @@ namespace Flourish::Vulkan
 {
     struct RenderContextSubmissionData
     {
-        VkSemaphore WaitSemaphore;
-        u64 WaitSemaphoreValue;
-        VkPipelineStageFlags WaitStage;
+        std::vector<VkSemaphore> WaitSemaphores;
+        std::vector<u64> WaitSemaphoreValues;
+        std::vector<VkPipelineStageFlags> WaitStages;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
     };
 
@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }
         inline Vulkan::Swapchain& Swapchain() { return m_Swapchain; }
-        inline const Vulkan::CommandBuffer& CommandBuffer() const { return m_CommandBuffer; }
+        inline Vulkan::CommandBuffer& CommandBuffer() { return m_CommandBuffer; }
         inline VkSemaphore GetImageAvailableSemaphore() const { return m_Swapchain.GetImageAvailableSemaphore(); }
         inline const RenderContextSubmissionData& GetSubmissionData() const { return m_SubmissionData; }
 
