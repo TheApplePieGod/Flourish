@@ -123,11 +123,20 @@ namespace Flourish::Vulkan
         // Loop over presenting contexts and add append graphics submissions before we submit
         for (auto context : m_PresentingContexts)
         {
-            m_SubmissionData.GraphicsSubmitInfos.insert(
-                m_SubmissionData.GraphicsSubmitInfos.end(),
-                context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.begin(),
-                context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.end()
-            );
+            #ifdef FL_PLATFORM_MACOS
+                // Can only be graphics so we can safely just insert everything in submitinfos
+                m_SubmissionData.GraphicsSubmitInfos.insert(
+                    m_SubmissionData.GraphicsSubmitInfos.end(),
+                    context->CommandBuffer().GetSubmissionData().SubmitInfos.begin(),
+                    context->CommandBuffer().GetSubmissionData().SubmitInfos.end()
+                );
+            #else
+                m_SubmissionData.GraphicsSubmitInfos.insert(
+                    m_SubmissionData.GraphicsSubmitInfos.end(),
+                    context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.begin(),
+                    context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.end()
+                );
+            #endif
         }
         
         if (!m_SubmissionData.GraphicsSubmitInfos.empty())
