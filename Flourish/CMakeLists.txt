@@ -1,7 +1,8 @@
+project(FlourishCore C CXX)
+
 if(APPLE)
-  project(FlourishCore C CXX OBJC OBJCXX)
-else()
-  project(FlourishCore C CXX)
+  enable_language(OBJC)
+  enable_language(OBJCXX)
 endif()
 
 # Build dependencies

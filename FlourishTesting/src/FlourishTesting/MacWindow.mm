@@ -15,7 +15,7 @@ void* MacOS::CreateWindowAndGetView(int width, int height)
     app.activationPolicy = NSApplicationActivationPolicyRegular;
 
     NSRect frame = NSMakeRect(100, 250, width, height);
-    NSUInteger windowStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
+    NSUInteger windowStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
 
     NSWindow* window = [[NSWindow alloc] initWithContentRect:frame styleMask:windowStyle backing:NSBackingStoreBuffered defer:NO];
     [window setTitle: @"Flourish"];

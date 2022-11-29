@@ -1,7 +1,8 @@
+project(Tests C CXX)
+
 if(APPLE)
-  project(Tests C CXX OBJC OBJCXX)
-else()
-  project(Tests C CXX)
+  enable_language(OBJC)
+  enable_language(OBJCXX)
 endif()
 
 # Build dependencies
