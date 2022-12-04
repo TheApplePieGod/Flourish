@@ -28,6 +28,19 @@ namespace Flourish::Vulkan
         return m_PipelineDescriptorSets[nameStr].get();
     }
 
+    VkImageView Framebuffer::GetAttachmentImageView(SubpassAttachment attachment)
+    {
+        if (attachment.Type == SubpassAttachmentType::Depth)
+            return m_CachedImageViews[Flourish::Context::FrameIndex()][attachment.AttachmentIndex];
+        
+        // If we have resolves then we want to return those
+        u32 newIndex = attachment.AttachmentIndex;
+        if (m_Info.RenderPass->GetSampleCount() != MsaaSampleCount::None)
+            newIndex *= 2;
+        newIndex += m_Info.DepthAttachments.size();
+        return m_CachedImageViews[Flourish::Context::FrameIndex()][newIndex];
+    }
+
     VkFramebuffer Framebuffer::GetFramebuffer() const
     {
         return m_Framebuffers[Flourish::Context::FrameIndex()];
@@ -67,9 +80,7 @@ namespace Flourish::Vulkan
             imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-            {
                 PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT, frame);
-            }
         }
 
         imageInfo.usage &= ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;

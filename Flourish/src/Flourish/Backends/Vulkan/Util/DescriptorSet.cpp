@@ -163,12 +163,13 @@ namespace Flourish::Vulkan
 
             case ShaderResourceType::SubpassInput:
             {
-                // VulkanFramebuffer::VulkanFramebufferAttachment* attachment = static_cast<VulkanFramebuffer::VulkanFramebufferAttachment*>(resource);
-                // HE_ENGINE_ASSERT(bindingIndex < m_CachedImageInfos.size(), "Binding index for subpass input is too large");
+                FL_ASSERT(bindingIndex < m_CachedImageInfos.size(), "Binding index for subpass input is too large");
+                VkImageView view = static_cast<VkImageView>(resource);
 
-                // m_CachedImageInfos[imageInfoBaseIndex].sampler = NULL;
-                // m_CachedImageInfos[imageInfoBaseIndex].imageLayout = attachment->IsDepthAttachment ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                // m_CachedImageInfos[imageInfoBaseIndex].imageView = attachment->HasResolve ? attachment->ResolveImageView : attachment->ImageView;
+                // useOffset: is the attachment a color attachment
+                m_CachedImageInfos[imageInfoBaseIndex].sampler = NULL;
+                m_CachedImageInfos[imageInfoBaseIndex].imageLayout = useOffset ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
+                m_CachedImageInfos[imageInfoBaseIndex].imageView = view;
             } break;
         }
 

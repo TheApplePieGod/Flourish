@@ -14,6 +14,7 @@ namespace Flourish::Vulkan
         ~Framebuffer() override;
         
         DescriptorSet* GetPipelineDescriptorSet(std::string_view name, const DescriptorSetLayout& layout);
+        VkImageView GetAttachmentImageView(SubpassAttachment attachment);
 
         // TS
         VkFramebuffer GetFramebuffer() const;

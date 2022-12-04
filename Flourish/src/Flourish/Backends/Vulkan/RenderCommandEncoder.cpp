@@ -222,6 +222,43 @@ namespace Flourish::Vulkan
             false, 0, 0
         );
     }
+    
+    void RenderCommandEncoder::BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
+    {
+        // Ensure the texture to bind is not an output attachment
+        FL_CRASH_ASSERT(
+            std::find_if(
+                m_BoundFramebuffer->GetColorAttachments().begin(),
+                m_BoundFramebuffer->GetColorAttachments().end(),
+                [texture, layerIndex, mipLevel](const FramebufferColorAttachment& att)
+                { return att.Texture.get() == texture && att.LayerIndex == layerIndex && att.MipLevel == mipLevel; }
+            ) == m_BoundFramebuffer->GetColorAttachments().end(),
+            "Cannot bind a texture resource that is currently being written to"
+        )
+        
+        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+
+        m_BoundDescriptorSet->UpdateBinding(
+            bindingIndex, 
+            ShaderResourceType::Texture, 
+            texture,
+            true, layerIndex, mipLevel
+        );
+    }
+
+    void RenderCommandEncoder::BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment)
+    {
+        ValidatePipelineBinding(bindingIndex, ShaderResourceType::SubpassInput, &attachment);
+        
+        VkImageView attView = m_BoundFramebuffer->GetAttachmentImageView(attachment);
+
+        m_BoundDescriptorSet->UpdateBinding(
+            bindingIndex, 
+            ShaderResourceType::SubpassInput, 
+            attView,
+            attachment.Type == SubpassAttachmentType::Color, 0, 0
+        );
+    }
 
     void RenderCommandEncoder::FlushPipelineBindings()
     {
