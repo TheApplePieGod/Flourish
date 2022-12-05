@@ -652,7 +652,7 @@ namespace Flourish::Vulkan
         samplerInfo.addressModeU = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[0]);
         samplerInfo.addressModeV = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[1]);
         samplerInfo.addressModeW = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[2]);
-        samplerInfo.anisotropyEnable = m_Info.SamplerState.AnisotropyEnable;
+        samplerInfo.anisotropyEnable = Flourish::Context::FeatureTable().SamplerAnisotropy && m_Info.SamplerState.AnisotropyEnable;
         samplerInfo.maxAnisotropy = std::min(
             static_cast<float>(m_Info.SamplerState.MaxAnisotropy),
             Context::Devices().PhysicalDeviceProperties().limits.maxSamplerAnisotropy

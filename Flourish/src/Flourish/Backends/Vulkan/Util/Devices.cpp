@@ -41,7 +41,7 @@ namespace Flourish::Vulkan
         }
         FL_CRASH_ASSERT(m_PhysicalDevice, "Unable to find a compatible gpu while initializing");
 
-        PopulateOptionalExtensions(deviceExtensions);
+        PopulateOptionalExtensions(deviceExtensions, initInfo);
 
         // Get the max amount of queues we can/need to create for each family
         QueueFamilyIndices indices = Queues::GetQueueFamilies(m_PhysicalDevice);
@@ -69,7 +69,7 @@ namespace Flourish::Vulkan
         }
 
         VkPhysicalDeviceFeatures deviceFeatures{};
-        //deviceFeatures.samplerAnisotropy = false;
+        PopulateDeviceFeatures(deviceFeatures, initInfo);
 
         VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
         timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
@@ -106,10 +106,6 @@ namespace Flourish::Vulkan
 
     bool Devices::CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions)
     {
-        VkPhysicalDeviceProperties deviceProperties;
-        vkGetPhysicalDeviceProperties(device, &deviceProperties);
-        VkPhysicalDeviceFeatures deviceFeatures;
-        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
         QueueFamilyIndices indices = Queues::GetQueueFamilies(device);
 
         // Get hardware extension support
@@ -126,7 +122,7 @@ namespace Flourish::Vulkan
         return indices.IsComplete();
     }
 
-    void Devices::PopulateOptionalExtensions(std::vector<const char*>& extensions)
+    void Devices::PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
         // Get hardware extension support
         u32 supportedExtensionCount = 0;
@@ -134,11 +130,21 @@ namespace Flourish::Vulkan
         std::vector<VkExtensionProperties> supportedExtensions(supportedExtensionCount);
         vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, supportedExtensions.data());
         
-        if (Common::SupportsExtension(supportedExtensions, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
+        if (initInfo.RequestedFeatures.SamplerMinMax &&
+            Common::SupportsExtension(supportedExtensions, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
         {
             extensions.push_back(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
             Flourish::Context::FeatureTable().SamplerMinMax = true;
         }
+    }
+
+    void Devices::PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo)
+    {
+        VkPhysicalDeviceFeatures supported;
+        vkGetPhysicalDeviceFeatures(m_PhysicalDevice, &supported);
+        
+        if (initInfo.RequestedFeatures.SamplerAnisotropy && supported.samplerAnisotropy)
+            features.samplerAnisotropy = true;
     }
 
     VkSampleCountFlagBits Devices::GetMaxSampleCount()

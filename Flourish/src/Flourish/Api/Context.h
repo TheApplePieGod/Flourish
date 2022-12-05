@@ -20,6 +20,7 @@ namespace Flourish
         u32 PatchVersion = 0;
         u32 FrameBufferCount = 2;
         bool UseReversedZBuffer = true;
+        FeatureTable RequestedFeatures;
     };
 
     class CommandBuffer;

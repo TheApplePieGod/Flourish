@@ -18,7 +18,8 @@ namespace Flourish::Vulkan
 
     private:
         bool CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions);
-        void PopulateOptionalExtensions(std::vector<const char*>& extensions);
+        void PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
+        void PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo);
         VkSampleCountFlagBits GetMaxSampleCount();
 
     private:

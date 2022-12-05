@@ -5,5 +5,6 @@ namespace Flourish
     struct FeatureTable
     {
         bool SamplerMinMax = false;
+        bool SamplerAnisotropy = false;
     };
 }
