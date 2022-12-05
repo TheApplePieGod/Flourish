@@ -72,6 +72,9 @@ namespace Flourish
         
         // TS
         virtual bool IsReady() const = 0;
+        #ifdef FL_USE_IMGUI
+        virtual void* GetImGuiHandle(u32 layerIndex = 0, u32 mipLevel = 0) const = 0;
+        #endif
 
         // TS  
         inline u32 GetArrayCount() const { return m_Info.ArrayCount; }

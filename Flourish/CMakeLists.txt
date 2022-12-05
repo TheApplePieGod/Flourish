@@ -40,6 +40,34 @@ else()
   )
 endif()
 
+if (NOT FLOURISH_GLFW_INCLUDE_DIR STREQUAL "OFF")
+  target_include_directories(
+    FlourishCore
+    PUBLIC
+    "$<BUILD_INTERFACE:${FLOURISH_GLFW_INCLUDE_DIR}>"
+  )
+  target_compile_definitions(
+    FlourishCore
+    PUBLIC
+    FL_USE_GLFW
+  )
+  message("Flourish compiling with GLFW support")
+endif()
+
+if (NOT FLOURISH_IMGUI_INCLUDE_DIR STREQUAL "OFF")
+  target_include_directories(
+    FlourishCore
+    PUBLIC
+    "$<BUILD_INTERFACE:${FLOURISH_IMGUI_INCLUDE_DIR}>"
+  )
+  target_compile_definitions(
+    FlourishCore
+    PUBLIC
+    FL_USE_IMGUI
+  )
+  message("Flourish compiling with ImGui support")
+endif()
+
 # Link vulkan related libraries
 if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)

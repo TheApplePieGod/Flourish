@@ -4,6 +4,10 @@
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
+#ifdef FL_USE_GLFW
+#include "GLFW/glfw3.h"
+#endif
+
 namespace Flourish::Vulkan
 {
     RenderContext::RenderContext(const RenderContextCreateInfo& createInfo)
@@ -14,7 +18,7 @@ namespace Flourish::Vulkan
 
         // Create the surface
         #ifdef FL_USE_GLFW
-            glfwCreateWindowSurface(instance, createInfo.Window, nullptr, &m_Surface)
+            glfwCreateWindowSurface(instance, createInfo.Window, nullptr, &m_Surface);
         #elif defined(FL_PLATFORM_WINDOWS)
             VkWin32SurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;

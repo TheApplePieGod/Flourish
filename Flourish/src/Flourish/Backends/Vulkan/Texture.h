@@ -25,6 +25,9 @@ namespace Flourish::Vulkan
 
         // TS
         bool IsReady() const override;
+        #ifdef FL_USE_IMGUI
+        void* GetImGuiHandle(u32 layerIndex = 0, u32 mipLevel = 0) const override;
+        #endif
 
         // TS
         VkImage GetImage() const;
@@ -66,6 +69,9 @@ namespace Flourish::Vulkan
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
             std::vector<VkImageView> SliceViews;
+            #ifdef FL_USE_IMGUI
+            std::vector<void*> ImGuiHandles;
+            #endif
         };
 
     private:

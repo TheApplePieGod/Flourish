@@ -8,6 +8,8 @@ project(
 
 option(FLOURISH_BUILD_TESTS "Build the tests" OFF)
 option(FLOURISH_ENABLE_LOGGING "Enable logging" ON)
+option(FLOURISH_GLFW_INCLUDE_DIR "Include directory for GLFW" "OFF")
+option(FLOURISH_IMGUI_INCLUDE_DIR "Include directory for ImGUI" "OFF")
 
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 

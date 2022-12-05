@@ -105,7 +105,8 @@ namespace Flourish::Vulkan
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
             #elif defined (FL_PLATFORM_MACOS)
-                "VK_MVK_macos_surface"
+                "VK_MVK_macos_surface",
+                "VK_EXT_metal_surface"
             #endif
         };
 

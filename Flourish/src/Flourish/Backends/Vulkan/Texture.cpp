@@ -4,6 +4,10 @@
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 
+#ifdef FL_USE_IMGUI
+#include "backends/imgui_impl_vulkan.h"
+#endif
+
 namespace Flourish::Vulkan
 {
     Texture::Texture(const TextureCreateInfo& createInfo)
@@ -147,6 +151,14 @@ namespace Flourish::Vulkan
                     viewCreateInfo.BaseMip = j;
                     VkImageView layerView = CreateImageView(viewCreateInfo);
                     imageData.SliceViews.push_back(layerView);
+                    
+                    #ifdef FL_USE_IMGUI
+                    imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
+                        m_Sampler,
+                        layerView,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                    ));
+                    #endif
                 }
             }
 
@@ -260,6 +272,11 @@ namespace Flourish::Vulkan
             {
                 auto& imageData = images[frame];
                 
+                #ifdef FL_USE_IMGUI
+                for (auto handle : imageData.ImGuiHandles)
+                    ImGui_ImplVulkan_RemoveTexture(handle);
+                #endif
+                
                 // Texture objects wrapping preexisting textures will not have an allocation
                 // so there will be nothing to free
                 if (!imageData.Allocation) continue;
@@ -278,6 +295,15 @@ namespace Flourish::Vulkan
     {
         return *m_ReadyState == 1;
     }
+
+    #ifdef FL_USE_IMGUI
+    void* Texture::GetImGuiHandle(u32 layerIndex, u32 mipLevel) const
+    {
+        if (m_ImageCount == 1)
+            return m_Images[0].ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
+        return m_Images[Flourish::Context::FrameIndex()].ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
+    }
+    #endif
 
     VkImage Texture::GetImage() const
     {

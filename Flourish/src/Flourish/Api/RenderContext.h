@@ -2,6 +2,7 @@
 
 #include "Flourish/Api/Context.h"
 
+class GLFWwindow;
 namespace Flourish
 {
     struct RenderContextCreateInfo
