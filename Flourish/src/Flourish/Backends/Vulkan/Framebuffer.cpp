@@ -34,7 +34,7 @@ namespace Flourish::Vulkan
             return m_CachedImageViews[Flourish::Context::FrameIndex()][attachment.AttachmentIndex];
         
         // If we have resolves then we want to return those
-        u32 newIndex = attachment.AttachmentIndex;
+        u32 newIndex = attachment.AttachmentIndex * 2;
         if (m_Info.RenderPass->GetSampleCount() != MsaaSampleCount::None)
             newIndex *= 2;
         newIndex += m_Info.DepthAttachments.size();
@@ -106,14 +106,6 @@ namespace Flourish::Vulkan
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
-                // Create a render target sampled texture regardless of whether or not
-                // a texture was passed in to the final render ouptut
-                if (useResolve)
-                {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
-                }
-
                 if (attachment.Texture)
                 {
                     m_CachedImageViews[frame].push_back(
@@ -129,6 +121,20 @@ namespace Flourish::Vulkan
                     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
                     PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
                 } 
+                
+                // Create a render target sampled texture regardless of whether or not
+                // a texture was passed in to the final render ouptut
+                if (useResolve)
+                {
+                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
+                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
+                }
+                else
+                {
+                    // We need these because we techincally always have resolve attachments defined even if
+                    // they are unused
+                    m_CachedImageViews[frame].push_back(m_CachedImageViews[frame].back());
+                }
             }
 
             if (useResolve) attachmentIndex++;

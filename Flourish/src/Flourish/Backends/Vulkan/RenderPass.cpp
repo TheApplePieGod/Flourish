@@ -54,19 +54,17 @@ namespace Flourish::Vulkan
             colorAttachment.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             attachmentDescriptions.emplace_back(colorAttachment);
 
-            if (m_UseResolve)
-            {
-                VkAttachmentDescription colorAttachmentResolve{};
-                colorAttachmentResolve.format = colorFormat;
-                colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
-                colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-                colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-                colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-                colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-                colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                colorAttachmentResolve.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-                attachmentDescriptions.emplace_back(colorAttachmentResolve);
-            }
+            // Resolve attachment always defined even if unused
+            VkAttachmentDescription colorAttachmentResolve{};
+            colorAttachmentResolve.format = colorFormat;
+            colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+            colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            colorAttachmentResolve.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            attachmentDescriptions.emplace_back(colorAttachmentResolve);
 
             VkAttachmentReference colorAttachmentRef{};
             colorAttachmentRef.attachment = attachmentIndex++;

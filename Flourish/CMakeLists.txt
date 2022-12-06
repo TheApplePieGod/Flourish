@@ -63,7 +63,7 @@ if (NOT FLOURISH_IMGUI_INCLUDE_DIR STREQUAL "OFF")
   target_compile_definitions(
     FlourishCore
     PUBLIC
-    FL_USE_IMGUI
+    FL_USE_IMGUI IMGUI_IMPL_VULKAN_NO_PROTOTYPES
   )
   message("Flourish compiling with ImGui support")
 endif()
