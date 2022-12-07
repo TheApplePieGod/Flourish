@@ -144,7 +144,15 @@ namespace Flourish::Vulkan
         vkGetPhysicalDeviceFeatures(m_PhysicalDevice, &supported);
         
         if (initInfo.RequestedFeatures.SamplerAnisotropy && supported.samplerAnisotropy)
+        {
             features.samplerAnisotropy = true;
+            Flourish::Context::FeatureTable().SamplerAnisotropy = true;
+        }
+        if (initInfo.RequestedFeatures.IndependentBlend && supported.independentBlend)
+        {
+            features.independentBlend = true;
+            Flourish::Context::FeatureTable().IndependentBlend = true;
+        }
     }
 
     VkSampleCountFlagBits Devices::GetMaxSampleCount()

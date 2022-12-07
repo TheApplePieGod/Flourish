@@ -2,6 +2,7 @@
 #include "GraphicsPipeline.h"
 
 #include "Flourish/Backends/Vulkan/Shader.h"
+#include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Util/Context.h"
 
 namespace Flourish::Vulkan
@@ -33,7 +34,7 @@ namespace Flourish::Vulkan
         return attributeDescriptions;
     }
 
-    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, u32 subpassCount)
+    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
         m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
@@ -114,10 +115,10 @@ namespace Flourish::Vulkan
 
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
         colorBlending.attachmentCount = static_cast<u32>(colorBlendAttachments.size());
         colorBlending.pAttachments = colorBlendAttachments.data();
+        colorBlending.logicOpEnable = VK_FALSE;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY;
         colorBlending.blendConstants[0] = 0.0f;
         colorBlending.blendConstants[1] = 0.0f;
         colorBlending.blendConstants[2] = 0.0f;
@@ -168,14 +169,16 @@ namespace Flourish::Vulkan
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = m_PipelineLayout;
-        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.renderPass = renderPass->GetRenderPass();
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
 
+        u32 subpassCount = m_Info.CompatibleSubpasses.empty() ? renderPass->GetSubpasses().size() : m_Info.CompatibleSubpasses.size();
         m_Pipelines.resize(subpassCount);
         for (u32 i = 0; i < subpassCount; i++)
         {
-            pipelineInfo.subpass = i;
+            pipelineInfo.subpass = m_Info.CompatibleSubpasses.empty() ? i : m_Info.CompatibleSubpasses[i];
+            
             if (i > 0)
             {
                 pipelineInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;

@@ -6,14 +6,14 @@
 
 namespace Flourish::Vulkan
 {
+    class RenderPass;
     class GraphicsPipeline : public Flourish::GraphicsPipeline
     {
     public:
         GraphicsPipeline(
             const GraphicsPipelineCreateInfo& createInfo,
-            VkRenderPass renderPass,
-            VkSampleCountFlagBits sampleCount,
-            u32 subpassCount
+            RenderPass* renderPass,
+            VkSampleCountFlagBits sampleCount
         );
         ~GraphicsPipeline() override;
 

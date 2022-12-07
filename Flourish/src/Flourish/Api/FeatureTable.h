@@ -6,5 +6,6 @@ namespace Flourish
     {
         bool SamplerMinMax = false;
         bool SamplerAnisotropy = false;
+        bool IndependentBlend = false;
     };
 }

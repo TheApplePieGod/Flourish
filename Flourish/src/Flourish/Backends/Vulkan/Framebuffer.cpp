@@ -108,8 +108,10 @@ namespace Flourish::Vulkan
             {
                 if (attachment.Texture)
                 {
+                    auto texture = static_cast<Texture*>(attachment.Texture.get());
+                    FL_ASSERT(texture->IsRenderTarget(), "Cannot use texture in framebuffer that was not created with the RenderTarget flag");
                     m_CachedImageViews[frame].push_back(
-                        static_cast<Texture*>(attachment.Texture.get())->GetLayerImageView(
+                        texture->GetLayerImageView(
                             frame,
                             attachment.LayerIndex,
                             attachment.MipLevel
@@ -128,12 +130,6 @@ namespace Flourish::Vulkan
                 {
                     imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
                     PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
-                }
-                else
-                {
-                    // We need these because we techincally always have resolve attachments defined even if
-                    // they are unused
-                    m_CachedImageViews[frame].push_back(m_CachedImageViews[frame].back());
                 }
             }
 

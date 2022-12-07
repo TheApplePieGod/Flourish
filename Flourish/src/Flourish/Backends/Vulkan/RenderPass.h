@@ -15,7 +15,6 @@ namespace Flourish::Vulkan
         inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
 
         inline static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
-        inline static constexpr ColorFormat GeneralDepthFormat = ColorFormat::R32_FLOAT;
 
     protected:
         std::shared_ptr<Flourish::GraphicsPipeline> CreatePipeline(const GraphicsPipelineCreateInfo& createInfo) override;

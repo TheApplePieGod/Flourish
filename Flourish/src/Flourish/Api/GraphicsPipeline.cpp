@@ -5,6 +5,17 @@
 
 namespace Flourish
 {
+    bool AttachmentBlendState::operator==(const AttachmentBlendState& other) const
+    {
+        return BlendEnable == other.BlendEnable &&
+               SrcColorBlendFactor == other.SrcColorBlendFactor &&
+               DstColorBlendFactor == other.DstColorBlendFactor &&
+               SrcAlphaBlendFactor == other.SrcAlphaBlendFactor &&
+               DstAlphaBlendFactor == other.DstAlphaBlendFactor &&
+               ColorBlendOperation == other.ColorBlendOperation &&
+               AlphaBlendOperation == other.AlphaBlendOperation;
+    }
+
     void GraphicsPipeline::ConsolidateReflectionData()
     {
         m_ProgramReflectionData.clear();

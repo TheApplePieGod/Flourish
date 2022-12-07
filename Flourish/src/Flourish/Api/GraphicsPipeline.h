@@ -45,6 +45,8 @@ namespace Flourish
         BlendFactor DstAlphaBlendFactor = BlendFactor::Zero;
         BlendOperation ColorBlendOperation = BlendOperation::Add;
         BlendOperation AlphaBlendOperation = BlendOperation::Add;
+        
+        bool operator==(const AttachmentBlendState& other) const;
     };
 
     struct GraphicsPipelineCreateInfo
@@ -56,12 +58,16 @@ namespace Flourish
         VertexTopology VertexTopology;
         BufferLayout VertexLayout;
 
-        std::vector<AttachmentBlendState> BlendStates; // one state is required per framebuffer attachment
+        // One state is required per output attachment
+        std::vector<AttachmentBlendState> BlendStates; 
 
         bool DepthTest;
         bool DepthWrite;
         CullMode CullMode;
         WindingOrder WindingOrder;
+       
+        // If empty, will try and create for all subpasses
+        std::vector<u32> CompatibleSubpasses;
     };
 
     class Texture;

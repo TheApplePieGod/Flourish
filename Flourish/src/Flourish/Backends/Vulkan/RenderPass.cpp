@@ -54,17 +54,19 @@ namespace Flourish::Vulkan
             colorAttachment.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             attachmentDescriptions.emplace_back(colorAttachment);
 
-            // Resolve attachment always defined even if unused
-            VkAttachmentDescription colorAttachmentResolve{};
-            colorAttachmentResolve.format = colorFormat;
-            colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
-            colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            colorAttachmentResolve.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            attachmentDescriptions.emplace_back(colorAttachmentResolve);
+            if (m_UseResolve)
+            {
+                VkAttachmentDescription colorAttachmentResolve{};
+                colorAttachmentResolve.format = colorFormat;
+                colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+                colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+                colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                colorAttachmentResolve.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                attachmentDescriptions.emplace_back(colorAttachmentResolve);
+            }
 
             VkAttachmentReference colorAttachmentRef{};
             colorAttachmentRef.attachment = attachmentIndex++;
@@ -78,6 +80,8 @@ namespace Flourish::Vulkan
         }
 
         // Build the subpass dependency graph and connect all of their attachments
+        // TODO: we need to validate that the attachment indicesline up with what were actually submitted
+        // because there can be issues with referencing a depth attachment but the rp was created without one
         u32 subpassCount = createInfo.Subpasses.size();
         u32 colorAttachmentStartIndex = createInfo.DepthAttachments.size();
         std::vector<VkSubpassDescription> subpasses(subpassCount);
@@ -105,10 +109,8 @@ namespace Flourish::Vulkan
                 {
                     inputAttachmentRefs.push_back({
                         m_UseResolve
-                            // Every color attachment has a resolve regardless of whether or not
-                            // it is used so we can use a simple formula to figure out the attachment index
                             ? colorAttachmentStartIndex + (attachment.AttachmentIndex * 2) + 1
-                            : colorAttachmentStartIndex + (attachment.AttachmentIndex * 2),
+                            : colorAttachmentStartIndex + attachment.AttachmentIndex,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                     });
                 }
@@ -134,7 +136,9 @@ namespace Flourish::Vulkan
                 {
                     outputAttachmentRefs.push_back({
                         // Always outputting to the normal image attachment
-                        colorAttachmentStartIndex + (attachment.AttachmentIndex * 2),
+                        m_UseResolve
+                            ? colorAttachmentStartIndex + (attachment.AttachmentIndex * 2)
+                            : colorAttachmentStartIndex + attachment.AttachmentIndex,
                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
                     });
                     outputResolveAttachmentRefs.push_back({
@@ -204,16 +208,35 @@ namespace Flourish::Vulkan
 
     std::shared_ptr<Flourish::GraphicsPipeline> RenderPass::CreatePipeline(const GraphicsPipelineCreateInfo& createInfo)
     {
-        FL_ASSERT(
-            createInfo.BlendStates.size() == m_Info.ColorAttachments.size(),
-            "Graphics pipeline blend state count must match the number of color attachments defined for this render pass"
-        );
+        #ifdef FL_ENABLE_ASSERTS
+        for (u32 subpass : createInfo.CompatibleSubpasses)
+        {
+            u32 count = 0;
+            for (auto& attachment : m_Info.Subpasses[subpass].OutputAttachments)
+                if (attachment.Type == SubpassAttachmentType::Color)
+                    count++;
+            FL_ASSERT(
+                createInfo.BlendStates.size() == count,
+                "Graphics pipeline blend state count must match the number of color attachments defined for this render pass"
+            );
+        }
+
+        if (!Flourish::Context::FeatureTable().IndependentBlend)
+        {
+            for (u32 i = 1; i < createInfo.BlendStates.size(); i++)
+            {
+                FL_ASSERT(
+                    createInfo.BlendStates[i - 1] == createInfo.BlendStates[i],
+                    "If the IndependentBlend feature is not enabled, blend states for each attachment must all be identical"
+                )
+            }
+        }
+        #endif
 
         return std::make_shared<GraphicsPipeline>(
             createInfo,
-            m_RenderPass,
-            m_SampleCount,
-            static_cast<u32>(m_Info.Subpasses.size())
+            this,
+            m_SampleCount
         );
     }
 }

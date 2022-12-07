@@ -53,6 +53,7 @@ namespace Flourish
         u32 Width, Height, Channels;
         BufferDataType DataType;
         BufferUsageType UsageType;
+        bool RenderTarget = false; // TODO: revisit this & usage type
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
         TextureSamplerState SamplerState;
@@ -84,6 +85,7 @@ namespace Flourish
         inline u32 GetMipWidth(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Width * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Info.Channels; }
+        inline bool IsRenderTarget() const { return m_Info.RenderTarget; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
         inline ColorFormat GetColorFormat() const { return BufferDataTypeColorFormat(m_Info.DataType, m_Info.Channels); }
 

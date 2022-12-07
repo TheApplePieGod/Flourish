@@ -60,6 +60,7 @@ namespace Flourish
 
         // TS
         inline MsaaSampleCount GetSampleCount() const { return m_Info.SampleCount; }
+        inline const auto& GetSubpasses() const { return m_Info.Subpasses; }
         inline ColorFormat GetColorAttachmentColorFormat(u32 index) const { return m_Info.ColorAttachments[index].Format; }
 
     public:

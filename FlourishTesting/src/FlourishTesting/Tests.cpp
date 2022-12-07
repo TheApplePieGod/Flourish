@@ -424,6 +424,7 @@ namespace FlourishTesting
         texCreateInfo.Channels = 4;
         texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
         texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;
+        texCreateInfo.RenderTarget = true;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         texCreateInfo.InitialData = nullptr;
         texCreateInfo.AsyncCreation = false;
