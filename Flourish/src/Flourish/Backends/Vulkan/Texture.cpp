@@ -274,7 +274,7 @@ namespace Flourish::Vulkan
                 
                 #ifdef FL_USE_IMGUI
                 for (auto handle : imageData.ImGuiHandles)
-                    ImGui_ImplVulkan_RemoveTexture(handle);
+                    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
                 #endif
                 
                 // Texture objects wrapping preexisting textures will not have an allocation
