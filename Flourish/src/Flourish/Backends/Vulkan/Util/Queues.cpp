@@ -41,7 +41,9 @@ namespace Flourish::Vulkan
         auto& queueData = GetQueueData(workloadType);
         queueData.CommandQueueLock.lock();
         VkSemaphore semaphore = RetrieveSemaphore();
-        u64 signalValue = Flourish::Context::FrameCount() + 1;
+        m_SemaphoresLock.lock();
+        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
+        m_SemaphoresLock.unlock();
         queueData.CommandQueue.emplace_back(buffer, completionCallback, semaphore, signalValue);
         queueData.CommandQueueLock.unlock();
         return { semaphore, signalValue };

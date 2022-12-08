@@ -16,15 +16,15 @@ namespace Flourish::Vulkan
             VkSampleCountFlagBits sampleCount
         );
         ~GraphicsPipeline() override;
-
+        
         // TS
-        inline VkPipeline GetPipeline(u32 subpassIndex) const { return m_Pipelines[subpassIndex]; }
         inline VkPipelineLayout GetLayout() const { return m_PipelineLayout; }
+        inline VkPipeline GetPipeline(u32 subpassIndex) { return m_Pipelines[subpassIndex]; };
         inline const DescriptorSetLayout& GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 
     private:
         DescriptorSetLayout m_DescriptorSetLayout;
         VkPipelineLayout m_PipelineLayout;
-        std::vector<VkPipeline> m_Pipelines;
+        std::unordered_map<u32, VkPipeline> m_Pipelines;
     };
 }

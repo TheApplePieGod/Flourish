@@ -56,7 +56,7 @@ namespace Flourish::Vulkan
         
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = Common::ConvertVertexTopology(createInfo.VertexTopology);
+        inputAssembly.topology = createInfo.VertexInput ? Common::ConvertVertexTopology(createInfo.VertexTopology) : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
         VkViewport viewport{};
@@ -173,19 +173,30 @@ namespace Flourish::Vulkan
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
 
-        u32 subpassCount = m_Info.CompatibleSubpasses.empty() ? renderPass->GetSubpasses().size() : m_Info.CompatibleSubpasses.size();
-        m_Pipelines.resize(subpassCount);
+        bool fillCompatible = m_Info.CompatibleSubpasses.empty();
+        u32 subpassCount = fillCompatible ? renderPass->GetSubpasses().size() : m_Info.CompatibleSubpasses.size();
         for (u32 i = 0; i < subpassCount; i++)
         {
-            pipelineInfo.subpass = m_Info.CompatibleSubpasses.empty() ? i : m_Info.CompatibleSubpasses[i];
+            if (fillCompatible)
+                m_Info.CompatibleSubpasses.push_back(i);
+            pipelineInfo.subpass = m_Info.CompatibleSubpasses[i];
             
             if (i > 0)
             {
                 pipelineInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
-                pipelineInfo.basePipelineHandle = m_Pipelines[0];
+                pipelineInfo.basePipelineHandle = m_Pipelines[m_Info.CompatibleSubpasses[0]];
             }
 
-            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(Context::Devices().Device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipelines[i]));
+            VkPipeline pipeline;
+            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(
+                Context::Devices().Device(),
+                VK_NULL_HANDLE,
+                1,
+                &pipelineInfo,
+                nullptr,
+                &pipeline
+            ));
+            m_Pipelines[m_Info.CompatibleSubpasses[i]] = pipeline;
         }
     }
 
@@ -197,8 +208,8 @@ namespace Flourish::Vulkan
         auto layout = m_PipelineLayout;
         Context::DeleteQueue().Push([=]()
         {
-            for (auto pipeline : pipelines)
-                vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
+            for (auto& pair : pipelines)
+                vkDestroyPipeline(Context::Devices().Device(), pair.second, nullptr);
             vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Graphics pipeline free");
     }

@@ -27,9 +27,7 @@ namespace Flourish::Vulkan
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
         if (m_Info.RenderTarget)
-            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-        if (m_Info.UsageType == BufferUsageType::Dynamic)
-            imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         if (hasInitialData)
             imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -389,7 +387,7 @@ namespace Flourish::Vulkan
         for (u32 i = 1; i < mipLevels; i++)
         {
             barrier.subresourceRange.baseMipLevel = i - 1;
-            barrier.oldLayout = initialLayout;
+            barrier.oldLayout = i == 1 ? initialLayout : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -440,7 +438,7 @@ namespace Flourish::Vulkan
         }
 
         barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-        barrier.oldLayout = initialLayout;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout = finalLayout;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
