@@ -15,15 +15,7 @@ namespace Flourish::Vulkan
     struct ThreadCommandPools
     {
         ThreadCommandPools();
-        ThreadCommandPools(const ThreadCommandPools& other)
-            : Data(other.Data)
-        {}
         ~ThreadCommandPools();
-
-        void operator=(const ThreadCommandPools& other)
-        {
-            Data = other.Data;
-        }
 
         ThreadCommandPoolsData Data;
     };
