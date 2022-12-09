@@ -182,6 +182,47 @@ namespace Flourish::Vulkan
         m_BoundDescriptorSet = nullptr;
     }
 
+    void RenderCommandEncoder::ClearColorAttachment(u32 attachmentIndex)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode ClearColorAttachment after encoding has ended");
+        
+        auto& color = m_BoundFramebuffer->GetColorAttachments()[attachmentIndex].ClearColor;
+
+        VkClearAttachment clear;
+        clear.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        clear.clearValue.color.float32[0] = color[0];
+        clear.clearValue.color.float32[1] = color[1];
+        clear.clearValue.color.float32[2] = color[2];
+        clear.clearValue.color.float32[3] = color[3];
+        clear.colorAttachment = attachmentIndex;
+        VkClearRect clearRect;
+        clearRect.baseArrayLayer = 0;
+        clearRect.layerCount = 1;
+        clearRect.rect.extent.width = m_BoundFramebuffer->GetWidth();
+        clearRect.rect.extent.height = m_BoundFramebuffer->GetHeight();
+        clearRect.rect.offset.x = 0;
+        clearRect.rect.offset.y = 0;
+        vkCmdClearAttachments(GetCommandBuffer(), 1, &clear, 1, &clearRect);        
+    }
+
+    void RenderCommandEncoder::ClearDepthAttachment()
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode ClearDepthAttachment after encoding has ended");
+        
+        VkClearAttachment clear;
+        clear.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        clear.clearValue.depthStencil.depth = Flourish::Context::ReversedZBuffer() ? 0.f : 1.0f;
+        clear.clearValue.depthStencil.stencil = 0;
+        VkClearRect clearRect;
+        clearRect.baseArrayLayer = 0;
+        clearRect.layerCount = 1;
+        clearRect.rect.extent.height = m_BoundFramebuffer->GetWidth();
+        clearRect.rect.extent.width = m_BoundFramebuffer->GetHeight();
+        clearRect.rect.offset.x = 0;
+        clearRect.rect.offset.y = 0;
+        vkCmdClearAttachments(GetCommandBuffer(), 1, &clear, 1, &clearRect);        
+    }
+
     void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
     {
         FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");

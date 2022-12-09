@@ -34,9 +34,9 @@ namespace Flourish::Vulkan
             return m_CachedImageViews[Flourish::Context::FrameIndex()][attachment.AttachmentIndex];
         
         // If we have resolves then we want to return those
-        u32 newIndex = attachment.AttachmentIndex * 2;
+        u32 newIndex = attachment.AttachmentIndex;
         if (m_Info.RenderPass->GetSampleCount() != MsaaSampleCount::None)
-            newIndex *= 2;
+            newIndex = newIndex * 2 + 1;
         newIndex += m_Info.DepthAttachments.size();
         return m_CachedImageViews[Flourish::Context::FrameIndex()][newIndex];
     }

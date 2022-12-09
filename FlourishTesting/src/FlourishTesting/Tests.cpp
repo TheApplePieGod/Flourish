@@ -109,7 +109,7 @@ namespace FlourishTesting
             job.wait();
 
         //Flourish::Context::SubmitCommandBuffers({{ m_CommandBuffers[objectCount].get() }});
-        m_RenderContext->Present({ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } });
+        m_RenderContext->Present({{ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } }});
     }
     
     void Tests::RunSingleThreadedTest()
@@ -146,7 +146,7 @@ namespace FlourishTesting
         frameEncoder->Draw(3, 0, 1);
         frameEncoder->EndEncoding();
 
-        m_RenderContext->Present({ { m_CommandBuffers[0].get() } });
+        m_RenderContext->Present({{ { m_CommandBuffers[0].get() } }});
     }
 
     Tests::Tests()

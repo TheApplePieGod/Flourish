@@ -123,11 +123,11 @@ namespace Flourish::Vulkan
 
     Flourish::GraphicsCommandEncoder* CommandBuffer::EncodeGraphicsCommands()
     {
+        CheckFrameUpdate();
+
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
         FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
         m_Encoding = true;
-
-        CheckFrameUpdate();
 
         if (m_GraphicsCommandEncoderCachePtr >= m_GraphicsCommandEncoderCache.size())
             m_GraphicsCommandEncoderCache.emplace_back(this);
@@ -139,11 +139,11 @@ namespace Flourish::Vulkan
 
     Flourish::RenderCommandEncoder* CommandBuffer::EncodeRenderCommands(Flourish::Framebuffer* framebuffer)
     {
+        CheckFrameUpdate();
+
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
         FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
         m_Encoding = true;
-
-        CheckFrameUpdate();
 
         if (m_RenderCommandEncoderCachePtr >= m_RenderCommandEncoderCache.size())
             m_RenderCommandEncoderCache.emplace_back(this);
@@ -157,11 +157,11 @@ namespace Flourish::Vulkan
 
     Flourish::ComputeCommandEncoder* CommandBuffer::EncodeComputeCommands(Flourish::ComputeTarget* target)
     {
+        CheckFrameUpdate();
+
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
         FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
         m_Encoding = true;
-
-        CheckFrameUpdate();
 
         if (m_ComputeCommandEncoderCachePtr >= m_ComputeCommandEncoderCache.size())
             m_ComputeCommandEncoderCache.emplace_back(this);
