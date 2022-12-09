@@ -40,7 +40,7 @@ namespace Flourish::Vulkan
         FL_LOG_DEBUG("Vulkan context ready");
     }
 
-    void Context::Shutdown()
+    void Context::Shutdown(std::function<void()> finalizer)
     {
         FL_LOG_TRACE("Vulkan context shutdown begin");
 
@@ -51,6 +51,8 @@ namespace Flourish::Vulkan
         s_DeleteQueue.Shutdown();
         s_SubmissionHandler.Shutdown();
         s_Commands.Shutdown();
+        if (finalizer)
+            finalizer();
         vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG

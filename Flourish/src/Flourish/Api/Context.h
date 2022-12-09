@@ -28,7 +28,7 @@ namespace Flourish
     {
     public:
         static void Initialize(const ContextInitializeInfo& initInfo);
-        static void Shutdown();
+        static void Shutdown(std::function<void()> finalizer = nullptr);
         static void BeginFrame();
         static void EndFrame();
 

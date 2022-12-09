@@ -25,13 +25,13 @@ namespace Flourish
         }
     }
 
-    void Context::Shutdown()
+    void Context::Shutdown(std::function<void()> finalizer)
     {
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot shutdown, context has not been initialized");
 
         switch (s_BackendType)
         {
-            case BackendType::Vulkan: { Vulkan::Context::Shutdown(); } return;
+            case BackendType::Vulkan: { Vulkan::Context::Shutdown(finalizer); } return;
         }
 
         FL_ASSERT(false, "Context shutdown is missing for selected api type");

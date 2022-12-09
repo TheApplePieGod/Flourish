@@ -30,7 +30,7 @@ namespace Flourish::Vulkan
 
     private:
         static void Initialize(const ContextInitializeInfo& initInfo);
-        static void Shutdown();
+        static void Shutdown(std::function<void()> finalizer = nullptr);
         static void BeginFrame();
         static void EndFrame();
         static void SetupInstance(const ContextInitializeInfo& initInfo);

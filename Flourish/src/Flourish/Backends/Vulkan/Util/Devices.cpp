@@ -102,6 +102,8 @@ namespace Flourish::Vulkan
     void Devices::Shutdown()
     {
         vkDestroyDevice(m_Device, nullptr);
+        m_Device = nullptr;
+        m_PhysicalDevice = nullptr;
     }
 
     bool Devices::CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions)
