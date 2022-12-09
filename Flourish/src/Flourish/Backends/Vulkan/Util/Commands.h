@@ -5,26 +5,27 @@
 
 namespace Flourish::Vulkan
 {
+    struct ThreadCommandPoolsData
+    {
+        VkCommandPool GraphicsPool;
+        VkCommandPool ComputePool;
+        VkCommandPool TransferPool;
+    };
+
     struct ThreadCommandPools
     {
         ThreadCommandPools();
         ThreadCommandPools(const ThreadCommandPools& other)
-            : GraphicsPool(other.GraphicsPool),
-            ComputePool(other.ComputePool),
-            TransferPool(other.TransferPool)
+            : Data(other.Data)
         {}
         ~ThreadCommandPools();
 
         void operator=(const ThreadCommandPools& other)
         {
-            GraphicsPool = other.GraphicsPool;
-            ComputePool = other.ComputePool;
-            TransferPool = other.TransferPool;
+            Data = other.Data;
         }
 
-        VkCommandPool GraphicsPool;
-        VkCommandPool ComputePool;
-        VkCommandPool TransferPool;
+        ThreadCommandPoolsData Data;
     };
 
     class Commands
@@ -55,11 +56,11 @@ namespace Flourish::Vulkan
     private:
 
     private:
-        void DestroyPools(const ThreadCommandPools& pools);
+        void DestroyPools(const ThreadCommandPoolsData& pools);
 
     private:
-        std::unordered_map<std::thread::id, ThreadCommandPools> m_PoolsInUse;
-        std::vector<ThreadCommandPools> m_UnusedPools;
+        std::unordered_map<std::thread::id, ThreadCommandPoolsData> m_PoolsInUse;
+        std::vector<ThreadCommandPoolsData> m_UnusedPools;
         std::mutex m_PoolsLock;
         
         inline thread_local static ThreadCommandPools s_ThreadPools; 
