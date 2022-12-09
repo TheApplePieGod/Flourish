@@ -82,7 +82,6 @@ namespace Flourish::Vulkan
     private:
         std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
         VkFormat m_Format;
-        ColorFormat m_GeneralFormat;
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
         u32* m_ReadyState;

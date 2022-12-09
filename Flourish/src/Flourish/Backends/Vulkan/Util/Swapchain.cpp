@@ -235,7 +235,7 @@ namespace Flourish::Vulkan
         TextureCreateInfo texCreateInfo;
         texCreateInfo.Width = m_CurrentWidth;
         texCreateInfo.Height = m_CurrentHeight;
-        texCreateInfo.DataType = Texture::ColorFormatBufferDataType(rpCreateInfo.ColorAttachments[0].Format);
+        texCreateInfo.Format = rpCreateInfo.ColorAttachments[0].Format;
         texCreateInfo.RenderTarget = true;
         FramebufferCreateInfo fbCreateInfo;
         fbCreateInfo.RenderPass = m_RenderPass;

@@ -389,8 +389,7 @@ namespace FlourishTesting
         if (!imagePixels) { FL_LOG_WARN("Dog image failed to load"); }
         texCreateInfo.Width = static_cast<u32>(imageWidth);
         texCreateInfo.Height = static_cast<u32>(imageHeight);
-        texCreateInfo.Channels = 4;
-        texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
+        texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
         texCreateInfo.UsageType = Flourish::BufferUsageType::Static;
         texCreateInfo.AsyncCreation = true;
         if (imagePixels)
@@ -421,8 +420,7 @@ namespace FlourishTesting
         texCreateInfo.Width = m_ScreenWidth;
         texCreateInfo.Height = m_ScreenHeight;
         texCreateInfo.MipCount = 1;
-        texCreateInfo.Channels = 4;
-        texCreateInfo.DataType = Flourish::BufferDataType::UInt8;
+        texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
         texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;
         texCreateInfo.RenderTarget = true;
         texCreateInfo.SamplerState.AnisotropyEnable = false;

@@ -56,31 +56,4 @@ namespace Flourish
         FL_ASSERT(false, "ColorFormatBufferDataType unsupported ColorFormat");
         return BufferDataType::None;
     }
-    
-    // TODO: move into texture scope?
-    ColorFormat Texture::BufferDataTypeColorFormat(BufferDataType type, u32 channelCount)
-    {
-        // FL_ASSERT(channelCount == 1 || channelCount == 4, "Channel counts of 2 or 3 are not supported");
-        if (channelCount == 1)
-        {
-            switch (type)
-            {
-                // case BufferDataType::UInt8: return ColorFormat::R8; // Unsupported
-                case BufferDataType::Float: return ColorFormat::R32_FLOAT;  
-                case BufferDataType::HalfFloat: return ColorFormat::R16_FLOAT;  
-            }
-        }
-        else
-        {
-            switch (type)
-            {
-                case BufferDataType::UInt8: return ColorFormat::RGBA8_SRGB;
-                case BufferDataType::Float: return ColorFormat::RGBA32_FLOAT;  
-                case BufferDataType::HalfFloat: return ColorFormat::RGBA16_FLOAT;  
-            }
-        }
-
-        FL_ASSERT(false, "BufferDataTypeColorFormat unsupported BufferDataType and ChannelCount combination");
-        return ColorFormat::None;
-    }
 }

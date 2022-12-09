@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
     {
         m_ReadyState = new u32();
 
-        UpdateFormat();
+        m_Format = Common::ConvertColorFormat(m_Info.Format);
 
         // Populate initial image info
         bool hasInitialData = m_Info.InitialData && m_Info.InitialDataSize > 0;
@@ -73,8 +73,8 @@ namespace Flourish::Vulkan
         m_Info.Height = newHeight;
         m_Info.ArrayCount = newArrayCount;
 
-        VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Info.Channels;
-        u32 componentSize = BufferDataTypeSize(m_Info.DataType);
+        VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Channels;
+        u32 componentSize = BufferDataTypeSize(ColorFormatBufferDataType(m_Info.Format));
         m_ImageCount = m_Info.UsageType == BufferUsageType::Dynamic ? Flourish::Context::FrameBufferCount() : 1;
         
         CreateSampler();
@@ -246,7 +246,7 @@ namespace Flourish::Vulkan
         : Flourish::Texture(createInfo)
     {
         m_Info.MipCount = 1;
-        UpdateFormat();
+        m_Format = Common::ConvertColorFormat(m_Info.Format);
 
         m_MipLevels = 1;
         m_ImageCount = 1;
@@ -622,14 +622,6 @@ namespace Flourish::Vulkan
     const Texture::ImageData& Texture::GetImageData() const
     {
         return m_ImageCount == 1 ? m_Images[0] : m_Images[Flourish::Context::FrameIndex()];
-    }
-    
-    void Texture::UpdateFormat()
-    {
-        m_GeneralFormat = BufferDataTypeColorFormat(m_Info.DataType, m_Info.Channels);
-        m_Format = Common::ConvertColorFormat(m_GeneralFormat);
-        if (m_Format == VK_FORMAT_R8G8B8A8_SRGB)
-            m_Format = VK_FORMAT_R8G8B8A8_UNORM; // we want to use unorm for textures
     }
     
     void Texture::CreateSampler()
