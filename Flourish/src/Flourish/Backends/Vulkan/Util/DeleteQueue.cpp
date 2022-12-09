@@ -61,7 +61,7 @@ namespace Flourish::Vulkan
             if (execute || force)
             {
                 if (value.DebugName)
-                    FL_LOG_WARN("Delete queue: %s", value.DebugName);
+                { FL_LOG_TRACE("Delete queue: %s", value.DebugName); }
                 m_QueueLock.unlock();
                 value.Execute();
                 m_QueueLock.lock();
