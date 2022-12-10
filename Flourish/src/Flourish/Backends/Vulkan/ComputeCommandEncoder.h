@@ -3,6 +3,7 @@
 #include "Flourish/Api/ComputeCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/Util/Commands.h"
 #include "Flourish/Backends/Vulkan/ComputePipeline.h"
 
 namespace Flourish::Vulkan
@@ -33,6 +34,7 @@ namespace Flourish::Vulkan
 
     private:
         std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
+        CommandBufferAllocInfo m_AllocInfo;
         CommandBuffer* m_ParentBuffer;
         ComputeTarget* m_BoundTarget = nullptr;
         DescriptorSet* m_BoundDescriptorSet = nullptr;

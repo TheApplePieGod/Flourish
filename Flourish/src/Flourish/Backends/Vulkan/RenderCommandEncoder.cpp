@@ -13,7 +13,7 @@ namespace Flourish::Vulkan
     RenderCommandEncoder::RenderCommandEncoder(CommandBuffer* parentBuffer)
     {
         m_ParentBuffer = parentBuffer;
-        Context::Commands().AllocateBuffers(
+        m_AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Graphics,
             false,
             m_CommandBuffers.data(),
@@ -23,14 +23,12 @@ namespace Flourish::Vulkan
 
     RenderCommandEncoder::~RenderCommandEncoder()
     {
-        // We shouldn't have to do any thread sanity checking here because command buffer
-        // already does this and it is the only class who will own this object. Also, FreeBuffers()
-        // already handles a delete queue entry
         std::vector<VkCommandBuffer> buffers(m_CommandBuffers.begin(), m_CommandBuffers.begin() + Flourish::Context::FrameBufferCount());
-        Context::DeleteQueue().Push([buffers]()
+        auto allocInfo = m_AllocInfo;
+        Context::DeleteQueue().Push([buffers, allocInfo]()
         {
             Context::Commands().FreeBuffers(
-                GPUWorkloadType::Graphics,
+                allocInfo,
                 buffers
             );
         }, "Render command encoder free");

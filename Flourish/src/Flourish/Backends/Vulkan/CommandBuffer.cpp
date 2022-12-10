@@ -10,8 +10,7 @@
 namespace Flourish::Vulkan
 {
     CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary)
-        : Flourish::CommandBuffer(createInfo),
-          m_AllocatedThread(std::this_thread::get_id())
+        : Flourish::CommandBuffer(createInfo)
     {
         m_EncoderSubmissions.reserve(m_Info.MaxEncoders);
 
@@ -27,11 +26,6 @@ namespace Flourish::Vulkan
 
     CommandBuffer::~CommandBuffer()
     {
-        FL_CRASH_ASSERT(
-            m_AllocatedThread == std::this_thread::get_id(),
-            "Command buffer should never be destroyed from a thread different than the one that created it"
-        );
-        
         auto semaphores = m_SubmissionData.SyncSemaphores;
         Context::DeleteQueue().Push([=]()
         {

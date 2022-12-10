@@ -22,7 +22,7 @@ namespace FlourishTesting
 
     void Tests::Run()
     {
-        while (true)
+        while (Flourish::Context::FrameCount() < 100)
         {
             Flourish::Context::BeginFrame();
 

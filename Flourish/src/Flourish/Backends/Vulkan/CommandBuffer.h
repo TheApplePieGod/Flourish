@@ -67,6 +67,5 @@ namespace Flourish::Vulkan
         u32 m_ComputeCommandEncoderCachePtr = 0;
         std::vector<EncoderSubmission> m_EncoderSubmissions;
         CommandBufferSubmissionData m_SubmissionData;
-        std::thread::id m_AllocatedThread;
     };
 }
