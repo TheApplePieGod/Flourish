@@ -60,6 +60,7 @@ namespace Flourish::Vulkan
 
         SetViewport(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
         SetScissor(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
+        SetLineWidth(1.f);
     }
 
     void RenderCommandEncoder::EndEncoding()
@@ -116,6 +117,17 @@ namespace Flourish::Vulkan
         scissor.extent = { width, height };
 
         vkCmdSetScissor(GetCommandBuffer(), 0, 1, &scissor);
+    }
+
+    void RenderCommandEncoder::SetLineWidth(float width)
+    {
+        FL_ASSERT(width >= 0, "Width cannot be less than zero");
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetLineWidth after encoding has ended");
+
+        if (!Flourish::Context::FeatureTable().WideLines)
+            width = std::min(width, 1.f);
+
+        vkCmdSetLineWidth(GetCommandBuffer(), width);
     }
 
     void RenderCommandEncoder::BindVertexBuffer(Flourish::Buffer* _buffer)

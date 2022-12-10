@@ -155,6 +155,11 @@ namespace Flourish::Vulkan
             features.independentBlend = true;
             Flourish::Context::FeatureTable().IndependentBlend = true;
         }
+        if (initInfo.RequestedFeatures.WideLines && supported.wideLines)
+        {
+            features.wideLines = true;
+            Flourish::Context::FeatureTable().WideLines = true;
+        }
     }
 
     VkSampleCountFlagBits Devices::GetMaxSampleCount()

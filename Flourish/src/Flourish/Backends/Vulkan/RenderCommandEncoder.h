@@ -22,6 +22,7 @@ namespace Flourish::Vulkan
         void BindPipeline(std::string_view pipelineName) override;
         void SetViewport(u32 x, u32 y, u32 width, u32 height) override;
         void SetScissor(u32 x, u32 y, u32 width, u32 height) override;
+        void SetLineWidth(float width) override;
         void BindVertexBuffer(Flourish::Buffer* buffer) override;
         void BindIndexBuffer(Flourish::Buffer* buffer) override;
         void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) override;

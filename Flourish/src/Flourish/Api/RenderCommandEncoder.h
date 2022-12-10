@@ -14,6 +14,7 @@ namespace Flourish
         virtual void BindPipeline(std::string_view pipelineName) = 0;
         virtual void SetViewport(u32 x, u32 y, u32 width, u32 height) = 0;
         virtual void SetScissor(u32 x, u32 y, u32 width, u32 height) = 0;
+        virtual void SetLineWidth(float width) = 0;
         virtual void BindVertexBuffer(Buffer* buffer) = 0;
         virtual void BindIndexBuffer(Buffer* buffer) = 0;
         virtual void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) = 0;
