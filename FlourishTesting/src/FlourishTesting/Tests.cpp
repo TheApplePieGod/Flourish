@@ -447,6 +447,8 @@ namespace FlourishTesting
     void Tests::CreateCommandBuffers()
     {
         Flourish::CommandBufferCreateInfo cmdCreateInfo;
+        cmdCreateInfo.MaxRenderEncoders = 1;
+        cmdCreateInfo.MaxComputeEncoders = 1;
         
         for (u32 i = 0; i < 10; i++)
             m_CommandBuffers.push_back(Flourish::CommandBuffer::Create(cmdCreateInfo));

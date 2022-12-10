@@ -12,13 +12,24 @@ namespace Flourish::Vulkan
     CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary)
         : Flourish::CommandBuffer(createInfo)
     {
-        m_EncoderSubmissions.reserve(m_Info.MaxEncoders);
+        u32 totalEncoders = m_Info.MaxGraphicsEncoders + m_Info.MaxRenderEncoders + m_Info.MaxComputeEncoders;
+        FL_ASSERT(totalEncoders > 0, "Cannot create a command buffer with no encoders");
 
-        m_SubmissionData.GraphicsSubmitInfos.reserve(m_Info.MaxEncoders);
-        m_SubmissionData.ComputeSubmitInfos.reserve(m_Info.MaxEncoders);
-        m_SubmissionData.TransferSubmitInfos.reserve(m_Info.MaxEncoders);
-        m_SubmissionData.TimelineSubmitInfos.reserve(m_Info.MaxEncoders);
-        m_SubmissionData.SyncSemaphoreValues.reserve(m_Info.MaxEncoders * 2);
+        m_EncoderSubmissions.reserve(totalEncoders);
+
+        // Prefill all encoders to ensure they are all created on the same thread
+        for (u32 i = 0; i < m_Info.MaxGraphicsEncoders; i++)
+            m_GraphicsCommandEncoderCache.emplace_back(this);
+        for (u32 i = 0; i < m_Info.MaxRenderEncoders; i++)
+            m_RenderCommandEncoderCache.emplace_back(this);
+        for (u32 i = 0; i < m_Info.MaxComputeEncoders; i++)
+            m_ComputeCommandEncoderCache.emplace_back(this);
+
+        m_SubmissionData.GraphicsSubmitInfos.reserve(m_Info.MaxGraphicsEncoders + m_Info.MaxRenderEncoders);
+        m_SubmissionData.ComputeSubmitInfos.reserve(m_Info.MaxComputeEncoders);
+        // m_SubmissionData.TransferSubmitInfos.reserve(m_Info.MaxEncoders);
+        m_SubmissionData.TimelineSubmitInfos.reserve(totalEncoders);
+        m_SubmissionData.SyncSemaphoreValues.reserve(totalEncoders * 2);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             m_SubmissionData.SyncSemaphores[frame] = Synchronization::CreateTimelineSemaphore(0);
@@ -120,11 +131,8 @@ namespace Flourish::Vulkan
         CheckFrameUpdate();
 
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
-        FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
+        FL_CRASH_ASSERT(m_GraphicsCommandEncoderCachePtr < m_Info.MaxGraphicsEncoders, "Cannot exceed maximum graphics encoder count");
         m_Encoding = true;
-
-        if (m_GraphicsCommandEncoderCachePtr >= m_GraphicsCommandEncoderCache.size())
-            m_GraphicsCommandEncoderCache.emplace_back(this);
 
         m_GraphicsCommandEncoderCache[m_GraphicsCommandEncoderCachePtr].BeginEncoding();
 
@@ -136,11 +144,8 @@ namespace Flourish::Vulkan
         CheckFrameUpdate();
 
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
-        FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
+        FL_CRASH_ASSERT(m_RenderCommandEncoderCachePtr < m_Info.MaxRenderEncoders, "Cannot exceed maximum render encoder count");
         m_Encoding = true;
-
-        if (m_RenderCommandEncoderCachePtr >= m_RenderCommandEncoderCache.size())
-            m_RenderCommandEncoderCache.emplace_back(this);
 
         m_RenderCommandEncoderCache[m_RenderCommandEncoderCachePtr].BeginEncoding(
             static_cast<Framebuffer*>(framebuffer)
@@ -154,11 +159,8 @@ namespace Flourish::Vulkan
         CheckFrameUpdate();
 
         FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
-        FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
+        FL_CRASH_ASSERT(m_ComputeCommandEncoderCachePtr < m_Info.MaxComputeEncoders, "Cannot exceed maximum compute encoder count");
         m_Encoding = true;
-
-        if (m_ComputeCommandEncoderCachePtr >= m_ComputeCommandEncoderCache.size())
-            m_ComputeCommandEncoderCache.emplace_back(this);
 
         m_ComputeCommandEncoderCache[m_ComputeCommandEncoderCachePtr].BeginEncoding(
             static_cast<ComputeTarget*>(target)
@@ -177,6 +179,7 @@ namespace Flourish::Vulkan
             m_LastFrameEncoding = Flourish::Context::FrameCount();
             m_RenderCommandEncoderCachePtr = 0;
             m_ComputeCommandEncoderCachePtr = 0;
+            m_GraphicsCommandEncoderCachePtr = 0;
             
             m_SubmissionData.SubmitInfos.clear();
             m_SubmissionData.GraphicsSubmitInfos.clear();

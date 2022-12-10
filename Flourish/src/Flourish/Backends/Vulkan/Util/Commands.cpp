@@ -113,7 +113,10 @@ namespace Flourish::Vulkan
     {
         m_PoolsLock.lock();
         if (s_ThreadPools.Data)
+        {
             m_UnusedPools.push_back(s_ThreadPools.Data);
+            FreeQueuedBuffers(s_ThreadPools.Data.get());
+        }
         m_PoolsInUse.erase(std::this_thread::get_id());
         m_PoolsLock.unlock();
     }
@@ -130,7 +133,7 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, buffers));
         
-        return { s_ThreadPools.Data.get(), std::this_thread::get_id(), workloadType };
+        return { std::this_thread::get_id(), workloadType };
     }
 
     void Commands::FreeBuffers(const CommandBufferAllocInfo& allocInfo, const std::vector<VkCommandBuffer>& buffers)
@@ -147,15 +150,27 @@ namespace Flourish::Vulkan
         }
         else
         {
-            allocInfo.Pools->Mutex.lock();
+            m_PoolsLock.lock();
+            
+            // We don't want to do anything if the thread is no longer active. Although techincally we could find a way to free the buffer,
+            // we can't be sure that there aren't lingering buffers that are currently being written to from the same pool. Thus, it is better
+            // to do nothing and move the responsibility to the user
+            auto foundPool = m_PoolsInUse.find(allocInfo.Thread);
+            if (foundPool == m_PoolsInUse.end())
+            {
+                FL_LOG_WARN("Attempting to free a command buffer that was allocated on a thread that no longer exists. This will cause a memory leak.");
+                m_PoolsLock.unlock();
+                return;
+            }
 
-            // Add the buffers to be freed to the free queue. We don't want to free them directly because although
-            // we may be able to keep track of whether or not the pool is being used by a thread, we can't trust that
-            // there aren't lingering buffers being written to
+            // Add the buffers to be freed to the free queue. Because the thread is still active, we can ensure that they will eventually be freed before
+            // the pool gets added to the unused list
+            foundPool->second->Mutex.lock();
             for (auto buffer : buffers)
-                allocInfo.Pools->PushBufferToFree(allocInfo.WorkloadType, buffer);
+                foundPool->second->PushBufferToFree(allocInfo.WorkloadType, buffer);
+            foundPool->second->Mutex.unlock();
 
-            allocInfo.Pools->Mutex.unlock();
+            m_PoolsLock.unlock();
         }
     }
 
@@ -171,9 +186,20 @@ namespace Flourish::Vulkan
         }
         else
         {
-            allocInfo.Pools->Mutex.lock();
-            allocInfo.Pools->PushBufferToFree(allocInfo.WorkloadType, buffer);
-            allocInfo.Pools->Mutex.unlock();
+            m_PoolsLock.lock();
+
+            auto foundPool = m_PoolsInUse.find(allocInfo.Thread);
+            if (foundPool == m_PoolsInUse.end())
+            {
+                FL_LOG_WARN("Attempting to free a command buffer that was allocated on a thread that no longer exists. This will cause a memory leak.");
+                m_PoolsLock.unlock();
+                return;
+            }
+            foundPool->second->Mutex.lock();
+            foundPool->second->PushBufferToFree(allocInfo.WorkloadType, buffer);
+            foundPool->second->Mutex.unlock();
+
+            m_PoolsLock.unlock();
         }
     }
 

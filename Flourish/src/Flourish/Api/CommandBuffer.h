@@ -11,7 +11,9 @@ namespace Flourish
 
     struct CommandBufferCreateInfo
     {
-        u32 MaxEncoders = 8;
+        u32 MaxGraphicsEncoders = 0;
+        u32 MaxRenderEncoders = 0;
+        u32 MaxComputeEncoders = 0;
     };
 
     class Framebuffer;

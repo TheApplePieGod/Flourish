@@ -30,7 +30,6 @@ namespace Flourish::Vulkan
     
     struct CommandBufferAllocInfo
     {
-        ThreadCommandPoolsData* Pools;
         std::thread::id Thread;
         GPUWorkloadType WorkloadType;
     };
