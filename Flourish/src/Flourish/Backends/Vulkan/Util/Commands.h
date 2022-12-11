@@ -31,7 +31,16 @@ namespace Flourish::Vulkan
     {
         CommandPools Pools;
 
+        std::vector<VkCommandBuffer> FreeGraphics;
+        std::vector<VkCommandBuffer> FreeCompute;
+        std::vector<VkCommandBuffer> FreeTransfer;
+        u32 FreeGraphicsPtr = 0;
+        u32 FreeComputePtr = 0;
+        u32 FreeTransferPtr = 0;
+
         u64 LastAllocationFrame = 0;
+
+        void GetBuffers(GPUWorkloadType workloadType, VkCommandBuffer* buffers, u32 bufferCount);
     };
     
     struct ThreadCommandPools
@@ -85,6 +94,7 @@ namespace Flourish::Vulkan
     private:
         void DestroyPools(CommandPools* pools);
         void FreeQueuedBuffers(PersistentPools* pools);
+        void FreeFrameBuffers(FramePools* pools);
 
     private:
         std::unordered_map<std::thread::id, ThreadCommandPools*> m_PoolsInUse;
