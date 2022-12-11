@@ -49,7 +49,12 @@ namespace Flourish::Vulkan
         m_Swapchain.Initialize(createInfo, m_Surface);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-            m_SubmissionData.SignalSemaphores[frame] = Synchronization::CreateSemaphore();
+        {
+            m_SubmissionData.SignalSemaphores[frame] = {
+                Synchronization::CreateTimelineSemaphore(0),
+                Synchronization::CreateSemaphore()
+            };
+        }
     }
 
     RenderContext::~RenderContext()
@@ -62,7 +67,10 @@ namespace Flourish::Vulkan
         {
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
+            {
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
+            }
         }, "Render context free");
     }
 
@@ -116,12 +124,14 @@ namespace Flourish::Vulkan
             subData.TimelineSubmitInfos.front().pWaitSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
 
             // Update last encoded command to signal the final binary semaphore needed to present
-            subData.LastSubmitInfo->signalSemaphoreCount = 1;
-            subData.LastSubmitInfo->pSignalSemaphores = &m_SubmissionData.SignalSemaphores[Flourish::Context::FrameIndex()];
-            // We need this even though we aren't signaling a timeline semaphore. Removing this causes
-            // an extremely hard to find crash on macos
-            subData.TimelineSubmitInfos.back().signalSemaphoreValueCount = 1;
-            subData.TimelineSubmitInfos.back().pSignalSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
+            subData.LastSubmitInfo->signalSemaphoreCount = 2;
+            subData.LastSubmitInfo->pSignalSemaphores = m_SubmissionData.SignalSemaphores[Flourish::Context::FrameIndex()].data();
+            
+            auto values = m_SubmissionData.SignalSemaphoreValues[Flourish::Context::FrameIndex()].data();
+            subData.TimelineSubmitInfos.back().signalSemaphoreValueCount = 2;
+            subData.TimelineSubmitInfos.back().pSignalSemaphoreValues = values;
+            values[0] = Flourish::Context::FrameCount();
+            values[1] = values[0]; // Binary semaphore so value doesn't matter
         }
 
         Context::SubmissionHandler().PresentRenderContext(this);

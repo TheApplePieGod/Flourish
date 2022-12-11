@@ -172,13 +172,19 @@ namespace Flourish::Vulkan
             VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
             u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
 
+            auto& signalSemaphores = context->GetSubmissionData().SignalSemaphores[Flourish::Context::FrameIndex()];
+            auto& signalSemaphoreValues = context->GetSubmissionData().SignalSemaphoreValues[Flourish::Context::FrameIndex()];
             VkPresentInfoKHR presentInfo{};
             presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
             presentInfo.waitSemaphoreCount = 1;
-            presentInfo.pWaitSemaphores = &context->GetSubmissionData().SignalSemaphores[Flourish::Context::FrameIndex()];
+            presentInfo.pWaitSemaphores = &signalSemaphores[1];
             presentInfo.swapchainCount = 1;
             presentInfo.pSwapchains = swapchain;
             presentInfo.pImageIndices = imageIndex;
+
+            // Add final semaphore to be waited on
+            m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].push_back(signalSemaphores[0]);
+            m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].push_back(signalSemaphoreValues[0]);
         
             auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
             if (result == VK_ERROR_OUT_OF_DATE_KHR)
