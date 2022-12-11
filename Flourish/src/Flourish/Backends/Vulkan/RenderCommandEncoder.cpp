@@ -13,40 +13,31 @@ namespace Flourish::Vulkan
     RenderCommandEncoder::RenderCommandEncoder(CommandBuffer* parentBuffer)
     {
         m_ParentBuffer = parentBuffer;
-        m_AllocInfo = Context::Commands().AllocateBuffers(
-            GPUWorkloadType::Graphics,
-            false,
-            m_CommandBuffers.data(),
-            Flourish::Context::FrameBufferCount()
-        );   
     }
 
     RenderCommandEncoder::~RenderCommandEncoder()
     {
-        std::vector<VkCommandBuffer> buffers(m_CommandBuffers.begin(), m_CommandBuffers.begin() + Flourish::Context::FrameBufferCount());
-        auto allocInfo = m_AllocInfo;
-        Context::DeleteQueue().Push([buffers, allocInfo]()
-        {
-            Context::Commands().FreeBuffers(
-                allocInfo,
-                buffers
-            );
-        }, "Render command encoder free");
+
     }
 
     void RenderCommandEncoder::BeginEncoding(Framebuffer* framebuffer)
     {
         m_Encoding = true;
         m_BoundFramebuffer = framebuffer;
+
+        Context::Commands().AllocateBuffers(
+            GPUWorkloadType::Graphics,
+            false,
+            &m_CommandBuffer,
+            1, false
+        );   
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         // TODO: check result?
-        VkCommandBuffer buffer = GetCommandBuffer();
-        vkResetCommandBuffer(buffer, 0);
-        vkBeginCommandBuffer(buffer, &beginInfo);
+        vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
 
         VkRenderPassBeginInfo rpBeginInfo{};
         rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -56,7 +47,7 @@ namespace Flourish::Vulkan
         rpBeginInfo.renderArea.extent = { framebuffer->GetWidth(), framebuffer->GetHeight() };
         rpBeginInfo.clearValueCount = static_cast<u32>(framebuffer->GetClearValues().size());
         rpBeginInfo.pClearValues = framebuffer->GetClearValues().data();
-        vkCmdBeginRenderPass(buffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(m_CommandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
         SetViewport(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
         SetScissor(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
@@ -73,7 +64,7 @@ namespace Flourish::Vulkan
         m_BoundPipelineName.clear();
         m_SubpassIndex = 0;
 
-        VkCommandBuffer buffer = GetCommandBuffer();
+        VkCommandBuffer buffer = m_CommandBuffer;
         vkCmdEndRenderPass(buffer);
         vkEndCommandBuffer(buffer);
         m_ParentBuffer->SubmitEncodedCommands(buffer, GPUWorkloadType::Graphics);
@@ -90,7 +81,7 @@ namespace Flourish::Vulkan
         m_BoundPipeline = pipeline;
         m_BoundDescriptorSet = m_BoundFramebuffer->GetPipelineDescriptorSet(pipelineName, pipeline->GetDescriptorSetLayout());
 
-        vkCmdBindPipeline(GetCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetPipeline(m_SubpassIndex));
+        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetPipeline(m_SubpassIndex));
     }
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
@@ -105,7 +96,7 @@ namespace Flourish::Vulkan
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
-        vkCmdSetViewport(GetCommandBuffer(), 0, 1, &viewport);
+        vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
     }
 
     void RenderCommandEncoder::SetScissor(u32 x, u32 y, u32 width, u32 height)
@@ -116,7 +107,7 @@ namespace Flourish::Vulkan
         scissor.offset = { 0, 0 };
         scissor.extent = { width, height };
 
-        vkCmdSetScissor(GetCommandBuffer(), 0, 1, &scissor);
+        vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
     }
 
     void RenderCommandEncoder::SetLineWidth(float width)
@@ -127,7 +118,7 @@ namespace Flourish::Vulkan
         if (!Flourish::Context::FeatureTable().WideLines)
             width = std::min(width, 1.f);
 
-        vkCmdSetLineWidth(GetCommandBuffer(), width);
+        vkCmdSetLineWidth(m_CommandBuffer, width);
     }
 
     void RenderCommandEncoder::BindVertexBuffer(Flourish::Buffer* _buffer)
@@ -137,7 +128,7 @@ namespace Flourish::Vulkan
         VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
 
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(GetCommandBuffer(), 0, 1, &buffer, offsets);
+        vkCmdBindVertexBuffers(m_CommandBuffer, 0, 1, &buffer, offsets);
     }
 
     void RenderCommandEncoder::BindIndexBuffer(Flourish::Buffer* _buffer)
@@ -147,21 +138,21 @@ namespace Flourish::Vulkan
         VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
         
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindIndexBuffer(GetCommandBuffer(), buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(m_CommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
     void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
         
-        vkCmdDraw(GetCommandBuffer(), vertexCount, instanceCount, vertexOffset, 0);
+        vkCmdDraw(m_CommandBuffer, vertexCount, instanceCount, vertexOffset, 0);
     }
 
     void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed after encoding has ended");
 
-        vkCmdDrawIndexed(GetCommandBuffer(), indexCount, instanceCount, indexOffset, vertexOffset, 0);
+        vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, 0);
     }
 
     void RenderCommandEncoder::DrawIndexedIndirect(Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
@@ -171,7 +162,7 @@ namespace Flourish::Vulkan
         VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
 
         vkCmdDrawIndexedIndirect(
-            GetCommandBuffer(),
+            m_CommandBuffer,
             buffer,
             commandOffset * _buffer->GetLayout().GetStride(),
             drawCount,
@@ -183,7 +174,7 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode StartNextSubpass after encoding has ended");
 
-        vkCmdNextSubpass(GetCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdNextSubpass(m_CommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
         // Pipeline must be reset between each subpass
         m_SubpassIndex++;
@@ -212,7 +203,7 @@ namespace Flourish::Vulkan
         clearRect.rect.extent.height = m_BoundFramebuffer->GetHeight();
         clearRect.rect.offset.x = 0;
         clearRect.rect.offset.y = 0;
-        vkCmdClearAttachments(GetCommandBuffer(), 1, &clear, 1, &clearRect);        
+        vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
     }
 
     void RenderCommandEncoder::ClearDepthAttachment()
@@ -230,7 +221,7 @@ namespace Flourish::Vulkan
         clearRect.rect.extent.width = m_BoundFramebuffer->GetHeight();
         clearRect.rect.offset.x = 0;
         clearRect.rect.offset.y = 0;
-        vkCmdClearAttachments(GetCommandBuffer(), 1, &clear, 1, &clearRect);        
+        vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
     }
 
     void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
@@ -324,7 +315,7 @@ namespace Flourish::Vulkan
         // Bind the new set
         VkDescriptorSet sets[1] = { m_BoundDescriptorSet->GetMostRecentDescriptorSet() };
         vkCmdBindDescriptorSets(
-            GetCommandBuffer(),
+            m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             m_BoundPipeline->GetLayout(),
             0, 1,
@@ -332,11 +323,6 @@ namespace Flourish::Vulkan
             static_cast<u32>(m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().size()),
             m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().data()
         );
-    }
-
-    VkCommandBuffer RenderCommandEncoder::GetCommandBuffer() const
-    {
-        return m_CommandBuffers[Flourish::Context::FrameIndex()];
     }
     
     void RenderCommandEncoder::ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource)

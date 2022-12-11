@@ -36,8 +36,6 @@ namespace Flourish::Vulkan
         static void SetupInstance(const ContextInitializeInfo& initInfo);
         static void SetupAllocator();
         static void ConfigureValidationLayers();
-        static void RegisterThread();
-        static void UnregisterThread();
 
     private:
         inline static VkInstance s_Instance = nullptr;

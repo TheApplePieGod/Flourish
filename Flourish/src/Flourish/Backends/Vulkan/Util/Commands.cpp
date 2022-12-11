@@ -5,7 +5,7 @@
 
 namespace Flourish::Vulkan
 {
-    VkCommandPool ThreadCommandPoolsData::GetPool(GPUWorkloadType workloadType)
+    VkCommandPool CommandPools::GetPool(GPUWorkloadType workloadType)
     {
         switch (workloadType)
         {
@@ -21,7 +21,7 @@ namespace Flourish::Vulkan
         return nullptr;
     }
 
-    void ThreadCommandPoolsData::PushBufferToFree(GPUWorkloadType workloadType, VkCommandBuffer buffer)
+    void PersistentPools::PushBufferToFree(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
         switch (workloadType)
         {
@@ -36,13 +36,6 @@ namespace Flourish::Vulkan
         FL_ASSERT(false, "Command pool for workload not supported");
     }
 
-    ThreadCommandPools::ThreadCommandPools()
-    {
-        // Ensure this does not run before vulkan is initialized
-        if (!Context::Devices().Device()) return;
-        Context::Commands().CreatePoolsForThread();
-    }
-
     ThreadCommandPools::~ThreadCommandPools()
     {
         if (!Context::Devices().Device()) return;
@@ -51,8 +44,7 @@ namespace Flourish::Vulkan
 
     void Commands::Initialize()
     {
-        // Ensure pools for the main thread have been initialized
-        if (!s_ThreadPools.Data) CreatePoolsForThread();
+
     }
 
     void Commands::Shutdown()
@@ -60,150 +52,207 @@ namespace Flourish::Vulkan
         auto device = Context::Devices().Device();
 
         for (auto& pair : m_PoolsInUse)
-            DestroyPools(pair.second.get());
-        for (auto& pools : m_UnusedPools)
-            DestroyPools(pools.get());
+        {
+            if (pair.second->PersistentPools)
+                DestroyPools(&pair.second->PersistentPools->Pools);
+            if (pair.second->FramePools[0])
+                for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+                    DestroyPools(&pair.second->FramePools[frame]->Pools);
+        }
+        for (auto& pools : m_UnusedPersistentPools)
+            DestroyPools(&pools->Pools);
+        for (auto& pools : m_UnusedFramePools)
+            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+                DestroyPools(&pools[frame]->Pools);
         
         m_PoolsInUse.clear();
-        m_UnusedPools.clear();
+        m_UnusedPersistentPools.clear();
+        m_UnusedFramePools.clear();
     }
 
-    VkCommandPool Commands::GetPool(GPUWorkloadType workloadType)
+    VkCommandPool Commands::GetPersistentPool(GPUWorkloadType workloadType)
     {
-        return s_ThreadPools.Data->GetPool(workloadType);
+        CreatePersistentPoolsForThread();
+        return s_ThreadPools.PersistentPools->Pools.GetPool(workloadType);
     }
 
-    void Commands::CreatePoolsForThread()
+    VkCommandPool Commands::GetFramePool(GPUWorkloadType workloadType)
     {
+        CreateFramePoolsForThread();
+        return s_ThreadPools.FramePools[Flourish::Context::FrameIndex()]->Pools.GetPool(workloadType);
+    }
+
+    void Commands::CreatePersistentPoolsForThread()
+    {
+        if (s_ThreadPools.PersistentPools) return;
+
         auto device = Context::Devices().Device();
 
-        if (m_UnusedPools.size() > 0)
+        m_PoolsLock.lock();
+        if (m_UnusedPersistentPools.size() > 0)
         {
-            m_PoolsLock.lock();
-            s_ThreadPools.Data = m_UnusedPools.back();
-            m_UnusedPools.pop_back();
-            m_PoolsLock.unlock();
+            s_ThreadPools.PersistentPools = m_UnusedPersistentPools.back();
+            m_UnusedPersistentPools.pop_back();
+            s_ThreadPools.PersistentPools->Mutex.lock();
+            s_ThreadPools.PersistentPools->InUse = true;
+            s_ThreadPools.PersistentPools->Mutex.unlock();
         }
         else
         {
-            s_ThreadPools.Data = std::make_shared<ThreadCommandPoolsData>();
-
-            VkCommandPoolCreateInfo poolInfo{};
-            poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-            poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Graphics);
-            poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // allow resetting
-
-            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &s_ThreadPools.Data->GraphicsPool));
-            
-            poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Compute);
-
-            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &s_ThreadPools.Data->ComputePool));
-
-            poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Transfer);
-
-            FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &s_ThreadPools.Data->TransferPool));
+            s_ThreadPools.PersistentPools = std::make_shared<PersistentPools>();
+            PopulateCommandPools(&s_ThreadPools.PersistentPools->Pools, true);
         }
 
+        m_PoolsInUse[std::this_thread::get_id()] = &s_ThreadPools;
+        m_PoolsLock.unlock();
+    }
+
+    void Commands::CreateFramePoolsForThread()
+    {
+        if (s_ThreadPools.FramePools[0]) return;
+
+        auto device = Context::Devices().Device();
+
         m_PoolsLock.lock();
-        m_PoolsInUse[std::this_thread::get_id()] = s_ThreadPools.Data;
+        if (m_UnusedFramePools.size() > 0)
+        {
+            s_ThreadPools.FramePools = m_UnusedFramePools.back();
+            m_UnusedFramePools.pop_back();
+            
+            // Reset entire frame pool for this current frame if it has not been allocated on yet
+            auto& framePool = *s_ThreadPools.FramePools[Flourish::Context::FrameIndex()];
+            if (framePool.LastAllocationFrame != Flourish::Context::FrameCount())
+            {
+                framePool.LastAllocationFrame = Flourish::Context::FrameCount();
+                vkResetCommandPool(device, framePool.Pools.GraphicsPool, 0);
+                vkResetCommandPool(device, framePool.Pools.ComputePool, 0);
+                vkResetCommandPool(device, framePool.Pools.TransferPool, 0);
+            }
+        }
+        else
+        {
+            for (u32 i = 0; i < Flourish::Context::FrameBufferCount(); i++)
+            {
+                s_ThreadPools.FramePools[i] = std::make_shared<FramePools>();
+                s_ThreadPools.FramePools[i]->LastAllocationFrame = Flourish::Context::FrameCount();
+                PopulateCommandPools(&s_ThreadPools.FramePools[i]->Pools, false);
+            }
+        }
+
+        m_PoolsInUse[std::this_thread::get_id()] = &s_ThreadPools;
         m_PoolsLock.unlock();
     }
 
     void Commands::DestroyPoolsForThread()
     {
         m_PoolsLock.lock();
-        if (s_ThreadPools.Data)
+
+        if (s_ThreadPools.PersistentPools)
         {
-            m_UnusedPools.push_back(s_ThreadPools.Data);
-            FreeQueuedBuffers(s_ThreadPools.Data.get());
+            m_UnusedPersistentPools.push_back(s_ThreadPools.PersistentPools);
+            FreeQueuedBuffers(s_ThreadPools.PersistentPools.get());
+            s_ThreadPools.PersistentPools->Mutex.lock();
+            s_ThreadPools.PersistentPools->InUse = false;
+            s_ThreadPools.PersistentPools->Mutex.unlock();
         }
+        if (s_ThreadPools.FramePools[0])
+            m_UnusedFramePools.push_back(s_ThreadPools.FramePools);
+
         m_PoolsInUse.erase(std::this_thread::get_id());
+
         m_PoolsLock.unlock();
     }
 
-    CommandBufferAllocInfo Commands::AllocateBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount)
+    CommandBufferAllocInfo Commands::AllocateBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount, bool persistent)
     {
-        FreeQueuedBuffers(s_ThreadPools.Data.get());
-
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.level = secondary ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = bufferCount;
-        allocInfo.commandPool = GetPool(workloadType);
+
+        if (persistent)
+        {
+            allocInfo.commandPool = GetPersistentPool(workloadType);
+            FreeQueuedBuffers(s_ThreadPools.PersistentPools.get());
+        }
+        else
+            allocInfo.commandPool = GetFramePool(workloadType);
 
         FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, buffers));
         
-        return { std::this_thread::get_id(), workloadType };
+        return { std::this_thread::get_id(), persistent ? s_ThreadPools.PersistentPools.get() : nullptr, workloadType };
     }
 
-    void Commands::FreeBuffers(const CommandBufferAllocInfo& allocInfo, const std::vector<VkCommandBuffer>& buffers)
+    void Commands::FreeBuffers(const CommandBufferAllocInfo& allocInfo, const VkCommandBuffer* buffers, u32 bufferCount)
     {
+        // Frame allocated buffers do not need to be explicitly freed
+        if (!allocInfo.PersistentPools)
+        {
+            FL_LOG_WARN("Freeing command buffer that was not allocated as persistent. This is unnecessary.");
+            return;
+        }
+
         // We can free directly if we are allocating and freeing on the same thread
         if (std::this_thread::get_id() == allocInfo.Thread)
         {
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                GetPool(allocInfo.WorkloadType),
-                buffers.size(),
-                buffers.data()
+                GetPersistentPool(allocInfo.WorkloadType),
+                bufferCount,
+                buffers
             );
         }
+        // We can also free directly if the allocated pool is not currently in use. We can do this because we know the pool
+        // is not allowed to be written to once a thread is no longer claiming it
+        else if (!allocInfo.PersistentPools->InUse)
+        {
+            allocInfo.PersistentPools->Mutex.lock();
+            vkFreeCommandBuffers(
+                Context::Devices().Device(),
+                allocInfo.PersistentPools->Pools.GetPool(allocInfo.WorkloadType),
+                bufferCount,
+                buffers
+            );
+            allocInfo.PersistentPools->Mutex.unlock();            
+        }
+        // Otherwise we can add the buffers to the active persistent pool so that they can be freed by the thread that is currently
+        // using it
         else
         {
-            m_PoolsLock.lock();
-            
-            // We don't want to do anything if the thread is no longer active. Although techincally we could find a way to free the buffer,
-            // we can't be sure that there aren't lingering buffers that are currently being written to from the same pool. Thus, it is better
-            // to do nothing and move the responsibility to the user
-            auto foundPool = m_PoolsInUse.find(allocInfo.Thread);
-            if (foundPool == m_PoolsInUse.end())
-            {
-                FL_LOG_WARN("Attempting to free a command buffer that was allocated on a thread that no longer exists. This will cause a memory leak.");
-                m_PoolsLock.unlock();
-                return;
-            }
-
-            // Add the buffers to be freed to the free queue. Because the thread is still active, we can ensure that they will eventually be freed before
-            // the pool gets added to the unused list
-            foundPool->second->Mutex.lock();
-            for (auto buffer : buffers)
-                foundPool->second->PushBufferToFree(allocInfo.WorkloadType, buffer);
-            foundPool->second->Mutex.unlock();
-
-            m_PoolsLock.unlock();
+            allocInfo.PersistentPools->Mutex.lock();
+            for (u32 i = 0; i < bufferCount; i++)
+                allocInfo.PersistentPools->PushBufferToFree(allocInfo.WorkloadType, buffers[i]);
+            allocInfo.PersistentPools->Mutex.unlock();
         }
     }
 
     void Commands::FreeBuffer(const CommandBufferAllocInfo& allocInfo, VkCommandBuffer buffer)
     {
-        if (std::this_thread::get_id() == allocInfo.Thread)
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                GetPool(allocInfo.WorkloadType),
-                1, &buffer
-            );
-        }
-        else
-        {
-            m_PoolsLock.lock();
-
-            auto foundPool = m_PoolsInUse.find(allocInfo.Thread);
-            if (foundPool == m_PoolsInUse.end())
-            {
-                FL_LOG_WARN("Attempting to free a command buffer that was allocated on a thread that no longer exists. This will cause a memory leak.");
-                m_PoolsLock.unlock();
-                return;
-            }
-            foundPool->second->Mutex.lock();
-            foundPool->second->PushBufferToFree(allocInfo.WorkloadType, buffer);
-            foundPool->second->Mutex.unlock();
-
-            m_PoolsLock.unlock();
-        }
+        FreeBuffers(allocInfo, &buffer, 1);
     }
 
-    void Commands::DestroyPools(ThreadCommandPoolsData* pools)
+    void Commands::PopulateCommandPools(CommandPools* pools, bool allowReset)
+    {
+        auto device = Context::Devices().Device();
+
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Graphics);
+        if (allowReset)
+            poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+        FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->GraphicsPool));
+        
+        poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Compute);
+
+        FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->ComputePool));
+
+        poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Transfer);
+
+        FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->TransferPool));
+    }
+
+    void Commands::DestroyPools(CommandPools* pools)
     {
         auto device = Context::Devices().Device();
 
@@ -215,7 +264,7 @@ namespace Flourish::Vulkan
         pools->TransferPool = nullptr;
     }
 
-    void Commands::FreeQueuedBuffers(ThreadCommandPoolsData* pools)
+    void Commands::FreeQueuedBuffers(PersistentPools* pools)
     {
         pools->Mutex.lock();
         
@@ -223,7 +272,7 @@ namespace Flourish::Vulkan
         {
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                pools->GraphicsPool,
+                pools->Pools.GraphicsPool,
                 pools->GraphicsToFree.size(),
                 pools->GraphicsToFree.data()
             );
@@ -233,7 +282,7 @@ namespace Flourish::Vulkan
         {
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                pools->ComputePool,
+                pools->Pools.ComputePool,
                 pools->ComputeToFree.size(),
                 pools->ComputeToFree.data()
             );
@@ -243,7 +292,7 @@ namespace Flourish::Vulkan
         {
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                pools->TransferPool,
+                pools->Pools.TransferPool,
                 pools->TransferToFree.size(),
                 pools->TransferToFree.data()
             );

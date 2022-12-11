@@ -25,16 +25,15 @@ namespace Flourish::Vulkan
         void BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
         void BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture) override;
         void FlushPipelineBindings() override;
-        
+
         // TS
-        VkCommandBuffer GetCommandBuffer() const;
+        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
     private:
         void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource);
 
     private:
-        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
-        CommandBufferAllocInfo m_AllocInfo;
+        VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
         ComputeTarget* m_BoundTarget = nullptr;
         DescriptorSet* m_BoundDescriptorSet = nullptr;

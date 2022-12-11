@@ -18,13 +18,12 @@ namespace Flourish::Vulkan
         void BeginEncoding();
         void EndEncoding() override;
         void GenerateMipMaps(Flourish::Texture* texture) override;
-        
+
         // TS
-        VkCommandBuffer GetCommandBuffer() const;
+        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
     private:
-        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
-        CommandBufferAllocInfo m_AllocInfo;
+        VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
     };
 }
