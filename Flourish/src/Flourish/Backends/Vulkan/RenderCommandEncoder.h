@@ -3,6 +3,7 @@
 #include "Flourish/Api/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/Util/Commands.h"
 #include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
 
 namespace Flourish::Vulkan
@@ -21,6 +22,7 @@ namespace Flourish::Vulkan
         void BindPipeline(std::string_view pipelineName) override;
         void SetViewport(u32 x, u32 y, u32 width, u32 height) override;
         void SetScissor(u32 x, u32 y, u32 width, u32 height) override;
+        void SetLineWidth(float width) override;
         void BindVertexBuffer(Flourish::Buffer* buffer) override;
         void BindIndexBuffer(Flourish::Buffer* buffer) override;
         void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) override;
@@ -35,15 +37,15 @@ namespace Flourish::Vulkan
         void BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
         void BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment) override;
         void FlushPipelineBindings() override;
-        
+
         // TS
-        VkCommandBuffer GetCommandBuffer() const;
+        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
     private:
         void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource);
 
     private:
-        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
+        VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
         Framebuffer* m_BoundFramebuffer = nullptr;
         DescriptorSet* m_BoundDescriptorSet = nullptr;

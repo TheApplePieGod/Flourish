@@ -3,6 +3,7 @@
 #include "Flourish/Api/GraphicsCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/Util/Commands.h"
 #include "Flourish/Backends/Vulkan/ComputePipeline.h"
 
 namespace Flourish::Vulkan
@@ -17,12 +18,12 @@ namespace Flourish::Vulkan
         void BeginEncoding();
         void EndEncoding() override;
         void GenerateMipMaps(Flourish::Texture* texture) override;
-        
+
         // TS
-        VkCommandBuffer GetCommandBuffer() const;
+        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
     private:
-        std::array<VkCommandBuffer, Flourish::Context::MaxFrameBufferCount> m_CommandBuffers;
+        VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
     };
 }

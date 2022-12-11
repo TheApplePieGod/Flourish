@@ -22,7 +22,7 @@ namespace FlourishTesting
 
     void Tests::Run()
     {
-        while (true)
+        while (Flourish::Context::FrameCount() < 100)
         {
             Flourish::Context::BeginFrame();
 
@@ -447,6 +447,7 @@ namespace FlourishTesting
     void Tests::CreateCommandBuffers()
     {
         Flourish::CommandBufferCreateInfo cmdCreateInfo;
+        cmdCreateInfo.MaxEncoders = 2;
         
         for (u32 i = 0; i < 10; i++)
             m_CommandBuffers.push_back(Flourish::CommandBuffer::Create(cmdCreateInfo));

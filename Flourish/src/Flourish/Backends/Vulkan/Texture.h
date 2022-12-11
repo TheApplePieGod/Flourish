@@ -68,9 +68,9 @@ namespace Flourish::Vulkan
             VkImageView ImageView;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
-            std::vector<VkImageView> SliceViews;
+            std::vector<VkImageView> SliceViews = {};
             #ifdef FL_USE_IMGUI
-            std::vector<void*> ImGuiHandles;
+            std::vector<void*> ImGuiHandles = {};
             #endif
         };
 
@@ -84,6 +84,6 @@ namespace Flourish::Vulkan
         VkFormat m_Format;
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
-        u32* m_ReadyState;
+        u32* m_ReadyState = nullptr;
     };
 }

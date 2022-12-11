@@ -10,41 +10,30 @@ namespace Flourish::Vulkan
     GraphicsCommandEncoder::GraphicsCommandEncoder(CommandBuffer* parentBuffer)
     {
         m_ParentBuffer = parentBuffer;
-        Context::Commands().AllocateBuffers(
-            GPUWorkloadType::Graphics,
-            false,
-            m_CommandBuffers.data(),
-            Flourish::Context::FrameBufferCount()
-        );   
     }
 
     GraphicsCommandEncoder::~GraphicsCommandEncoder()
     {
-        // We shouldn't have to do any thread sanity checking here because command buffer
-        // already does this and it is the only class who will own this object. Also, FreeBuffers()
-        // already handles a delete queue entry
-        std::vector<VkCommandBuffer> buffers(m_CommandBuffers.begin(), m_CommandBuffers.begin() + Flourish::Context::FrameBufferCount());
-        Context::DeleteQueue().Push([buffers]()
-        {
-            Context::Commands().FreeBuffers(
-                GPUWorkloadType::Graphics,
-                buffers
-            );
-        }, "Graphics command encoder free");
+
     }
 
     void GraphicsCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
+
+        Context::Commands().AllocateBuffers(
+            GPUWorkloadType::Graphics,
+            false,
+            &m_CommandBuffer,
+            1, false
+        );   
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
         // TODO: check result?
-        VkCommandBuffer buffer = GetCommandBuffer();
-        vkResetCommandBuffer(buffer, 0);
-        vkBeginCommandBuffer(buffer, &beginInfo);
+        vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
     }
 
     void GraphicsCommandEncoder::EndEncoding()
@@ -52,7 +41,7 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
 
-        VkCommandBuffer buffer = GetCommandBuffer();
+        VkCommandBuffer buffer = m_CommandBuffer;
         vkEndCommandBuffer(buffer);
         m_ParentBuffer->SubmitEncodedCommands(buffer, GPUWorkloadType::Graphics);
     }
@@ -73,12 +62,7 @@ namespace Flourish::Vulkan
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_FILTER_LINEAR,
-            GetCommandBuffer()
+            m_CommandBuffer
         );
-    }
-
-    VkCommandBuffer GraphicsCommandEncoder::GetCommandBuffer() const
-    {
-        return m_CommandBuffers[Flourish::Context::FrameIndex()];
     }
 }

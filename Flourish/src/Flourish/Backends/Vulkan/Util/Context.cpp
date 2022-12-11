@@ -209,14 +209,4 @@ namespace Flourish::Vulkan
             }
         }
     }
-
-    void Context::RegisterThread()
-    {
-        s_Commands.CreatePoolsForThread();
-    }
-
-    void Context::UnregisterThread()
-    {
-        s_Commands.DestroyPoolsForThread();
-    }
 }

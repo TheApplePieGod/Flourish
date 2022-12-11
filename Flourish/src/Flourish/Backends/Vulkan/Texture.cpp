@@ -101,7 +101,7 @@ namespace Flourish::Vulkan
 
         // Start a command buffer for transitioning / data transfer
         VkCommandBuffer cmdBuffer;
-        Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1);
+        auto allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -223,9 +223,9 @@ namespace Flourish::Vulkan
                     callback();
             });
 
-            Context::DeleteQueue().PushAsync([stagingBuffer, stagingAlloc, hasInitialData, cmdBuffer]()
+            Context::DeleteQueue().PushAsync([stagingBuffer, stagingAlloc, hasInitialData, cmdBuffer, allocInfo]()
             {
-                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
                 if (hasInitialData)
                     vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
             }, pushResult.SignalSemaphore, pushResult.SignalValue, "Texture init free");
@@ -236,7 +236,7 @@ namespace Flourish::Vulkan
             *m_ReadyState += 1;
             if (m_Info.CreationCallback)
                 m_Info.CreationCallback();
-            Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+            Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
             if (hasInitialData)
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
         }
@@ -265,7 +265,8 @@ namespace Flourish::Vulkan
         auto readyState = m_ReadyState;
         Context::DeleteQueue().Push([=]()
         {
-            delete readyState;
+            if (readyState)
+                delete readyState;
 
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < imageCount; frame++)
@@ -355,9 +356,10 @@ namespace Flourish::Vulkan
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
-            Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1);
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -468,9 +470,9 @@ namespace Flourish::Vulkan
 
             auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
             
-            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            Context::DeleteQueue().PushAsync([cmdBuffer, allocInfo]()
             {
-                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
             }, pushResult.SignalSemaphore, pushResult.SignalValue, "GenerateMipmaps command free");
         }
     }
@@ -485,9 +487,10 @@ namespace Flourish::Vulkan
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
-            Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1);
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -597,9 +600,9 @@ namespace Flourish::Vulkan
 
             auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer);
             
-            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            Context::DeleteQueue().PushAsync([cmdBuffer, allocInfo]()
             {
-                Context::Commands().FreeBuffer(GPUWorkloadType::Graphics, cmdBuffer);
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
             }, pushResult.SignalSemaphore, pushResult.SignalValue, "TransitionImageLayout command free");
         }
     }

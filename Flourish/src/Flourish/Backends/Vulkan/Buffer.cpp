@@ -150,9 +150,10 @@ namespace Flourish::Vulkan
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
-            Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1);
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1, true);
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -175,9 +176,9 @@ namespace Flourish::Vulkan
 
             auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
             
-            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            Context::DeleteQueue().PushAsync([cmdBuffer, allocInfo]()
             {
-                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
             }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToBuffer command free");
         }
     }
@@ -186,9 +187,10 @@ namespace Flourish::Vulkan
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
-            Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1);
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1, true);
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -217,9 +219,9 @@ namespace Flourish::Vulkan
             
             auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
             
-            Context::DeleteQueue().PushAsync([cmdBuffer]()
+            Context::DeleteQueue().PushAsync([cmdBuffer, allocInfo]()
             {
-                Context::Commands().FreeBuffer(GPUWorkloadType::Transfer, cmdBuffer);
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
             }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToImage command free");
         }
     }
