@@ -51,7 +51,7 @@ namespace Flourish
         inline static Flourish::BackendType s_BackendType = BackendType::None;
         inline static bool s_ReversedZBuffer = true;
         inline static u32 s_FrameBufferCount = 0;
-        inline static u64 s_FrameCount = 0;
+        inline static u64 s_FrameCount = 1;
         inline static u32 s_FrameIndex = 0;
         inline static Flourish::FeatureTable s_FeatureTable;
         inline static std::vector<std::vector<CommandBuffer*>> s_SubmittedCommandBuffers;
