@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "RenderContext.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 #ifdef FL_USE_GLFW

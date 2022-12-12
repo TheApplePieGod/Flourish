@@ -2,7 +2,7 @@
 #include "ComputePipeline.h"
 
 #include "Flourish/Backends/Vulkan/Shader.h"
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
 {

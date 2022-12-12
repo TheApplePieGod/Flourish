@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "RenderPass.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
 
 namespace Flourish::Vulkan

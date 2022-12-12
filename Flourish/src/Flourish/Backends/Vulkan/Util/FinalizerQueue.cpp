@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "FinalizerQueue.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
 {
