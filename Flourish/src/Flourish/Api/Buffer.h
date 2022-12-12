@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Flourish/Core/Assert.h"
+
 namespace Flourish
 {
     /*! @brief The possible data types for elements within a buffer. */
@@ -142,7 +144,7 @@ namespace Flourish
         BufferLayout Layout;
         u32 ElementCount = 0;
         void* InitialData = nullptr;
-        u32 InitialDataSize = 0;
+        u32 InitialDataSize = 0; // Bytes
     };
 
     class Buffer

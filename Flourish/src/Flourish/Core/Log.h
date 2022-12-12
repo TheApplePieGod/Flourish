@@ -25,7 +25,7 @@ namespace Flourish
             #ifdef FL_LOGGING
                 if (!s_Log) return;
                 char buffer[1000];
-                sprintf(buffer, message, std::forward<Args>(args)...);
+                snprintf(buffer, 1000, message, std::forward<Args>(args)...);
                 s_Log(level, buffer);
             #endif
         }

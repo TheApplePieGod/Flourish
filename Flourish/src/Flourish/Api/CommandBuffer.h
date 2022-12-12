@@ -11,9 +11,15 @@ namespace Flourish
 
     struct CommandBufferCreateInfo
     {
-        GPUWorkloadType WorkloadType;
+        u32 MaxEncoders = 8;
+        bool FrameRestricted = true;
     };
 
+    class Framebuffer;
+    class ComputeTarget;
+    class GraphicsCommandEncoder;
+    class RenderCommandEncoder;
+    class ComputeCommandEncoder;
     class CommandBuffer
     {
     public:
@@ -21,6 +27,14 @@ namespace Flourish
             : m_Info(createInfo)
         {}
         virtual ~CommandBuffer() = default;
+        
+        virtual GraphicsCommandEncoder* EncodeGraphicsCommands() = 0;
+        virtual RenderCommandEncoder* EncodeRenderCommands(Framebuffer* framebuffer) = 0;
+        virtual ComputeCommandEncoder* EncodeComputeCommands(ComputeTarget* target) = 0;
+
+        // TS
+        inline bool IsEncoding() const { return m_Encoding; }
+        inline bool IsFrameRestricted() const { return m_Info.FrameRestricted; }
 
     public:
         // TS
@@ -28,5 +42,6 @@ namespace Flourish
 
     protected:
         CommandBufferCreateInfo m_Info;
+        bool m_Encoding = false;
     };
 }

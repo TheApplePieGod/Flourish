@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Flourish/Api/Texture.h"
-#include "Flourish/Api/Pipeline.h"
+#include "Flourish/Api/GraphicsPipeline.h"
 
 namespace Flourish
 {
@@ -49,17 +49,18 @@ namespace Flourish
     class RenderPass
     {
     public:
-        RenderPass::RenderPass(const RenderPassCreateInfo& createInfo)
+        RenderPass(const RenderPassCreateInfo& createInfo)
             : m_Info(createInfo)
         {}
         virtual ~RenderPass() = default;
-
+        
         // TS
         std::shared_ptr<GraphicsPipeline> CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo);
         std::shared_ptr<GraphicsPipeline> GetPipeline(std::string_view name);
 
         // TS
         inline MsaaSampleCount GetSampleCount() const { return m_Info.SampleCount; }
+        inline const auto& GetSubpasses() const { return m_Info.Subpasses; }
         inline ColorFormat GetColorAttachmentColorFormat(u32 index) const { return m_Info.ColorAttachments[index].Format; }
 
     public:

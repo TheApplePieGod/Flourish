@@ -5,6 +5,60 @@
 
 namespace Flourish::Vulkan
 {
+    struct CommandPools
+    {
+        VkCommandPool GraphicsPool = nullptr;
+        VkCommandPool ComputePool = nullptr;
+        VkCommandPool TransferPool = nullptr;
+
+        VkCommandPool GetPool(GPUWorkloadType workloadType);
+    };
+
+    struct PersistentPools
+    {
+        CommandPools Pools;
+        
+        std::mutex Mutex;
+        bool InUse = true;
+        std::vector<VkCommandBuffer> GraphicsToFree;
+        std::vector<VkCommandBuffer> ComputeToFree;
+        std::vector<VkCommandBuffer> TransferToFree;
+
+        void PushBufferToFree(GPUWorkloadType workloadType, VkCommandBuffer buffer);
+    };
+    
+    struct FramePools
+    {
+        CommandPools Pools;
+
+        std::vector<VkCommandBuffer> FreeGraphics;
+        std::vector<VkCommandBuffer> FreeCompute;
+        std::vector<VkCommandBuffer> FreeTransfer;
+        u32 FreeGraphicsPtr = 0;
+        u32 FreeComputePtr = 0;
+        u32 FreeTransferPtr = 0;
+
+        u64 LastAllocationFrame = 0;
+
+        void GetBuffers(GPUWorkloadType workloadType, VkCommandBuffer* buffers, u32 bufferCount);
+    };
+    
+    struct ThreadCommandPools
+    {
+        ThreadCommandPools() = default;
+        ~ThreadCommandPools();
+
+        std::shared_ptr<PersistentPools> PersistentPools;
+        std::array<std::shared_ptr<FramePools>, Flourish::Context::MaxFrameBufferCount> FramePools;
+    };
+    
+    struct CommandBufferAllocInfo
+    {
+        std::thread::id Thread;
+        PersistentPools* PersistentPools;
+        GPUWorkloadType WorkloadType;
+    };
+
     class Commands
     {
     public:
@@ -12,51 +66,42 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        VkCommandPool GetPool(GPUWorkloadType workloadType, std::thread::id thread = std::this_thread::get_id());
-        void CreatePoolsForThread();
+        VkCommandPool GetPersistentPool(GPUWorkloadType workloadType);
+        VkCommandPool GetFramePool(GPUWorkloadType workloadType);
+        void CreatePersistentPoolsForThread();
+        void CreateFramePoolsForThread();
         void DestroyPoolsForThread();
-        void AllocateBuffers(
+        CommandBufferAllocInfo AllocateBuffers(
             GPUWorkloadType workloadType,
             bool secondary,
             VkCommandBuffer* buffers,
             u32 bufferCount,
-            std::thread::id thread = std::this_thread::get_id()
+            bool persistent
         );
         void FreeBuffers(
-            GPUWorkloadType workloadType,
+            const CommandBufferAllocInfo& allocInfo,
             const VkCommandBuffer* buffers,
-            u32 bufferCount,
-            std::thread::id thread = std::this_thread::get_id()
+            u32 bufferCount
+        );
+        void FreeBuffer(
+            const CommandBufferAllocInfo& allocInfo,
+            VkCommandBuffer buffer
         );
 
     private:
-        struct ThreadCommandPools
-        {
-            ThreadCommandPools() = default;
-            ThreadCommandPools(const ThreadCommandPools& other)
-                : GraphicsPool(other.GraphicsPool),
-                ComputePool(other.ComputePool),
-                TransferPool(other.TransferPool)
-            {}
-            void operator=(const ThreadCommandPools& other)
-            {
-                GraphicsPool = other.GraphicsPool;
-                ComputePool = other.ComputePool;
-                TransferPool = other.TransferPool;
-            }
-
-            VkCommandPool GraphicsPool;
-            VkCommandPool ComputePool;
-            VkCommandPool TransferPool;
-        };
+        void PopulateCommandPools(CommandPools* pools, bool allowReset);
 
     private:
-        void DestroyPools(const ThreadCommandPools& pools);
+        void DestroyPools(CommandPools* pools);
+        void FreeQueuedBuffers(PersistentPools* pools);
+        void FreeFrameBuffers(FramePools* pools);
 
     private:
-        std::unordered_map<std::thread::id, ThreadCommandPools> m_ThreadCommandPools;
-        std::vector<ThreadCommandPools> m_UnusedPools;
-        std::mutex m_ThreadCommandPoolsLock;
-        std::mutex m_UnusedPoolsLock;
+        std::unordered_map<std::thread::id, ThreadCommandPools*> m_PoolsInUse;
+        std::vector<std::shared_ptr<PersistentPools>> m_UnusedPersistentPools;
+        std::vector<std::array<std::shared_ptr<FramePools>, Flourish::Context::MaxFrameBufferCount>> m_UnusedFramePools;
+        std::mutex m_PoolsLock;
+        
+        inline thread_local static ThreadCommandPools s_ThreadPools; 
     };
 }

@@ -39,18 +39,26 @@ namespace Flourish::Vulkan
     private:
         struct BufferData
         {
-            VkBuffer Buffer;
+            VkBuffer Buffer = nullptr;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
             bool HasComplement = false;
+        };
+        
+        enum MemoryDirection
+        {
+            CPUToGPU = 0,
+            GPUToCPU
         };
 
     private:
         const BufferData& GetBufferData() const;
         const BufferData& GetStagingBufferData() const;
+        void CreateBuffers(VkBufferCreateInfo bufCreateInfo);
 
     private:
         u32 m_BufferCount = 1;
+        MemoryDirection m_MemoryDirection;
         std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_Buffers;
         std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_StagingBuffers;
     };

@@ -8,6 +8,8 @@ project(
 
 option(FLOURISH_BUILD_TESTS "Build the tests" OFF)
 option(FLOURISH_ENABLE_LOGGING "Enable logging" ON)
+option(FLOURISH_GLFW_INCLUDE_DIR "Include directory for GLFW" "OFF")
+option(FLOURISH_IMGUI_INCLUDE_DIR "Include directory for ImGUI" "OFF")
 
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
@@ -15,12 +17,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
 set(OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}) 
 set(CMAKE_CXX_STANDARD 17)
 
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     message("Detected GNU compiler")
     set(CMAKE_CXX_FLAGS "-fpermissive")
-elseif(MSVC)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     message("Detected MSVC compiler")
     add_compile_options(/MP /INCREMENTAL)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message("Detected Clang compiler")
 endif()
 
 if(${CMAKE_BUILD_TYPE} MATCHES Debug)

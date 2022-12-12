@@ -4,6 +4,7 @@
 	#ifdef _WIN64
 		/* Windows x64  */
 		#define FL_PLATFORM_WINDOWS
+		#define VK_USE_PLATFORM_WIN32_KHR
 	#else
 		/* Windows x86 */
 		#error "x86 Builds are not supported!"
@@ -18,11 +19,11 @@
 		#error "IOS simulator is not supported!"
 	#elif TARGET_OS_IPHONE == 1
 		#define FL_PLATFORM_IOS
+		#define VK_USE_PLATFORM_IOS_MVK
 		#error "IOS is not supported!"
 	#elif TARGET_OS_MAC == 1
 		#define FL_PLATFORM_MACOS
-		#define GLFW_EXPOSE_NATIVE_COCOA
-		#error "MacOS is not supported!"
+		#define VK_USE_PLATFORM_MACOS_MVK
 	#else
 		#error "Unknown Apple platform!"
 	#endif
@@ -31,10 +32,11 @@
  * it has __linux__ defined */
 #elif defined(__ANDROID__)
 	#define FL_PLATFORM_ANDROID
+	#define VK_USE_PLATFORM_ANDROID_KHR
 	#error "Android is not supported!"
 #elif defined(__linux__)
 	#define FL_PLATFORM_LINUX
-	#define GLFW_EXPOSE_NATIVE_X11
+	#define VK_USE_PLATFORM_XCB_KHR
 	#error "Linux is not supported!"
 #else
 	/* Unknown compiler/platform */

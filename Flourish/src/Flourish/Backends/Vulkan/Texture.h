@@ -20,14 +20,24 @@ namespace Flourish::Vulkan
     {
     public:
         Texture(const TextureCreateInfo& createInfo);
+        Texture(const TextureCreateInfo& createInfo, VkImageView imageView);
         ~Texture() override;
 
         // TS
+        bool IsReady() const override;
+        #ifdef FL_USE_IMGUI
+        void* GetImGuiHandle(u32 layerIndex = 0, u32 mipLevel = 0) const override;
+        #endif
+
+        // TS
+        VkImage GetImage() const;
+        VkImage GetImage(u32 frameIndex) const;
         VkImageView GetImageView() const;
         VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
         VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
-
+        VkSampler GetSampler() const { return m_Sampler; }
+        
     public:
         static void GenerateMipmaps(
             VkImage image,
@@ -58,18 +68,22 @@ namespace Flourish::Vulkan
             VkImageView ImageView;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
-            std::vector<VkImageView> SliceViews;
+            std::vector<VkImageView> SliceViews = {};
+            #ifdef FL_USE_IMGUI
+            std::vector<void*> ImGuiHandles = {};
+            #endif
         };
 
     private:
         const ImageData& GetImageData() const;
+        void UpdateFormat();
+        void CreateSampler();
 
     private:
         std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
         VkFormat m_Format;
-        ColorFormat m_GeneralFormat;
-        VkSampler m_Sampler;
+        VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
-        u32 m_MipLevels = 0;
+        u32* m_ReadyState = nullptr;
     };
 }

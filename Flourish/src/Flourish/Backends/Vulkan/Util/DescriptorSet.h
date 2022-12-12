@@ -8,18 +8,27 @@ namespace Flourish::Vulkan
     class DescriptorSetLayout
     {
     public:
-        // TS
         void Initialize(const std::vector<ReflectionDataElement>& reflectionData);
         void Shutdown();
 
         // TS
         inline VkDescriptorSetLayout GetLayout() const { return m_Layout; }
         inline const auto& GetBindings() const { return m_Bindings; }
-        inline auto& GetDynamicOffsets() { return m_DynamicOffsets; }
+        inline const auto& GetDynamicOffsets() const { return m_DynamicOffsets; }
         inline auto& GetDescriptorWrites() { return m_CachedDescriptorWrites; }
         inline auto& GetDescriptorWrite(u32 bindingIndex) { return m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping]; }
         inline const auto& GetSetLayouts() { return m_CachedSetLayouts; }
         inline const auto& GetPoolSizes() { return m_CachedPoolSizes; }
+        
+        // TS
+        inline bool DoesBindingExist(u32 bindingIndex) const
+        {
+            return bindingIndex < m_Bindings.size() && m_Bindings[bindingIndex].Exists;
+        }
+        inline bool IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const
+        {
+            return Common::ConvertShaderResourceType(resourceType) == m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType;
+        }
 
         inline static constexpr u32 MaxSetsPerPool = 50;
         inline static constexpr u32 MaxUniqueDescriptors = 100;
@@ -59,8 +68,14 @@ namespace Flourish::Vulkan
         void UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource, bool useOffset, u32 offset, u32 size);
         void FlushBindings();
 
+        inline void UpdateDynamicOffset(u32 bindingIndex, u32 offset)
+        {
+            m_Layout.m_DynamicOffsets[m_Layout.m_Bindings[bindingIndex].OffsetIndex] = offset;
+        }
+
         // TS
         inline const DescriptorSetLayout& GetLayout() const { return m_Layout; }
+        inline VkDescriptorSet GetMostRecentDescriptorSet() const { return m_MostRecentDescriptorSet; }
 
     private:
         void CheckFrameUpdate();
@@ -84,7 +99,5 @@ namespace Flourish::Vulkan
         std::array<u32, Flourish::Context::MaxFrameBufferCount> m_AvailableSetIndex{};
         std::array<u32, Flourish::Context::MaxFrameBufferCount> m_AvailablePoolIndex{};
         VkDescriptorSet m_MostRecentDescriptorSet;
-
-        std::mutex m_Mutex;
     };
 }

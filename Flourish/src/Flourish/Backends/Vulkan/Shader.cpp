@@ -1,9 +1,8 @@
 #include "flpch.h"
 #include "Shader.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "shaderc/shaderc.hpp"
-#include "spirv_cross/spirv_cross.hpp"
 #include "spirv_cross/spirv_glsl.hpp"
 
 namespace Flourish::Vulkan
@@ -149,10 +148,10 @@ namespace Flourish::Vulkan
         // TODO: might not actually need to be on the queue since it's a one-time use thing
         // but to be safe it's here anyways
         auto mod = m_ShaderModule;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroyShaderModule(Context::Devices().Device(), mod, nullptr);
-        });
+        }, "Shader free");
     }
 
     VkPipelineShaderStageCreateInfo Shader::DefineShaderStage(const char* entrypoint)
@@ -179,8 +178,14 @@ namespace Flourish::Vulkan
     {
         m_ReflectionData.clear();
 
-        spirv_cross::Compiler compiler(compiledData.data(), compiledData.size());
-		spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+        // For some reason, compiler needs to be heap allocated because otherwise it causes
+        // a crash on macos
+        auto compiler = std::make_unique<spirv_cross::Compiler>(compiledData.data(), compiledData.size());
+        
+        // Again on macos something is broken, so we need to zero out these struct members otherwise it crashes
+		spirv_cross::ShaderResources resources = compiler->get_shader_resources();
+        memset(&resources.builtin_inputs, 0, sizeof(resources.builtin_inputs));
+        memset(&resources.builtin_outputs, 0, sizeof(resources.builtin_outputs));
 
         ShaderResourceAccessType accessType;
         switch (m_Type)
@@ -203,15 +208,15 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Uniform buffers:");
 		for (const auto& resource : resources.uniform_buffers)
 		{
-			const auto& bufferType = compiler.get_type(resource.base_type_id);
-			size_t bufferSize = compiler.get_declared_struct_size(bufferType);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+			const auto& bufferType = compiler->get_type(resource.base_type_id);
+			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::UniformBuffer, accessType, binding, set, 1);
 
-			FL_LOG_DEBUG("    %s", resource.name);
+			FL_LOG_DEBUG("    %s", resource.name.c_str());
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -224,15 +229,15 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Storage buffers:");
 		for (const auto& resource : resources.storage_buffers)
 		{
-			const auto& bufferType = compiler.get_type(resource.base_type_id);
-			size_t bufferSize = compiler.get_declared_struct_size(bufferType);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+			const auto& bufferType = compiler->get_type(resource.base_type_id);
+			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::StorageBuffer, accessType, binding, set, 1);
 
-			FL_LOG_DEBUG("    %s", resource.name);
+			FL_LOG_DEBUG("    %s", resource.name.c_str());
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -245,13 +250,13 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Sampled Images:");
 		for (const auto& resource : resources.sampled_images)
 		{
-            const auto& imageType = compiler.get_type(resource.type_id);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+            const auto& imageType = compiler->get_type(resource.type_id);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::Texture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
 
-			FL_LOG_DEBUG("    Image (%s)", resource.name);
+			FL_LOG_DEBUG("    Image (%s)", resource.name.c_str());
             FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -263,14 +268,14 @@ namespace Flourish::Vulkan
 		    FL_LOG_DEBUG("  Subpass Inputs:");
 		for (const auto& resource : resources.subpass_inputs)
 		{
-            const auto& subpassType = compiler.get_type(resource.type_id);
-			u32 binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
-            u32 attachmentIndex = compiler.get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
+            const auto& subpassType = compiler->get_type(resource.type_id);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
             
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::SubpassInput, accessType, binding, set, 1);
 
-			FL_LOG_DEBUG("    Input (%s)", resource.name);
+			FL_LOG_DEBUG("    Input (%s)", resource.name.c_str());
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
             FL_LOG_DEBUG("      AttachmentIndex = %d", attachmentIndex);

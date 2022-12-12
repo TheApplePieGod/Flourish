@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "Framebuffer.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
 
@@ -20,14 +20,30 @@ namespace Flourish::Vulkan
         // Descriptor sets get implicitly cleaned up
     }
 
-    VkRenderPass Framebuffer::GetRenderPass() const
+    DescriptorSet* Framebuffer::GetPipelineDescriptorSet(std::string_view name, const DescriptorSetLayout& layout)
     {
-        return static_cast<RenderPass*>(m_Info.RenderPass.get())->GetRenderPass();
+        std::string nameStr(name.data(), name.size());
+        if (m_PipelineDescriptorSets.find(nameStr) == m_PipelineDescriptorSets.end())
+            m_PipelineDescriptorSets[nameStr] = std::make_shared<DescriptorSet>(layout);
+        return m_PipelineDescriptorSets[nameStr].get();
     }
-    
+
+    VkImageView Framebuffer::GetAttachmentImageView(SubpassAttachment attachment)
+    {
+        if (attachment.Type == SubpassAttachmentType::Depth)
+            return m_CachedImageViews[Flourish::Context::FrameIndex()][attachment.AttachmentIndex];
+        
+        // If we have resolves then we want to return those
+        u32 newIndex = attachment.AttachmentIndex;
+        if (m_Info.RenderPass->GetSampleCount() != MsaaSampleCount::None)
+            newIndex = newIndex * 2 + 1;
+        newIndex += m_Info.DepthAttachments.size();
+        return m_CachedImageViews[Flourish::Context::FrameIndex()][newIndex];
+    }
+
     VkFramebuffer Framebuffer::GetFramebuffer() const
     {
-        return m_Framebuffers[Context::FrameIndex()];
+        return m_Framebuffers[Flourish::Context::FrameIndex()];
     }
 
     void Framebuffer::Create()
@@ -64,9 +80,7 @@ namespace Flourish::Vulkan
             imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-            {
                 PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT, frame);
-            }
         }
 
         imageInfo.usage &= ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -92,18 +106,12 @@ namespace Flourish::Vulkan
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
-                // Create a render target sampled texture regardless of whether or not
-                // a texture was passed in to the final render ouptut
-                if (useResolve)
-                {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
-                }
-
                 if (attachment.Texture)
                 {
+                    auto texture = static_cast<Texture*>(attachment.Texture.get());
+                    FL_ASSERT(texture->IsRenderTarget(), "Cannot use texture in framebuffer that was not created with the RenderTarget flag");
                     m_CachedImageViews[frame].push_back(
-                        static_cast<Texture*>(attachment.Texture.get())->GetLayerImageView(
+                        texture->GetLayerImageView(
                             frame,
                             attachment.LayerIndex,
                             attachment.MipLevel
@@ -115,6 +123,14 @@ namespace Flourish::Vulkan
                     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
                     PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
                 } 
+                
+                // Create a render target sampled texture regardless of whether or not
+                // a texture was passed in to the final render ouptut
+                if (useResolve)
+                {
+                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
+                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
+                }
             }
 
             if (useResolve) attachmentIndex++;
@@ -125,7 +141,7 @@ namespace Flourish::Vulkan
         {
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = GetRenderPass();
+            framebufferInfo.renderPass = static_cast<RenderPass*>(m_Info.RenderPass.get())->GetRenderPass();
             framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews[frame].size());
             framebufferInfo.pAttachments = m_CachedImageViews[frame].data();
             framebufferInfo.width = m_Info.Width;
@@ -140,7 +156,7 @@ namespace Flourish::Vulkan
     {
         auto framebuffers = m_Framebuffers;
         auto images = m_Images;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
@@ -153,7 +169,7 @@ namespace Flourish::Vulkan
                     vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
                 }
             }
-        });
+        }, "Framebuffer free");
     }
     
     void Framebuffer::PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags, u32 frame)

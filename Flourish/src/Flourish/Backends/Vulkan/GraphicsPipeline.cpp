@@ -2,7 +2,8 @@
 #include "GraphicsPipeline.h"
 
 #include "Flourish/Backends/Vulkan/Shader.h"
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/RenderPass.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
 {
@@ -33,7 +34,7 @@ namespace Flourish::Vulkan
         return attributeDescriptions;
     }
 
-    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, VkRenderPass renderPass, VkSampleCountFlagBits sampleCount, u32 subpassCount)
+    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
         m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
@@ -55,7 +56,7 @@ namespace Flourish::Vulkan
         
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = Common::ConvertVertexTopology(createInfo.VertexTopology);
+        inputAssembly.topology = createInfo.VertexInput ? Common::ConvertVertexTopology(createInfo.VertexTopology) : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
         VkViewport viewport{};
@@ -114,10 +115,10 @@ namespace Flourish::Vulkan
 
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
         colorBlending.attachmentCount = static_cast<u32>(colorBlendAttachments.size());
         colorBlending.pAttachments = colorBlendAttachments.data();
+        colorBlending.logicOpEnable = VK_FALSE;
+        colorBlending.logicOp = VK_LOGIC_OP_COPY;
         colorBlending.blendConstants[0] = 0.0f;
         colorBlending.blendConstants[1] = 0.0f;
         colorBlending.blendConstants[2] = 0.0f;
@@ -133,13 +134,11 @@ namespace Flourish::Vulkan
         dynamicState.dynamicStateCount = 3;
         dynamicState.pDynamicStates = dynamicStates;
 
-        std::vector<VkDescriptorSetLayout> layouts;
-        layouts.emplace_back(m_DescriptorSetLayout.GetLayout());
-
+        VkDescriptorSetLayout layout[1] = { m_DescriptorSetLayout.GetLayout() };
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = static_cast<u32>(layouts.size());
-        pipelineLayoutInfo.pSetLayouts = layouts.data();
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = layout;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
         FL_VK_ENSURE_RESULT(vkCreatePipelineLayout(Context::Devices().Device(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout));
@@ -170,21 +169,34 @@ namespace Flourish::Vulkan
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = m_PipelineLayout;
-        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.renderPass = renderPass->GetRenderPass();
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
 
-        m_Pipelines.resize(subpassCount);
+        bool fillCompatible = m_Info.CompatibleSubpasses.empty();
+        u32 subpassCount = fillCompatible ? renderPass->GetSubpasses().size() : m_Info.CompatibleSubpasses.size();
         for (u32 i = 0; i < subpassCount; i++)
         {
-            pipelineInfo.subpass = i;
+            if (fillCompatible)
+                m_Info.CompatibleSubpasses.push_back(i);
+            pipelineInfo.subpass = m_Info.CompatibleSubpasses[i];
+            
             if (i > 0)
             {
                 pipelineInfo.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT;
-                pipelineInfo.basePipelineHandle = m_Pipelines[0];
+                pipelineInfo.basePipelineHandle = m_Pipelines[m_Info.CompatibleSubpasses[0]];
             }
 
-            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(Context::Devices().Device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipelines[i]));
+            VkPipeline pipeline;
+            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(
+                Context::Devices().Device(),
+                VK_NULL_HANDLE,
+                1,
+                &pipelineInfo,
+                nullptr,
+                &pipeline
+            ));
+            m_Pipelines[m_Info.CompatibleSubpasses[i]] = pipeline;
         }
     }
 
@@ -194,11 +206,11 @@ namespace Flourish::Vulkan
 
         auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
-            for (auto pipeline : pipelines)
-                vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
+            for (auto& pair : pipelines)
+                vkDestroyPipeline(Context::Devices().Device(), pair.second, nullptr);
             vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
-        });
+        }, "Graphics pipeline free");
     }
 }

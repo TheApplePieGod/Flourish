@@ -1,6 +1,8 @@
 #include "flpch.h"
 #include "Context.h"
 
+#include "Flourish/Backends/Vulkan/RenderContext.h"
+
 namespace Flourish::Vulkan
 {
     static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback(
@@ -24,46 +26,56 @@ namespace Flourish::Vulkan
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
+        // Initialize the vulkan loader
+        FL_VK_ENSURE_RESULT(volkInitialize());
+
         SetupInstance(initInfo);
         s_Devices.Initialize(initInfo);
         SetupAllocator();
         s_Queues.Initialize();
         s_Commands.Initialize();
-        s_DeleteQueue.Initialize();
+        s_SubmissionHandler.Initialize();
+        s_FinalizerQueue.Initialize();
 
         FL_LOG_DEBUG("Vulkan context ready");
     }
 
-    void Context::Shutdown()
+    void Context::Shutdown(std::function<void()> finalizer)
     {
+        FL_LOG_TRACE("Vulkan context shutdown begin");
+
         s_Queues.Shutdown();
 
         Sync();
 
-        s_DeleteQueue.Shutdown();
+        s_FinalizerQueue.Shutdown();
+        s_SubmissionHandler.Shutdown();
         s_Commands.Shutdown();
+        if (finalizer)
+            finalizer();
         vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG
             // Find func and destroy debug instance
+            // TODO: stop doing a load here?
             auto destroyDebugUtilsFunc = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(s_Instance, "vkDestroyDebugUtilsMessengerEXT");
             if (destroyDebugUtilsFunc)
                 destroyDebugUtilsFunc(s_Instance, s_DebugMessenger, nullptr);
         #endif
         vkDestroyInstance(s_Instance, nullptr);
 
-
-        FL_LOG_DEBUG("Vulkan context shutdown");
+        FL_LOG_DEBUG("Vulkan context shutdown complete");
     }
 
     void Context::BeginFrame()
     {
-        s_FrameIndex = (s_FrameIndex + 1) % Flourish::Context::FrameBufferCount();
+        s_SubmissionHandler.WaitOnFrameSemaphores();
     }
 
     void Context::EndFrame()
     {
-        s_DeleteQueue.Iterate();
+        s_FinalizerQueue.Iterate();
+        s_SubmissionHandler.ProcessFrameSubmissions();
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
@@ -93,6 +105,9 @@ namespace Flourish::Vulkan
                 "VK_KHR_win32_surface",
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
+            #elif defined (FL_PLATFORM_MACOS)
+                "VK_MVK_macos_surface",
+                "VK_EXT_metal_surface"
             #endif
         };
 
@@ -124,6 +139,9 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance));
 
+        // Load all instance functions
+        volkLoadInstance(s_Instance);
+
         #if FL_DEBUG
             // Setup debug messenger
             if (supportsDebug)
@@ -152,18 +170,25 @@ namespace Flourish::Vulkan
 
     void Context::SetupAllocator()
     {
+        VmaVulkanFunctions vulkanFunctions = {};
+        vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
         VmaAllocatorCreateInfo createInfo{};
         createInfo.instance = s_Instance;
         createInfo.physicalDevice = s_Devices.PhysicalDevice();
         createInfo.device = s_Devices.Device();
         createInfo.vulkanApiVersion = VulkanApiVersion;
+        createInfo.pVulkanFunctions = &vulkanFunctions;
 
         vmaCreateAllocator(&createInfo, &s_Allocator);
     }
 
     void Context::ConfigureValidationLayers()
     {
-        std::array<const char*, 1> requestedLayers = { "VK_LAYER_KHRONOS_validation" };
+        std::array<const char*, 1> requestedLayers = {
+            "VK_LAYER_KHRONOS_validation"
+        };
 
         u32 supportedLayerCount;
         vkEnumerateInstanceLayerProperties(&supportedLayerCount, nullptr);
@@ -182,15 +207,5 @@ namespace Flourish::Vulkan
                 }
             }
         }
-    }
-
-    void Context::RegisterThread()
-    {
-        s_Commands.CreatePoolsForThread();
-    }
-
-    void Context::UnregisterThread()
-    {
-        s_Commands.DestroyPoolsForThread();
     }
 }

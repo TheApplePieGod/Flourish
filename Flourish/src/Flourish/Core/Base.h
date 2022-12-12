@@ -1,11 +1,16 @@
 #pragma once
 
 #ifdef FL_DEBUG
-	#if defined(FL_PLATFORM_WINDOWS)
+	#if defined(_MSC_VER)
 		#define FL_DEBUGBREAK() __debugbreak()
-	#elif defined(FL_PLATFORM_LINUX)
-		#include <signal.h>
-		#define FL_DEBUGBREAK() raise(SIGTRAP)
+	#elif defined(__clang__)
+		#if __has_builtin(__builtin_debugtrap)
+			#define FL_DEBUGBREAK() __builtin_debugtrap()
+		#else
+			#define FL_DEBUGBREAK() __builtin_trap()
+		#endif
+	#elif defined(__GNUC__)
+		#define FL_DEBUGBREAK() __builtin_trap()
 	#else
 		#error "Platform doesn't support debugbreak yet!"
 	#endif

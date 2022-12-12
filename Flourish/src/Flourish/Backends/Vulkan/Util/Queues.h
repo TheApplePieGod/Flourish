@@ -28,6 +28,12 @@ namespace Flourish::Vulkan
         }
     };
 
+    struct PushCommandResult
+    {
+        VkSemaphore SignalSemaphore;
+        u64 SignalValue;
+    };
+
     class Queues
     {
     public:
@@ -35,23 +41,20 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        void PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()>&& completionCallback);
-        void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
-        void IterateCommands(GPUWorkloadType workloadType);
-        void IterateCommands();
-        void ClearCommands(GPUWorkloadType workloadType);
-        void ClearCommands();
+        PushCommandResult PushCommand(
+            GPUWorkloadType workloadType,
+            VkCommandBuffer buffer,
+            std::function<void()> completionCallback = nullptr,
+            const char* debugName = nullptr
+        );
+        void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName = nullptr);
 
         // TS
-        VkQueue GraphicsQueue() const;
         VkQueue PresentQueue() const;
-        VkQueue ComputeQueue() const;
-        VkQueue TransferQueue() const;
         VkQueue Queue(GPUWorkloadType workloadType) const;
-        inline u32 GraphicsQueueIndex() const { return m_GraphicsQueue.QueueIndex; }
+        void LockQueue(GPUWorkloadType workloadType, bool lock);
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
-        inline u32 ComputeQueueIndex() const { return m_ComputeQueue.QueueIndex; }
-        inline u32 TransferQueueIndex() const { return m_TransferQueue.QueueIndex; }
+        u32 QueueIndex(GPUWorkloadType workloadType) const;
 
     public:
         // TS
@@ -60,13 +63,14 @@ namespace Flourish::Vulkan
     private:
         struct QueueCommandEntry
         {
-            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore)
-                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore)
+            QueueCommandEntry(VkCommandBuffer buffer, std::function<void()> callback, VkSemaphore semaphore, u64 val)
+                : Buffer(buffer), Callback(callback), WaitSemaphore(semaphore), SignalValue(val)
             {}
 
             VkCommandBuffer Buffer;
             std::function<void()> Callback;
             VkSemaphore WaitSemaphore;
+            u64 SignalValue;
             bool Submitted = false;
         };
 
@@ -74,12 +78,7 @@ namespace Flourish::Vulkan
         {
             std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> Queues;
             u32 QueueIndex;
-            std::deque<QueueCommandEntry> CommandQueue;
-            std::mutex CommandQueueLock;
-
-            std::vector<VkCommandBuffer> Buffers;
-            std::vector<VkSemaphore> Semaphores;
-            std::vector<u64> SignalValues; 
+            std::mutex AccessMutex;
         };
 
     private:
@@ -89,6 +88,7 @@ namespace Flourish::Vulkan
     private:
         QueueData m_GraphicsQueue, m_ComputeQueue, m_TransferQueue, m_PresentQueue;
         std::vector<VkSemaphore> m_UnusedSemaphores;
-        std::mutex m_UnusedSemaphoresLock;
+        std::mutex m_SemaphoresLock;
+        u64 m_ExecuteSemaphoreSignalValue = 0;
     };
 }

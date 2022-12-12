@@ -1,8 +1,8 @@
 #include "flpch.h"
 #include "Swapchain.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
-#include "Flourish/Backends/Vulkan/Texture.h"
+#include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
@@ -11,14 +11,57 @@ namespace Flourish::Vulkan
         m_Surface = surface;
         m_CurrentWidth = createInfo.Width;
         m_CurrentHeight = createInfo.Height;
+        m_ClearColor = createInfo.ClearColor;
 
         PopulateSwapchainInfo();
         RecreateSwapchain();
+        
+        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            m_ImageAvailableSemaphores[frame] = Synchronization::CreateSemaphore();
     }
 
     void Swapchain::Shutdown()
     {
         CleanupSwapchain();
+        
+        auto imageAvailableSemaphores = m_ImageAvailableSemaphores;
+        Context::FinalizerQueue().Push([=]()
+        {
+            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+                vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
+        }, "Swapchain shutdown");
+    }
+    
+    void Swapchain::UpdateActiveImage()
+    {
+        if (m_ShouldRecreate)
+        {
+            RecreateSwapchain();
+            m_ShouldRecreate = false;
+        }
+
+        if (!m_Valid) return;
+
+        VkResult result = vkAcquireNextImageKHR(
+            Context::Devices().Device(),
+            m_Swapchain,
+            UINT64_MAX,
+            m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()],
+            VK_NULL_HANDLE,
+            &m_ActiveImageIndex
+        );
+    }
+
+    void Swapchain::UpdateDimensions(u32 width, u32 height)
+    {
+        m_CurrentWidth = width;
+        m_CurrentHeight = height;
+        m_ShouldRecreate = true;
+    }
+
+    VkSemaphore Swapchain::GetImageAvailableSemaphore() const
+    {
+        return m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()];
     }
 
     void Swapchain::PopulateSwapchainInfo()
@@ -104,13 +147,16 @@ namespace Flourish::Vulkan
 
     void Swapchain::RecreateSwapchain()
     {
+        m_Valid = false;
+
         auto device = Context::Devices().Device();
         auto physicalDevice = Context::Devices().PhysicalDevice();
 
         VkSurfaceCapabilitiesKHR capabilities{};
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, m_Surface, &capabilities);
 
-        FL_CRASH_ASSERT(capabilities.minImageCount > 0, "Attempting to create a swapchain using a surface that doesn't have renderable images");
+        if (capabilities.minImageCount == 0)
+            return;
 
         // Determine the size for this swapchain
         VkExtent2D extent;
@@ -127,6 +173,9 @@ namespace Flourish::Vulkan
             extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, extent.width));
             extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, extent.height));
         }
+
+        if (extent.width == 0 || extent.height == 0)
+            return;
 
         // Choose an image count (this may differ from frame buffer count but optimally it is the same)
         u32 imageCount = Flourish::Context::FrameBufferCount();
@@ -148,7 +197,7 @@ namespace Flourish::Vulkan
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = m_Swapchain;
 
-        u32 queueIndices[] = { Context::Queues().GraphicsQueueIndex(), Context::Queues().PresentQueueIndex() };
+        u32 queueIndices[] = { Context::Queues().QueueIndex(GPUWorkloadType::Graphics), Context::Queues().PresentQueueIndex() };
         if (queueIndices[0] != queueIndices[1])
         {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -166,33 +215,83 @@ namespace Flourish::Vulkan
         m_Swapchain = newSwapchain;
 
         // Load images
+        std::vector<VkImage> chainImages;
         vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, nullptr);
-        m_ChainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, m_ChainImages.data());
+        chainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(device, m_Swapchain, &imageCount, chainImages.data());
 
-        // Create image views
-        ImageViewCreateInfo viewCreateInfo;
-        viewCreateInfo.Format = m_Info.SurfaceFormat.format;
-        for (auto image : m_ChainImages)
+        // Create renderpass compatible with all images
+        // Does not need to be recreated
+        RenderPassCreateInfo rpCreateInfo;
+        rpCreateInfo.ColorAttachments = { { Common::RevertColorFormat(m_Info.SurfaceFormat.format) } };
+        rpCreateInfo.Subpasses = {{
+            {}, {{ SubpassAttachmentType::Color, 0 }}
+        }};
+        if (!m_RenderPass)
+            m_RenderPass = std::make_shared<RenderPass>(rpCreateInfo, true);
+
+        // Populate image data
+        m_ImageData.clear();
+        TextureCreateInfo texCreateInfo;
+        texCreateInfo.Width = m_CurrentWidth;
+        texCreateInfo.Height = m_CurrentHeight;
+        texCreateInfo.Format = rpCreateInfo.ColorAttachments[0].Format;
+        texCreateInfo.RenderTarget = true;
+        FramebufferCreateInfo fbCreateInfo;
+        fbCreateInfo.RenderPass = m_RenderPass;
+        fbCreateInfo.Width = m_CurrentWidth;
+        fbCreateInfo.Height = m_CurrentHeight;
+        fbCreateInfo.ColorAttachments = {
+            { m_ClearColor }
+        };
+        for (auto image : chainImages)
         {
+            ImageData imageData{};
+            imageData.Image = image;
+
+            // Create view
+            ImageViewCreateInfo viewCreateInfo;
+            viewCreateInfo.Format = m_Info.SurfaceFormat.format;
             viewCreateInfo.Image = image;
-            m_ChainImageViews.push_back(Texture::CreateImageView(viewCreateInfo));
+            imageData.ImageView = Texture::CreateImageView(viewCreateInfo);
+            
+            // Create texture
+            imageData.Texture = std::make_shared<Texture>(texCreateInfo, imageData.ImageView);
+            
+            // Create framebuffer
+            fbCreateInfo.ColorAttachments[0].Texture = imageData.Texture;
+            imageData.Framebuffer = std::make_shared<Framebuffer>(fbCreateInfo);
+            
+            m_ImageData.push_back(imageData);
         }
+        
+        m_Valid = true;
     }
 
     void Swapchain::CleanupSwapchain()
     {
-        auto chainImageViews = m_ChainImageViews;
+        // We need to go through and reset the pointers here because we copy
+        // m_ImageData in order to free the vulkan objects via the delete queue,
+        // which keeps the pointers alive. That is bad because it means
+        // the pointers get destructed at some arbitrary point when the lambda gets freed
+        // instead of now when it is intended.
+        for (auto& data : m_ImageData)
+        {
+            data.Framebuffer.reset();
+            data.Texture.reset();
+        }
+
+        auto imageData = m_ImageData;
         auto swapchain = m_Swapchain;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
-            for (auto view : chainImageViews)
-                vkDestroyImageView(device, view, nullptr);
+            for (auto& data : imageData)
+                vkDestroyImageView(device, data.ImageView, nullptr);
             
             vkDestroySwapchainKHR(device, swapchain, nullptr);
-        });
+        }, "Swapchain free");
 
-        m_ChainImageViews.clear();
+        m_ImageData.clear();
     }
 }

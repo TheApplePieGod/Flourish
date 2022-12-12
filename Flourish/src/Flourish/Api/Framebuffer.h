@@ -8,7 +8,7 @@ namespace Flourish
     struct FramebufferColorAttachment
     {
         // Required
-        float ClearColor[4];
+        std::array<float, 4> ClearColor;
 
         // Specify a texture to be used as a render target
         std::shared_ptr<Texture> Texture = nullptr;
@@ -39,6 +39,9 @@ namespace Flourish
         // TS
         inline u32 GetWidth() { return m_Info.Width; }
         inline u32 GetHeight() { return m_Info.Height; }
+        inline RenderPass* GetRenderPass() const { return m_Info.RenderPass.get(); }
+        inline const auto& GetColorAttachments() const { return m_Info.ColorAttachments; }
+        inline const auto& GetDepthAttachments() const { return m_Info.DepthAttachments; }
         
     public:
         // TS

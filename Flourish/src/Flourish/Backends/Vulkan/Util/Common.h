@@ -4,13 +4,8 @@
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Pipeline.h"
 #include "Flourish/Api/Texture.h"
-#include "vulkan/vulkan.h"
+#include "volk/volk.h"
 #include "vk_mem_alloc.h"
-#ifdef FL_PLATFORM_WINDOWS
-    #include "vulkan/vulkan_win32.h"
-#elif defined(FL_PLATFORM_LINUX)
-    #include "vulkan/vulkan_xcb.h"
-#endif
 
 namespace Flourish::Vulkan
 {
@@ -18,6 +13,7 @@ namespace Flourish::Vulkan
     {
         static bool SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension);
         static VkFormat ConvertColorFormat(ColorFormat format);
+        static ColorFormat RevertColorFormat(VkFormat format);
         static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
         static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);
         static VkFormat ConvertBufferDataType(BufferDataType type);
@@ -36,7 +32,7 @@ namespace Flourish::Vulkan
 #ifdef FL_DEBUG
     #define FL_VK_CHECK_RESULT(func) { auto result = func; FL_ASSERT(result == VK_SUCCESS, "Vulkan function failed with error %d", result); }
 #else
-    #define FL_VK_CHECK_RESULT(func)
+    #define FL_VK_CHECK_RESULT(func) func
 #endif
 
 #define FL_VK_ENSURE_RESULT(func) { auto result = func; FL_CRASH_ASSERT(result == VK_SUCCESS, "Critical vulkan function failed with error %d", result); }

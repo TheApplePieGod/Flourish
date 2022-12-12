@@ -1,18 +1,21 @@
 #include "flpch.h"
 #include "Texture.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
+
+#ifdef FL_USE_IMGUI
+#include "backends/imgui_impl_vulkan.h"
+#endif
 
 namespace Flourish::Vulkan
 {
     Texture::Texture(const TextureCreateInfo& createInfo)
         : Flourish::Texture(createInfo)
     {
-        m_GeneralFormat = BufferDataTypeColorFormat(m_Info.DataType, m_Info.Channels);
-        m_Format = Common::ConvertColorFormat(m_GeneralFormat);
-        if (m_Format == VK_FORMAT_R8G8B8A8_SRGB)
-            m_Format = VK_FORMAT_R8G8B8A8_UNORM; // we want to use unorm for textures
+        m_ReadyState = new u32();
+
+        m_Format = Common::ConvertColorFormat(m_Info.Format);
 
         // Populate initial image info
         bool hasInitialData = m_Info.InitialData && m_Info.InitialDataSize > 0;
@@ -23,8 +26,8 @@ namespace Flourish::Vulkan
         imageInfo.format = m_Format;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-        if (m_Info.UsageType == BufferUsageType::Dynamic)
-            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        if (m_Info.RenderTarget)
+            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         if (hasInitialData)
             imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -70,37 +73,11 @@ namespace Flourish::Vulkan
         m_Info.Height = newHeight;
         m_Info.ArrayCount = newArrayCount;
 
-        VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Info.Channels;
-        u32 componentSize = BufferDataTypeSize(m_Info.DataType);
+        VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Channels;
+        u32 componentSize = BufferDataTypeSize(ColorFormatBufferDataType(m_Info.Format));
         m_ImageCount = m_Info.UsageType == BufferUsageType::Dynamic ? Flourish::Context::FrameBufferCount() : 1;
-
-        // Create the texture sampler
-        VkSamplerReductionModeCreateInfo reductionInfo{};
-        reductionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
-        reductionInfo.reductionMode = Common::ConvertSamplerReductionMode(m_Info.SamplerState.ReductionMode);
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.pNext = &reductionInfo;
-        samplerInfo.magFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MagFilter);
-        samplerInfo.minFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MinFilter);
-        samplerInfo.addressModeU = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[0]);
-        samplerInfo.addressModeV = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[1]);
-        samplerInfo.addressModeW = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[2]);
-        samplerInfo.anisotropyEnable = m_Info.SamplerState.AnisotropyEnable;
-        samplerInfo.maxAnisotropy = std::min(
-            static_cast<float>(m_Info.SamplerState.MaxAnisotropy),
-            Context::Devices().PhysicalDeviceProperties().limits.maxSamplerAnisotropy
-        );
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.mipLodBias = 0.0f;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(m_MipLevels);
-
-        FL_VK_ENSURE_RESULT(vkCreateSampler(Context::Devices().Device(), &samplerInfo, nullptr, &m_Sampler));
+        
+        CreateSampler();
 
         // Create staging buffer with initial data
         VkBuffer stagingBuffer;
@@ -124,7 +101,7 @@ namespace Flourish::Vulkan
 
         // Start a command buffer for transitioning / data transfer
         VkCommandBuffer cmdBuffer;
-        Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1);
+        auto allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -174,6 +151,14 @@ namespace Flourish::Vulkan
                     viewCreateInfo.BaseMip = j;
                     VkImageView layerView = CreateImageView(viewCreateInfo);
                     imageData.SliceViews.push_back(layerView);
+                    
+                    #ifdef FL_USE_IMGUI
+                    imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
+                        m_Sampler,
+                        layerView,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                    ));
+                    #endif
                 }
             }
 
@@ -199,6 +184,7 @@ namespace Flourish::Vulkan
                     cmdBuffer
                 );
 
+                auto readyState = m_ReadyState;
                 GenerateMipmaps(
                     imageData.Image,
                     m_Format,
@@ -227,11 +213,50 @@ namespace Flourish::Vulkan
 
         FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-        auto thread = std::this_thread::get_id();
-        Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread, stagingBuffer, stagingAlloc](){
-            Context::Commands().FreeBuffers(GPUWorkloadType::Graphics, &cmdBuffer, 1, thread);
-            vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
-        });
+        if (m_Info.AsyncCreation)
+        {
+            auto readyState = m_ReadyState;
+            auto callback = m_Info.CreationCallback;
+            Context::Queues().PushCommand(
+                GPUWorkloadType::Graphics, 
+                cmdBuffer,
+                [=]()
+                {
+                    *readyState += 1;
+                    if (callback)
+                        callback();
+                    Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+                    if (hasInitialData)
+                        vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
+                },
+                "Texture init free"
+            );
+        }
+        else
+        {
+            Context::Queues().ExecuteCommand(GPUWorkloadType::Graphics, cmdBuffer);
+            *m_ReadyState += 1;
+            if (m_Info.CreationCallback)
+                m_Info.CreationCallback();
+            Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+            if (hasInitialData)
+                vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
+        }
+    }
+
+    Texture::Texture(const TextureCreateInfo& createInfo, VkImageView imageView)
+        : Flourish::Texture(createInfo)
+    {
+        m_Info.MipCount = 1;
+        m_Format = Common::ConvertColorFormat(m_Info.Format);
+
+        m_MipLevels = 1;
+        m_ImageCount = 1;
+        
+        ImageData& imageData = m_Images[0];
+        imageData = ImageData{};
+        imageData.ImageView = imageView;
+        imageData.SliceViews.push_back(imageView);
     }
 
     Texture::~Texture()
@@ -239,38 +264,83 @@ namespace Flourish::Vulkan
         auto imageCount = m_ImageCount;
         auto sampler = m_Sampler;
         auto images = m_Images;
-        Context::DeleteQueue().Push([=]()
+        auto readyState = m_ReadyState;
+        Context::FinalizerQueue().Push([=]()
         {
+            if (readyState)
+                delete readyState;
+
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < imageCount; frame++)
             {
                 auto& imageData = images[frame];
+                
+                #ifdef FL_USE_IMGUI
+                for (auto handle : imageData.ImGuiHandles)
+                    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
+                #endif
+                
+                // Texture objects wrapping preexisting textures will not have an allocation
+                // so there will be nothing to free
+                if (!imageData.Allocation) continue;
+
                 for (auto view : imageData.SliceViews)
                     vkDestroyImageView(device, view, nullptr);
                 vkDestroyImageView(device, imageData.ImageView, nullptr);
                 vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
             }
-            vkDestroySampler(device, sampler, nullptr);
-        });
+            if (sampler) 
+                vkDestroySampler(device, sampler, nullptr);
+        }, "Texture free");
+    }
+
+    bool Texture::IsReady() const
+    {
+        return *m_ReadyState == 1;
+    }
+
+    #ifdef FL_USE_IMGUI
+    void* Texture::GetImGuiHandle(u32 layerIndex, u32 mipLevel) const
+    {
+        if (m_ImageCount == 1)
+            return m_Images[0].ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
+        return m_Images[Flourish::Context::FrameIndex()].ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
+    }
+    #endif
+
+    VkImage Texture::GetImage() const
+    {
+        if (m_ImageCount == 1) return m_Images[0].Image;
+        return m_Images[Flourish::Context::FrameIndex()].Image;
+    }
+
+    VkImage Texture::GetImage(u32 frameIndex) const
+    {
+        if (m_ImageCount == 1) return m_Images[0].Image;
+        return m_Images[frameIndex].Image;
     }
 
     VkImageView Texture::GetImageView() const
     {
-        return m_Images[Context::FrameIndex()].ImageView;
+        if (m_ImageCount == 1) return m_Images[0].ImageView;
+        return m_Images[Flourish::Context::FrameIndex()].ImageView;
     }
 
     VkImageView Texture::GetImageView(u32 frameIndex) const
     {
+        if (m_ImageCount == 1) return m_Images[0].ImageView;
         return m_Images[frameIndex].ImageView;
     }
 
     VkImageView Texture::GetLayerImageView(u32 layerIndex, u32 mipLevel) const
     {
-        return m_Images[Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
+        if (m_ImageCount == 1) return m_Images[0].SliceViews[layerIndex * m_MipLevels + mipLevel];
+        return m_Images[Flourish::Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
     VkImageView Texture::GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const
     {
+        if (m_ImageCount == 1) return m_Images[0].SliceViews[layerIndex * m_MipLevels + mipLevel];
         return m_Images[frameIndex].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
@@ -288,9 +358,10 @@ namespace Flourish::Vulkan
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
-            Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1);
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -303,6 +374,10 @@ namespace Flourish::Vulkan
         // Check if image format supports linear blitting
         VkFormatProperties formatProperties;
         vkGetPhysicalDeviceFormatProperties(Context::Devices().PhysicalDevice(), imageFormat, &formatProperties);
+        
+        // Expects image to be in TRANSFER_DST_OPTIMAL before proceeding
+        if (initialLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+            TransitionImageLayout(image, initialLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, layerCount, buffer);
 
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -320,7 +395,7 @@ namespace Flourish::Vulkan
         for (u32 i = 1; i < mipLevels; i++)
         {
             barrier.subresourceRange.baseMipLevel = i - 1;
-            barrier.oldLayout = initialLayout;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
             barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -353,25 +428,31 @@ namespace Flourish::Vulkan
                 sampleFilter
             );
 
-            barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            barrier.newLayout = finalLayout;
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            // Transition final image to src for combined layout transition later
+            if (i == mipLevels - 1)
+            {
+                barrier.subresourceRange.baseMipLevel = i;
+                barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-            vkCmdPipelineBarrier(cmdBuffer,
-                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                0,
-                0, nullptr,
-                0, nullptr,
-                1, &barrier
-            );
+                vkCmdPipelineBarrier(cmdBuffer,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    0,
+                    0, nullptr,
+                    0, nullptr,
+                    1, &barrier
+                );
+            }
 
             if (mipWidth > 1) mipWidth /= 2;
             if (mipHeight > 1) mipHeight /= 2;
         }
 
-        barrier.subresourceRange.baseMipLevel = mipLevels - 1;
-        barrier.oldLayout = initialLayout;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = mipLevels;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         barrier.newLayout = finalLayout;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -389,10 +470,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            auto thread = std::this_thread::get_id();
-            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffers(GPUWorkloadType::Graphics, &cmdBuffer, 1, thread);
-            });
+            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, allocInfo]()
+            {
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+            }, "GenerateMipmaps command free");
         }
     }
 
@@ -406,9 +487,10 @@ namespace Flourish::Vulkan
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
-            Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1);
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
 
             VkCommandBufferBeginInfo beginInfo{};
             beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -516,10 +598,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            auto thread = std::this_thread::get_id();
-            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, thread](){
-                Context::Commands().FreeBuffers(GPUWorkloadType::Graphics, &cmdBuffer, 1, thread);
-            });
+            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, allocInfo]()
+            {
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+            }, "TransitionImageLayout command free");
         }
     }
 
@@ -550,6 +632,43 @@ namespace Flourish::Vulkan
 
     const Texture::ImageData& Texture::GetImageData() const
     {
-        return m_ImageCount == 1 ? m_Images[0] : m_Images[Context::FrameIndex()];
+        return m_ImageCount == 1 ? m_Images[0] : m_Images[Flourish::Context::FrameIndex()];
+    }
+    
+    void Texture::CreateSampler()
+    {
+        FL_ASSERT(
+            Flourish::Context::FeatureTable().SamplerMinMax ||
+                (m_Info.SamplerState.ReductionMode != SamplerReductionMode::Min &&
+                m_Info.SamplerState.ReductionMode != SamplerReductionMode::Max),
+            "Texture has reduction mode of min or max, but that feature flag is not enabled"
+        );
+
+        VkSamplerReductionModeCreateInfo reductionInfo{};
+        reductionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO;
+        reductionInfo.reductionMode = Common::ConvertSamplerReductionMode(m_Info.SamplerState.ReductionMode);
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.pNext = Flourish::Context::FeatureTable().SamplerMinMax ? &reductionInfo : nullptr;
+        samplerInfo.magFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MagFilter);
+        samplerInfo.minFilter = Common::ConvertSamplerFilter(m_Info.SamplerState.MinFilter);
+        samplerInfo.addressModeU = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[0]);
+        samplerInfo.addressModeV = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[1]);
+        samplerInfo.addressModeW = Common::ConvertSamplerWrapMode(m_Info.SamplerState.UVWWrap[2]);
+        samplerInfo.anisotropyEnable = Flourish::Context::FeatureTable().SamplerAnisotropy && m_Info.SamplerState.AnisotropyEnable;
+        samplerInfo.maxAnisotropy = std::min(
+            static_cast<float>(m_Info.SamplerState.MaxAnisotropy),
+            Context::Devices().PhysicalDeviceProperties().limits.maxSamplerAnisotropy
+        );
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = static_cast<float>(m_MipLevels);
+
+        FL_VK_ENSURE_RESULT(vkCreateSampler(Context::Devices().Device(), &samplerInfo, nullptr, &m_Sampler));
     }
 }

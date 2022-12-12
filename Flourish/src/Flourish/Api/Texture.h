@@ -7,9 +7,12 @@ namespace Flourish
     enum class ColorFormat
     {
         None = 0,
-        RGBA8,
-        R16F, RGBA16F,
-        R32F, RGBA32F
+        RGBA8_UNORM, RGBA8_SRGB,
+        BGRA8_UNORM, 
+        RGB8_UNORM,
+        BGR8_UNORM,
+        R16_FLOAT, RGBA16_FLOAT,
+        R32_FLOAT, RGBA32_FLOAT
     };
 
     enum class SamplerFilter
@@ -47,14 +50,17 @@ namespace Flourish
 
     struct TextureCreateInfo
     {
-        u32 Width, Height, Channels;
-        BufferDataType DataType;
+        u32 Width, Height;
+        ColorFormat Format;
         BufferUsageType UsageType;
+        bool RenderTarget = false; // TODO: revisit this & usage type
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
         TextureSamplerState SamplerState;
         void* InitialData = nullptr;
         u32 InitialDataSize = 0;
+        bool AsyncCreation = false;
+        std::function<void()> CreationCallback = nullptr;
     };
 
     class Texture
@@ -62,28 +68,36 @@ namespace Flourish
     public:
         Texture(const TextureCreateInfo& createInfo)
             : m_Info(createInfo)
-        {}
+        { m_Channels = ColorFormatComponentCount(createInfo.Format); }
         virtual ~Texture() = default;
+        
+        // TS
+        virtual bool IsReady() const = 0;
+        #ifdef FL_USE_IMGUI
+        virtual void* GetImGuiHandle(u32 layerIndex = 0, u32 mipLevel = 0) const = 0;
+        #endif
 
         // TS  
         inline u32 GetArrayCount() const { return m_Info.ArrayCount; }
         inline u32 GetWidth() const { return m_Info.Width; }
         inline u32 GetHeight() const { return m_Info.Height; }
-        inline u32 GetMipCount() const { return m_Info.MipCount; }
+        inline u32 GetMipCount() const { return m_MipLevels; }
         inline u32 GetMipWidth(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Width * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
-        inline u32 GetChannels() const { return m_Info.Channels; }
+        inline u32 GetChannels() const { return m_Channels; }
+        inline bool IsRenderTarget() const { return m_Info.RenderTarget; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
+        inline ColorFormat GetColorFormat() const { return m_Info.Format; }
 
     public:
         // TS
         static std::shared_ptr<Texture> Create(const TextureCreateInfo& createInfo);
         static u32 ColorFormatComponentCount(ColorFormat format);
         static BufferDataType ColorFormatBufferDataType(ColorFormat format);
-        static ColorFormat BufferDataTypeColorFormat(BufferDataType type, u32 channelCount);
 
     protected:
         TextureCreateInfo m_Info;
         u32 m_MipLevels;
+        u32 m_Channels;
     };
 }
