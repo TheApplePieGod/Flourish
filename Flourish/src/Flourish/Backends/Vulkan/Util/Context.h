@@ -4,7 +4,7 @@
 #include "Flourish/Backends/Vulkan/Util/Devices.h"
 #include "Flourish/Backends/Vulkan/Util/Queues.h"
 #include "Flourish/Backends/Vulkan/Util/Commands.h"
-#include "Flourish/Backends/Vulkan/Util/DeleteQueue.h"
+#include "Flourish/Backends/Vulkan/Util/FinalizerQueue.h"
 #include "Flourish/Backends/Vulkan/Util/SubmissionHandler.h"
 
 namespace Flourish::Vulkan
@@ -21,7 +21,7 @@ namespace Flourish::Vulkan
         inline static const Devices& Devices() { return s_Devices; }
         inline static Queues& Queues() { return s_Queues; }
         inline static Commands& Commands() { return s_Commands; }
-        inline static DeleteQueue& DeleteQueue() { return s_DeleteQueue; }
+        inline static FinalizerQueue& FinalizerQueue() { return s_FinalizerQueue; }
         inline static SubmissionHandler& SubmissionHandler() { return s_SubmissionHandler; }
         inline static VmaAllocator Allocator() { return s_Allocator; }
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
         inline static Vulkan::Devices s_Devices;
         inline static Vulkan::Queues s_Queues;
         inline static Vulkan::Commands s_Commands;
-        inline static Vulkan::DeleteQueue s_DeleteQueue;
+        inline static Vulkan::FinalizerQueue s_FinalizerQueue;
         inline static Vulkan::SubmissionHandler s_SubmissionHandler;
         inline static VmaAllocator s_Allocator;
         inline static VkDebugUtilsMessengerEXT s_DebugMessenger = nullptr;

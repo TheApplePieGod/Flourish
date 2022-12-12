@@ -63,7 +63,7 @@ namespace Flourish::Vulkan
 
         auto surface = m_Surface;
         auto semaphores = m_SubmissionData.SignalSemaphores;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)

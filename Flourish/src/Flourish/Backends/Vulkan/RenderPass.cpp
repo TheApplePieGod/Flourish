@@ -200,7 +200,7 @@ namespace Flourish::Vulkan
     RenderPass::~RenderPass()
     {
         auto renderPass = m_RenderPass;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroyRenderPass(Context::Devices().Device(), renderPass, nullptr);
         }, "RenderPass free");

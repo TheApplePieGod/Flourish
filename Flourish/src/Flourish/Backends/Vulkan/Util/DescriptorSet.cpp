@@ -82,7 +82,7 @@ namespace Flourish::Vulkan
     void DescriptorSetLayout::Shutdown()
     {
         auto layout = m_Layout;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroyDescriptorSetLayout(Context::Devices().Device(), layout, nullptr);
         }, "Descriptor set layout free");
@@ -104,7 +104,7 @@ namespace Flourish::Vulkan
     DescriptorSet::~DescriptorSet()
     {
         auto pools = m_DescriptorPools;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (u32 i = 0; i < pools.size(); i++)
                 for (auto pool : pools[i])

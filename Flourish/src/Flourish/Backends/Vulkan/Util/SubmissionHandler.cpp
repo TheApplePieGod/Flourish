@@ -69,7 +69,7 @@ namespace Flourish::Vulkan
         m_PushDataMutex.unlock();
         
         if (callback)
-            Context::DeleteQueue().PushAsync(callback, &semaphores,  &values, "Push submission finalizer");
+            Context::FinalizerQueue().PushAsync(callback, &semaphores,  &values, "Push submission finalizer");
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers)

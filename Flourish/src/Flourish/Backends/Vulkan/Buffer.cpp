@@ -103,7 +103,7 @@ namespace Flourish::Vulkan
         auto buffers = m_Buffers;
         auto stagingBuffers = m_StagingBuffers;
         auto bufferCount = m_BufferCount;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (u32 i = 0; i < bufferCount; i++)
             {
@@ -340,7 +340,7 @@ namespace Flourish::Vulkan
         // Destroy the temp staging buffer if it was created
         if (initialDataStagingBuf.Buffer)
         {
-            Context::DeleteQueue().Push([initialDataStagingBuf]()
+            Context::FinalizerQueue().Push([initialDataStagingBuf]()
             {
                 vmaDestroyBuffer(Context::Allocator(), initialDataStagingBuf.Buffer, initialDataStagingBuf.Allocation);
             }, "Buffer free staging");

@@ -148,7 +148,7 @@ namespace Flourish::Vulkan
         // TODO: might not actually need to be on the queue since it's a one-time use thing
         // but to be safe it's here anyways
         auto mod = m_ShaderModule;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroyShaderModule(Context::Devices().Device(), mod, nullptr);
         }, "Shader free");

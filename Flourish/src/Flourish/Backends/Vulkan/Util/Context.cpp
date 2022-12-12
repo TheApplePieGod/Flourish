@@ -35,7 +35,7 @@ namespace Flourish::Vulkan
         s_Queues.Initialize();
         s_Commands.Initialize();
         s_SubmissionHandler.Initialize();
-        s_DeleteQueue.Initialize();
+        s_FinalizerQueue.Initialize();
 
         FL_LOG_DEBUG("Vulkan context ready");
     }
@@ -48,7 +48,7 @@ namespace Flourish::Vulkan
 
         Sync();
 
-        s_DeleteQueue.Shutdown();
+        s_FinalizerQueue.Shutdown();
         s_SubmissionHandler.Shutdown();
         s_Commands.Shutdown();
         if (finalizer)
@@ -74,7 +74,7 @@ namespace Flourish::Vulkan
 
     void Context::EndFrame()
     {
-        s_DeleteQueue.Iterate();
+        s_FinalizerQueue.Iterate();
         s_SubmissionHandler.ProcessFrameSubmissions();
     }
 

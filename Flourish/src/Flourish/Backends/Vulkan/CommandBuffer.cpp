@@ -33,7 +33,7 @@ namespace Flourish::Vulkan
     CommandBuffer::~CommandBuffer()
     {
         auto semaphores = m_SubmissionData.SyncSemaphores;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);

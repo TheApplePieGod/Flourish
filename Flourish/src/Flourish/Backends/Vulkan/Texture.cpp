@@ -265,7 +265,7 @@ namespace Flourish::Vulkan
         auto sampler = m_Sampler;
         auto images = m_Images;
         auto readyState = m_ReadyState;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             if (readyState)
                 delete readyState;

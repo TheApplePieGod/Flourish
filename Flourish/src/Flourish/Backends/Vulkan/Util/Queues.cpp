@@ -27,7 +27,7 @@ namespace Flourish::Vulkan
     void Queues::Shutdown()
     {
         auto semaphores = m_UnusedSemaphores;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (auto semaphore : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
@@ -59,7 +59,7 @@ namespace Flourish::Vulkan
         FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
         LockQueue(workloadType, false);
 
-        Context::DeleteQueue().PushAsync([this, completionCallback, semaphore, signalValue, debugName]()
+        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore, signalValue, debugName]()
         {
             if (completionCallback)
                 completionCallback();

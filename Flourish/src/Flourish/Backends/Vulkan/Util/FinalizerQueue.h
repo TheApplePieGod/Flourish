@@ -26,7 +26,7 @@ namespace Flourish::Vulkan
         std::vector<u64> WaitValues;
     };
 
-    class DeleteQueue
+    class FinalizerQueue
     {
     public:
         void Initialize();
