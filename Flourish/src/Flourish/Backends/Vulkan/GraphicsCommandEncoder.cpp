@@ -1,32 +1,26 @@
 #include "flpch.h"
 #include "GraphicsCommandEncoder.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
 
 namespace Flourish::Vulkan
 {
-    GraphicsCommandEncoder::GraphicsCommandEncoder(CommandBuffer* parentBuffer)
-    {
-        m_ParentBuffer = parentBuffer;
-    }
-
-    GraphicsCommandEncoder::~GraphicsCommandEncoder()
-    {
-
-    }
+    GraphicsCommandEncoder::GraphicsCommandEncoder(CommandBuffer* parentBuffer, bool frameRestricted)
+        : m_ParentBuffer(parentBuffer), m_FrameRestricted(frameRestricted)
+    {}
 
     void GraphicsCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
 
-        Context::Commands().AllocateBuffers(
+        m_AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Graphics,
             false,
             &m_CommandBuffer,
-            1, false
-        );   
+            1, !m_FrameRestricted
+        );
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -43,7 +37,7 @@ namespace Flourish::Vulkan
 
         VkCommandBuffer buffer = m_CommandBuffer;
         vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, GPUWorkloadType::Graphics);
+        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Graphics);
     }
 
     void GraphicsCommandEncoder::GenerateMipMaps(Flourish::Texture* _texture)

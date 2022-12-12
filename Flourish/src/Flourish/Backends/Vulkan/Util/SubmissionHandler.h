@@ -1,11 +1,21 @@
 #pragma once
 
+#include "Flourish/Api/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
-    class RenderContext;
+    struct CommandSubmissionData
+    {
+        std::vector<VkSubmitInfo> GraphicsSubmitInfos;
+        std::vector<VkSubmitInfo> ComputeSubmitInfos;
+        std::vector<VkSubmitInfo> TransferSubmitInfos;
+        std::vector<VkSemaphore> CompletionSemaphores;
+        std::vector<u64> CompletionSemaphoreValues;
+        std::vector<VkPipelineStageFlags> CompletionWaitStages;
+    };
+
     class SubmissionHandler
     {
     public:
@@ -13,27 +23,31 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         void WaitOnFrameSemaphores();
-        void ProcessSubmissions();
-
+        void ProcessFrameSubmissions();
+        
         // TS
-        void PresentRenderContext(RenderContext* context);
+        void ProcessPushSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);
+        void ProcessExecuteSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers);
+        
+    public:
+        static void ProcessSubmission(
+            CommandSubmissionData& submissionData,
+            const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers,
+            const std::vector<u32>& counts,
+            const std::vector<Flourish::RenderContext*>* contexts,
+            std::vector<VkSemaphore>* finalSemaphores = nullptr,
+            std::vector<u64>* finalSemaphoreValues = nullptr
+        );
         
     private:
-        struct SubmissionData
-        {
-            std::vector<VkSubmitInfo> GraphicsSubmitInfos;
-            std::vector<VkSubmitInfo> ComputeSubmitInfos;
-            std::vector<VkSubmitInfo> TransferSubmitInfos;
-            std::vector<VkSemaphore> CompletionSemaphores;
-            std::vector<u64> CompletionSemaphoreValues;
-            std::vector<VkPipelineStageFlags> CompletionWaitStages;
-        };
         
     private:
-        std::vector<RenderContext*> m_PresentingContexts;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
         std::array<std::vector<u64>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphoreValues;
-        SubmissionData m_SubmissionData;
-        std::mutex m_PresentingContextsLock;
+        CommandSubmissionData m_FrameSubmissionData;
+        CommandSubmissionData m_PushSubmissionData;
+        CommandSubmissionData m_ExecuteSubmissionData;
+        std::mutex m_PushDataMutex;
+        std::mutex m_ExecuteDataMutex;
     };
 }

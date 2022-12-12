@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "Queues.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
@@ -26,147 +26,63 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
-        ClearCommands();
-
         auto semaphores = m_UnusedSemaphores;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (auto semaphore : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
         }, "Queues free");
     }
     
-    PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback)
+    PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
     {
-        auto& queueData = GetQueueData(workloadType);
-        queueData.CommandQueueLock.lock();
-        VkSemaphore semaphore = RetrieveSemaphore();
-        m_SemaphoresLock.lock();
-        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
-        m_SemaphoresLock.unlock();
-        queueData.CommandQueue.emplace_back(buffer, completionCallback, semaphore, signalValue);
-        queueData.CommandQueueLock.unlock();
-        return { semaphore, signalValue };
-    }
-
-    void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer)
-    {
-        VkSemaphore semaphore = RetrieveSemaphore();
+        std::vector<VkSemaphore> semaphore = { RetrieveSemaphore() };
 
         m_SemaphoresLock.lock();
-        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
+        std::vector<u64> signalValue = { ++m_ExecuteSemaphoreSignalValue };
         m_SemaphoresLock.unlock();
 
-        VkTimelineSemaphoreSubmitInfo timelineInfo{};
-        timelineInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        timelineInfo.signalSemaphoreValueCount = 1;
-        timelineInfo.pSignalSemaphoreValues = &signalValue;
+        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
+        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineSubmitInfo.signalSemaphoreValueCount = 1;
+        timelineSubmitInfo.pSignalSemaphoreValues = signalValue.data();
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.pNext = &timelineInfo;
+        submitInfo.pNext = &timelineSubmitInfo;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = semaphore.data();
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &semaphore;
 
+        LockQueue(workloadType, true);
         FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
+        LockQueue(workloadType, false);
+
+        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore, signalValue, debugName]()
+        {
+            if (completionCallback)
+                completionCallback();
+
+            m_SemaphoresLock.lock();
+            m_UnusedSemaphores.push_back(semaphore[0]);
+            m_SemaphoresLock.unlock();
+        }, &semaphore, &signalValue, debugName ? debugName : "Push command finalizer");
+        
+        return { semaphore[0], signalValue[0] };
+    }
+
+    void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName)
+    {
+        auto pushResult = PushCommand(workloadType, buffer, nullptr, debugName);
         
         VkSemaphoreWaitInfo waitInfo{};
         waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
         waitInfo.semaphoreCount = 1;
-        waitInfo.pSemaphores = &semaphore;
-        waitInfo.pValues = &signalValue;
+        waitInfo.pSemaphores = &pushResult.SignalSemaphore;
+        waitInfo.pValues = &pushResult.SignalValue;
 
         vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
-
-        m_SemaphoresLock.lock();
-        m_UnusedSemaphores.push_back(semaphore);
-        m_SemaphoresLock.unlock();
-    }
-
-    void Queues::IterateCommands(GPUWorkloadType workloadType)
-    {
-        auto& queueData = GetQueueData(workloadType);
-        if (queueData.CommandQueue.empty()) return;
-
-        queueData.CommandQueueLock.lock();
-        queueData.Buffers.clear();
-        queueData.Semaphores.clear();
-        queueData.SignalValues.clear();
-        for (int i = 0; i < queueData.CommandQueue.size(); i++)
-        {
-            auto& value = queueData.CommandQueue.at(i);
-            if (value.Submitted)
-            {
-                u64 semaphoreVal;
-                vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
-                if (semaphoreVal == value.SignalValue) // Completed
-                {
-                    if (value.Callback) value.Callback();
-                    m_SemaphoresLock.lock();
-                    m_UnusedSemaphores.push_back(value.WaitSemaphore);
-                    m_SemaphoresLock.unlock();
-                    queueData.CommandQueue.erase(queueData.CommandQueue.begin() + i);
-                    i--;
-                }
-            }
-            else
-            {
-                queueData.Buffers.push_back(value.Buffer);
-                queueData.Semaphores.push_back(value.WaitSemaphore);
-                queueData.SignalValues.push_back(value.SignalValue);
-                value.Submitted = true;
-            }
-        }
-        queueData.CommandQueueLock.unlock();
-
-        if (queueData.Buffers.empty()) return;
-        
-        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
-        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        timelineSubmitInfo.signalSemaphoreValueCount = queueData.SignalValues.size();
-        timelineSubmitInfo.pSignalSemaphoreValues = queueData.SignalValues.data();
-
-        // Having implicit ording is a little silly so we should probably revisit this 
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.pNext = &timelineSubmitInfo;
-        submitInfo.signalSemaphoreCount = queueData.Semaphores.size();
-        submitInfo.pSignalSemaphores = queueData.Semaphores.data();
-        submitInfo.commandBufferCount = queueData.Buffers.size();
-        submitInfo.pCommandBuffers = queueData.Buffers.data();
-
-        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
-    }
-
-    void Queues::IterateCommands()
-    {
-        IterateCommands(GPUWorkloadType::Graphics);
-        IterateCommands(GPUWorkloadType::Compute);
-        IterateCommands(GPUWorkloadType::Transfer);
-    }
-
-    void Queues::ClearCommands(GPUWorkloadType workloadType)
-    {
-        auto& queueData = GetQueueData(workloadType);
-        queueData.CommandQueueLock.lock();
-        for (u32 i = 0; i < queueData.CommandQueue.size(); i++)
-        {
-            auto& value = queueData.CommandQueue.at(i);
-            value.Callback();
-            m_SemaphoresLock.lock();
-            m_UnusedSemaphores.push_back(value.WaitSemaphore);
-            m_SemaphoresLock.unlock();
-        }
-        queueData.CommandQueueLock.unlock();
-    }
-
-    void Queues::ClearCommands()
-    {
-        ClearCommands(GPUWorkloadType::Graphics);
-        ClearCommands(GPUWorkloadType::Compute);
-        ClearCommands(GPUWorkloadType::Transfer);
     }
 
     VkQueue Queues::PresentQueue() const
@@ -189,6 +105,26 @@ namespace Flourish::Vulkan
         FL_ASSERT(false, "Queue for workload not supported");
         return nullptr;
     }
+
+    void Queues::LockQueue(GPUWorkloadType workloadType, bool lock)
+    {
+        std::mutex* mutex;
+        switch (workloadType)
+        {
+            case GPUWorkloadType::Graphics:
+            { mutex = &m_GraphicsQueue.AccessMutex; }
+            case GPUWorkloadType::Transfer:
+            { mutex = &m_TransferQueue.AccessMutex; }
+            case GPUWorkloadType::Compute:
+            { mutex = &m_ComputeQueue.AccessMutex; }
+        }
+
+        FL_ASSERT(mutex, "Queue for workload not supported");
+
+        if (lock) mutex->lock();
+        else mutex->unlock();
+    }
+
     
     u32 Queues::QueueIndex(GPUWorkloadType workloadType) const
     {

@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "RenderContext.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 #ifdef FL_USE_GLFW
@@ -63,7 +63,7 @@ namespace Flourish::Vulkan
 
         auto surface = m_Surface;
         auto semaphores = m_SubmissionData.SignalSemaphores;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
@@ -112,7 +112,7 @@ namespace Flourish::Vulkan
                     m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
                 }
 
-                Flourish::Context::SubmitCommandBuffers(submission);
+                Flourish::Context::PushFrameCommandBuffers(submission);
             }
             
             // Update the first encoded command to wait until the image is available
@@ -134,7 +134,7 @@ namespace Flourish::Vulkan
             values[1] = values[0]; // Binary semaphore so value doesn't matter
         }
 
-        Context::SubmissionHandler().PresentRenderContext(this);
+        Flourish::Context::PushFrameRenderContext(this);
     }
 
     void RenderContext::UpdateDimensions(u32 width, u32 height)

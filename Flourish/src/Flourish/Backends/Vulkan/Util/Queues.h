@@ -41,16 +41,18 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        PushCommandResult PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback = nullptr);
-        void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer);
-        void IterateCommands(GPUWorkloadType workloadType);
-        void IterateCommands();
-        void ClearCommands(GPUWorkloadType workloadType);
-        void ClearCommands();
+        PushCommandResult PushCommand(
+            GPUWorkloadType workloadType,
+            VkCommandBuffer buffer,
+            std::function<void()> completionCallback = nullptr,
+            const char* debugName = nullptr
+        );
+        void ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName = nullptr);
 
         // TS
         VkQueue PresentQueue() const;
         VkQueue Queue(GPUWorkloadType workloadType) const;
+        void LockQueue(GPUWorkloadType workloadType, bool lock);
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
         u32 QueueIndex(GPUWorkloadType workloadType) const;
 
@@ -76,12 +78,7 @@ namespace Flourish::Vulkan
         {
             std::array<VkQueue, Flourish::Context::MaxFrameBufferCount> Queues;
             u32 QueueIndex;
-            std::deque<QueueCommandEntry> CommandQueue;
-            std::mutex CommandQueueLock;
-
-            std::vector<VkCommandBuffer> Buffers;
-            std::vector<VkSemaphore> Semaphores;
-            std::vector<u64> SignalValues;
+            std::mutex AccessMutex;
         };
 
     private:

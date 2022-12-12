@@ -12,8 +12,8 @@ namespace Flourish::Vulkan
     class GraphicsCommandEncoder : public Flourish::GraphicsCommandEncoder 
     {
     public:
-        GraphicsCommandEncoder(CommandBuffer* parentBuffer);
-        ~GraphicsCommandEncoder();
+        GraphicsCommandEncoder() = default;
+        GraphicsCommandEncoder(CommandBuffer* parentBuffer, bool frameRestricted);
 
         void BeginEncoding();
         void EndEncoding() override;
@@ -23,6 +23,8 @@ namespace Flourish::Vulkan
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
     private:
+        bool m_FrameRestricted;
+        CommandBufferAllocInfo m_AllocInfo;
         VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
     };

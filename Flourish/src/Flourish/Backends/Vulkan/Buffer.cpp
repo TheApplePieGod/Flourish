@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "Buffer.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
 {
@@ -103,7 +103,7 @@ namespace Flourish::Vulkan
         auto buffers = m_Buffers;
         auto stagingBuffers = m_StagingBuffers;
         auto bufferCount = m_BufferCount;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (u32 i = 0; i < bufferCount; i++)
             {
@@ -174,12 +174,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
-            
-            Context::DeleteQueue().PushAsync([cmdBuffer, allocInfo]()
+            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
             {
                 Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
-            }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToBuffer command free");
+            }, "CopyBufferToBuffer command free");
         }
     }
 
@@ -217,12 +215,10 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
             
-            auto pushResult = Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer);
-            
-            Context::DeleteQueue().PushAsync([cmdBuffer, allocInfo]()
+            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
             {
                 Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
-            }, pushResult.SignalSemaphore, pushResult.SignalValue, "CopyBufferToImage command free");
+            }, "CopyBufferToImage command free");
         }
     }
 
@@ -344,7 +340,7 @@ namespace Flourish::Vulkan
         // Destroy the temp staging buffer if it was created
         if (initialDataStagingBuf.Buffer)
         {
-            Context::DeleteQueue().Push([initialDataStagingBuf]()
+            Context::FinalizerQueue().Push([initialDataStagingBuf]()
             {
                 vmaDestroyBuffer(Context::Allocator(), initialDataStagingBuf.Buffer, initialDataStagingBuf.Allocation);
             }, "Buffer free staging");

@@ -3,7 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
 {
@@ -206,7 +206,7 @@ namespace Flourish::Vulkan
 
         auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (auto& pair : pipelines)
                 vkDestroyPipeline(Context::Devices().Device(), pair.second, nullptr);

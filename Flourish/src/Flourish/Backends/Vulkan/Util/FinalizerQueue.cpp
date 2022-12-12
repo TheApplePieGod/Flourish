@@ -1,21 +1,21 @@
 #include "flpch.h"
-#include "DeleteQueue.h"
+#include "FinalizerQueue.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
 {
-    void DeleteQueue::Initialize()
+    void FinalizerQueue::Initialize()
     {
         
     }
 
-    void DeleteQueue::Shutdown()
+    void FinalizerQueue::Shutdown()
     {
         Iterate(true);
     }
 
-    void DeleteQueue::Push(std::function<void()>&& executeFunc, const char* debugName)
+    void FinalizerQueue::Push(std::function<void()> executeFunc, const char* debugName)
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
@@ -26,20 +26,24 @@ namespace Flourish::Vulkan
         m_QueueLock.unlock();
     }
 
-    void DeleteQueue::PushAsync(std::function<void()>&& executeFunc, VkSemaphore semaphore, u64 waitValue, const char* debugName)
+    void FinalizerQueue::PushAsync(
+        std::function<void()> executeFunc,
+        const std::vector<VkSemaphore>* semaphores,
+        const std::vector<u64>* waitValues,
+        const char* debugName)
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
             Flourish::Context::FrameBufferCount() + 1,
             executeFunc,
             debugName,
-            semaphore,
-            waitValue
+            semaphores,
+            waitValues
         );
         m_QueueLock.unlock();
     }
 
-    void DeleteQueue::Iterate(bool force)
+    void FinalizerQueue::Iterate(bool force)
     {
         m_QueueLock.lock();
         for (u32 i = 0; i < m_Queue.size(); i++)
@@ -47,11 +51,16 @@ namespace Flourish::Vulkan
             auto& value = m_Queue.at(i);
             
             bool execute = false;
-            if (value.WaitSemaphore)
+            if (!value.WaitSemaphores.empty())
             {
+                // Check all semaphores for completion
                 u64 semaphoreVal;
-                vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
-                execute = semaphoreVal == value.WaitValue; // Completed
+                for (u32 i = 0; i < value.WaitSemaphores.size(); i++)
+                {
+                    vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphores[i], &semaphoreVal);
+                    execute = semaphoreVal == value.WaitValues[i]; // Completed
+                    if (!execute) break; // If any fail then all fail
+                }
             }
             else if (value.Lifetime > 0)
                 value.Lifetime -= 1;
@@ -61,7 +70,7 @@ namespace Flourish::Vulkan
             if (execute || force)
             {
                 if (value.DebugName)
-                { FL_LOG_TRACE("Delete queue: %s", value.DebugName); }
+                { FL_LOG_TRACE("Finalizer: %s", value.DebugName); }
                 m_QueueLock.unlock();
                 value.Execute();
                 m_QueueLock.lock();

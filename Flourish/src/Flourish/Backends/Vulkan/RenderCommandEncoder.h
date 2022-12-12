@@ -14,8 +14,8 @@ namespace Flourish::Vulkan
     class RenderCommandEncoder : public Flourish::RenderCommandEncoder 
     {
     public:
-        RenderCommandEncoder(CommandBuffer* parentBuffer);
-        ~RenderCommandEncoder();
+        RenderCommandEncoder() = default;
+        RenderCommandEncoder(CommandBuffer* parentBuffer, bool frameRestricted);
 
         void BeginEncoding(Framebuffer* framebuffer);
         void EndEncoding() override;
@@ -45,6 +45,8 @@ namespace Flourish::Vulkan
         void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource);
 
     private:
+        bool m_FrameRestricted;
+        CommandBufferAllocInfo m_AllocInfo;
         VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
         Framebuffer* m_BoundFramebuffer = nullptr;

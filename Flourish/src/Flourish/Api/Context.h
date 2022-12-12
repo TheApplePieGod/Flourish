@@ -24,6 +24,17 @@ namespace Flourish
     };
 
     class CommandBuffer;
+    class RenderContext;
+    struct ContextCommandSubmissions
+    {
+        std::vector<std::vector<CommandBuffer*>> Buffers;
+        std::vector<u32> Counts;
+        std::vector<RenderContext*> Contexts;
+        std::mutex Mutex;
+
+        void Clear();
+    };
+
     class Context
     {
     public:
@@ -33,7 +44,10 @@ namespace Flourish
         static void EndFrame();
 
         // TS
-        static void SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
+        static void PushFrameCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
+        static void PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);
+        static void ExecuteCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
+        static void PushFrameRenderContext(RenderContext* context);
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }
@@ -42,11 +56,10 @@ namespace Flourish
         inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
-        inline static auto& SubmittedCommandBuffers() { return s_SubmittedCommandBuffers; }
-        inline static auto& SubmittedCommandBufferCounts() { return s_SubmittedCommandBufferCounts; }
+        inline static const auto& FrameSubmissions() { return s_FrameSubmissions; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
-
+        
     private:
         inline static Flourish::BackendType s_BackendType = BackendType::None;
         inline static bool s_ReversedZBuffer = true;
@@ -54,8 +67,6 @@ namespace Flourish
         inline static u64 s_FrameCount = 1;
         inline static u32 s_FrameIndex = 0;
         inline static Flourish::FeatureTable s_FeatureTable;
-        inline static std::vector<std::vector<CommandBuffer*>> s_SubmittedCommandBuffers;
-        inline static std::vector<u32> s_SubmittedCommandBufferCounts;
-        inline static std::mutex s_SubmittedCommandBuffersLock;
+        inline static ContextCommandSubmissions s_FrameSubmissions;
     };
 }

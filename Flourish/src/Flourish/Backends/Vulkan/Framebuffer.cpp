@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "Framebuffer.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
 
@@ -156,7 +156,7 @@ namespace Flourish::Vulkan
     {
         auto framebuffers = m_Framebuffers;
         auto images = m_Images;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)

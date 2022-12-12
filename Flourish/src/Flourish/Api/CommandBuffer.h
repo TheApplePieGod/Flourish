@@ -12,6 +12,7 @@ namespace Flourish
     struct CommandBufferCreateInfo
     {
         u32 MaxEncoders = 8;
+        bool FrameRestricted = true;
     };
 
     class Framebuffer;
@@ -33,6 +34,7 @@ namespace Flourish
 
         // TS
         inline bool IsEncoding() const { return m_Encoding; }
+        inline bool IsFrameRestricted() const { return m_Info.FrameRestricted; }
 
     public:
         // TS

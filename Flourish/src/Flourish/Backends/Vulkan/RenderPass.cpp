@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "RenderPass.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
 
 namespace Flourish::Vulkan
@@ -200,7 +200,7 @@ namespace Flourish::Vulkan
     RenderPass::~RenderPass()
     {
         auto renderPass = m_RenderPass;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             vkDestroyRenderPass(Context::Devices().Device(), renderPass, nullptr);
         }, "RenderPass free");

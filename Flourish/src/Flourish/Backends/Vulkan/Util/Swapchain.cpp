@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "Swapchain.h"
 
-#include "Flourish/Backends/Vulkan/Util/Context.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
@@ -25,7 +25,7 @@ namespace Flourish::Vulkan
         CleanupSwapchain();
         
         auto imageAvailableSemaphores = m_ImageAvailableSemaphores;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
                 vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
@@ -283,7 +283,7 @@ namespace Flourish::Vulkan
 
         auto imageData = m_ImageData;
         auto swapchain = m_Swapchain;
-        Context::DeleteQueue().Push([=]()
+        Context::FinalizerQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
             for (auto& data : imageData)
