@@ -12,7 +12,8 @@ namespace Flourish::Vulkan
         std::vector<VkSemaphore> WaitSemaphores;
         std::vector<u64> WaitSemaphoreValues;
         std::vector<VkPipelineStageFlags> WaitStages;
-        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
+        std::array<std::array<VkSemaphore, 2>, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
+        std::array<std::array<u64, 2>, Flourish::Context::MaxFrameBufferCount> SignalSemaphoreValues;
     };
 
     class RenderContext : public Flourish::RenderContext
