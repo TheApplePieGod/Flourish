@@ -5,6 +5,13 @@
 
 namespace Flourish
 {
+    void ContextCommandSubmissions::Clear()
+    {
+        Buffers.clear();
+        Counts.clear();
+        Contexts.clear();
+    }
+
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
         FL_ASSERT(s_BackendType == BackendType::None, "Cannot initialize, context has already been initialized");
@@ -57,7 +64,6 @@ namespace Flourish
         }
 
         s_FrameSubmissions.Clear();
-        s_PushSubmissions.Clear();
         s_FrameCount++;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
@@ -78,7 +84,7 @@ namespace Flourish
         s_FrameSubmissions.Mutex.unlock();
     }
 
-    void Context::PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    void Context::PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers, std::function<void()> callback)
     {
         if (buffers.empty()) return;
         
@@ -88,9 +94,32 @@ namespace Flourish
                     FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in PushCommandBuffers");
         #endif
 
-        s_PushSubmissions.Mutex.lock();
-        s_PushSubmissions.Buffers.insert(s_PushSubmissions.Buffers.end(), buffers.begin(), buffers.end());
-        s_PushSubmissions.Counts.push_back(buffers.size());
-        s_PushSubmissions.Mutex.unlock();
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessPushSubmission(buffers, callback); } break;
+        }
+    }
+
+    void Context::ExecuteCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    {
+        if (buffers.empty()) return;
+        
+        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
+            for (auto& list : buffers)
+                for (auto buffer : list)
+                    FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in ExecuteCommandBuffers");
+        #endif
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(buffers); } break;
+        }
+    }
+
+    void Context::PushFrameRenderContext(RenderContext* context)
+    {
+        s_FrameSubmissions.Mutex.lock();
+        s_FrameSubmissions.Contexts.push_back(context);
+        s_FrameSubmissions.Mutex.unlock();
     }
 }

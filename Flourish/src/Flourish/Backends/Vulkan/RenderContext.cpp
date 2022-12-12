@@ -134,7 +134,7 @@ namespace Flourish::Vulkan
             values[1] = values[0]; // Binary semaphore so value doesn't matter
         }
 
-        Context::SubmissionHandler().PresentRenderContext(this);
+        Flourish::Context::PushFrameRenderContext(this);
     }
 
     void RenderContext::UpdateDimensions(u32 width, u32 height)

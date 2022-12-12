@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
         Iterate(true);
     }
 
-    void DeleteQueue::Push(std::function<void()>&& executeFunc, const char* debugName)
+    void DeleteQueue::Push(std::function<void()> executeFunc, const char* debugName)
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
@@ -26,15 +26,19 @@ namespace Flourish::Vulkan
         m_QueueLock.unlock();
     }
 
-    void DeleteQueue::PushAsync(std::function<void()>&& executeFunc, VkSemaphore semaphore, u64 waitValue, const char* debugName)
+    void DeleteQueue::PushAsync(
+        std::function<void()> executeFunc,
+        const std::vector<VkSemaphore>* semaphores,
+        const std::vector<u64>* waitValues,
+        const char* debugName)
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
             Flourish::Context::FrameBufferCount() + 1,
             executeFunc,
             debugName,
-            semaphore,
-            waitValue
+            semaphores,
+            waitValues
         );
         m_QueueLock.unlock();
     }
@@ -47,11 +51,16 @@ namespace Flourish::Vulkan
             auto& value = m_Queue.at(i);
             
             bool execute = false;
-            if (value.WaitSemaphore)
+            if (!value.WaitSemaphores.empty())
             {
+                // Check all semaphores for completion
                 u64 semaphoreVal;
-                vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphore, &semaphoreVal);
-                execute = semaphoreVal == value.WaitValue; // Completed
+                for (u32 i = 0; i < value.WaitSemaphores.size(); i++)
+                {
+                    vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphores[i], &semaphoreVal);
+                    execute = semaphoreVal == value.WaitValues[i]; // Completed
+                    if (!execute) break; // If any fail then all fail
+                }
             }
             else if (value.Lifetime > 0)
                 value.Lifetime -= 1;

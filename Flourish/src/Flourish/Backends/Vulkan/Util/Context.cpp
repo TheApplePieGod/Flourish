@@ -75,8 +75,7 @@ namespace Flourish::Vulkan
     void Context::EndFrame()
     {
         s_DeleteQueue.Iterate();
-        s_Queues.IterateCommands();
-        s_SubmissionHandler.ProcessSubmissions();
+        s_SubmissionHandler.ProcessFrameSubmissions();
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
