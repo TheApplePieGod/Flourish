@@ -8,26 +8,20 @@
 
 namespace Flourish::Vulkan
 {
-    ComputeCommandEncoder::ComputeCommandEncoder(CommandBuffer* parentBuffer)
-    {
-        m_ParentBuffer = parentBuffer;
-    }
-
-    ComputeCommandEncoder::~ComputeCommandEncoder()
-    {
-
-    }
+    ComputeCommandEncoder::ComputeCommandEncoder(CommandBuffer* parentBuffer, bool frameRestricted)
+        : m_ParentBuffer(parentBuffer), m_FrameRestricted(frameRestricted)
+    {}
 
     void ComputeCommandEncoder::BeginEncoding(ComputeTarget* target)
     {
         m_Encoding = true;
         m_BoundTarget = target;
 
-        Context::Commands().AllocateBuffers(
+        m_AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Compute,
             false,
             &m_CommandBuffer,
-            1, false
+            1, !m_FrameRestricted
         );   
     
         VkCommandBufferBeginInfo beginInfo{};
@@ -48,7 +42,7 @@ namespace Flourish::Vulkan
 
         VkCommandBuffer buffer = m_CommandBuffer;
         vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, GPUWorkloadType::Compute);
+        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Compute);
     }
 
     void ComputeCommandEncoder::BindPipeline(Flourish::ComputePipeline* pipeline)

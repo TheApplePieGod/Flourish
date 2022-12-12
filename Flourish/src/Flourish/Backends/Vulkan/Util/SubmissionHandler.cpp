@@ -50,7 +50,7 @@ namespace Flourish::Vulkan
         m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].clear();
 
         // Each submission gets executed in parallel
-        for (auto submissionCount : Flourish::Context::SubmittedCommandBufferCounts())
+        for (auto submissionCount : Flourish::Context::FrameSubmissions().Counts)
         {
             completionSemaphoresWaitCount = 0;
             completionSemaphoresAdded = 0;
@@ -61,7 +61,7 @@ namespace Flourish::Vulkan
                 bool isLastSubmission = submissionIndex == submissionStartIndex + submissionCount - 1;
 
                 // Each buffer in this sub submission executes in parallel
-                auto& submission = Flourish::Context::SubmittedCommandBuffers()[submissionIndex];
+                auto& submission = Flourish::Context::FrameSubmissions().Buffers[submissionIndex];
                 for (auto _buffer : submission)
                 {
                     CommandBuffer* buffer = static_cast<CommandBuffer*>(_buffer);

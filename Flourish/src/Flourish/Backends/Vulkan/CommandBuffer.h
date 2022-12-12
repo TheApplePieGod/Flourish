@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
         CommandBuffer(const CommandBufferCreateInfo& createInfo, bool secondary = false);
         ~CommandBuffer() override;
 
-        void SubmitEncodedCommands(VkCommandBuffer buffer, GPUWorkloadType workloadType);
+        void SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo, GPUWorkloadType workloadType);
         Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
         Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
         Flourish::ComputeCommandEncoder* EncodeComputeCommands(Flourish::ComputeTarget* target) override;
@@ -45,12 +45,13 @@ namespace Flourish::Vulkan
     private:
         struct EncoderSubmission
         {
-            EncoderSubmission(VkCommandBuffer buffer, GPUWorkloadType workloadType)
-                : Buffer(buffer), WorkloadType(workloadType)
+            EncoderSubmission(VkCommandBuffer buffer, GPUWorkloadType workloadType, const CommandBufferAllocInfo& allocInfo)
+                : Buffer(buffer), WorkloadType(workloadType), AllocInfo(allocInfo)
             {}
 
             VkCommandBuffer Buffer;
             GPUWorkloadType WorkloadType;
+            CommandBufferAllocInfo AllocInfo;
         };
         
     private:
@@ -59,12 +60,9 @@ namespace Flourish::Vulkan
     private:
         u64 m_LastFrameEncoding = 0;
         u64 m_SemaphoreBaseValue = 1;
-        std::vector<GraphicsCommandEncoder> m_GraphicsCommandEncoderCache;
-        std::vector<RenderCommandEncoder> m_RenderCommandEncoderCache;
-        std::vector<ComputeCommandEncoder> m_ComputeCommandEncoderCache;
-        u32 m_GraphicsCommandEncoderCachePtr = 0;
-        u32 m_RenderCommandEncoderCachePtr = 0;
-        u32 m_ComputeCommandEncoderCachePtr = 0;
+        GraphicsCommandEncoder m_GraphicsCommandEncoder;
+        RenderCommandEncoder m_RenderCommandEncoder;
+        ComputeCommandEncoder m_ComputeCommandEncoder;
         std::vector<EncoderSubmission> m_EncoderSubmissions;
         CommandBufferSubmissionData m_SubmissionData;
     };

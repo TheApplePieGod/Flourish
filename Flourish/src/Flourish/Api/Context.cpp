@@ -56,19 +56,41 @@ namespace Flourish
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
-        s_SubmittedCommandBuffers.clear();
-        s_SubmittedCommandBufferCounts.clear();
+        s_FrameSubmissions.Clear();
+        s_PushSubmissions.Clear();
         s_FrameCount++;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    void Context::SubmitCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    void Context::PushFrameCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
     {
         if (buffers.empty()) return;
+        
+        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
+            for (auto& list : buffers)
+                for (auto buffer : list)
+                    FL_ASSERT(buffer->IsFrameRestricted(), "Cannot include a non frame restricted command buffer in PushFrameCommandBuffers");
+        #endif
 
-        s_SubmittedCommandBuffersLock.lock();
-        s_SubmittedCommandBuffers.insert(s_SubmittedCommandBuffers.end(), buffers.begin(), buffers.end());
-        s_SubmittedCommandBufferCounts.push_back(buffers.size());
-        s_SubmittedCommandBuffersLock.unlock();
+        s_FrameSubmissions.Mutex.lock();
+        s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers.begin(), buffers.end());
+        s_FrameSubmissions.Counts.push_back(buffers.size());
+        s_FrameSubmissions.Mutex.unlock();
+    }
+
+    void Context::PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    {
+        if (buffers.empty()) return;
+        
+        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
+            for (auto& list : buffers)
+                for (auto buffer : list)
+                    FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in PushCommandBuffers");
+        #endif
+
+        s_PushSubmissions.Mutex.lock();
+        s_PushSubmissions.Buffers.insert(s_PushSubmissions.Buffers.end(), buffers.begin(), buffers.end());
+        s_PushSubmissions.Counts.push_back(buffers.size());
+        s_PushSubmissions.Mutex.unlock();
     }
 }

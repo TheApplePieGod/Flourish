@@ -10,26 +10,20 @@
 
 namespace Flourish::Vulkan
 {
-    RenderCommandEncoder::RenderCommandEncoder(CommandBuffer* parentBuffer)
-    {
-        m_ParentBuffer = parentBuffer;
-    }
-
-    RenderCommandEncoder::~RenderCommandEncoder()
-    {
-
-    }
+    RenderCommandEncoder::RenderCommandEncoder(CommandBuffer* parentBuffer, bool frameRestricted)
+        : m_ParentBuffer(parentBuffer), m_FrameRestricted(frameRestricted)
+    {}
 
     void RenderCommandEncoder::BeginEncoding(Framebuffer* framebuffer)
     {
         m_Encoding = true;
         m_BoundFramebuffer = framebuffer;
 
-        Context::Commands().AllocateBuffers(
+        m_AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Graphics,
             false,
             &m_CommandBuffer,
-            1, false
+            1, !m_FrameRestricted
         );   
     
         VkCommandBufferBeginInfo beginInfo{};
@@ -67,7 +61,7 @@ namespace Flourish::Vulkan
         VkCommandBuffer buffer = m_CommandBuffer;
         vkCmdEndRenderPass(buffer);
         vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, GPUWorkloadType::Graphics);
+        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Graphics);
     }
 
     void RenderCommandEncoder::BindPipeline(const std::string_view pipelineName)

@@ -112,7 +112,7 @@ namespace Flourish::Vulkan
                     m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
                 }
 
-                Flourish::Context::SubmitCommandBuffers(submission);
+                Flourish::Context::PushFrameCommandBuffers(submission);
             }
             
             // Update the first encoded command to wait until the image is available
