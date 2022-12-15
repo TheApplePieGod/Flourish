@@ -109,7 +109,9 @@ namespace Flourish::Vulkan
                     // Add each final sub buffer semaphore to wait on
                     m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
                     m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
-                    m_SubmissionData.WaitStages.push_back(subData.FinalSubBufferWaitStage);
+                    
+                    // This is fine because we are only submitting graphics commands in the render context command buf
+                    m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
                 }
 
                 Flourish::Context::PushFrameCommandBuffers(submission);

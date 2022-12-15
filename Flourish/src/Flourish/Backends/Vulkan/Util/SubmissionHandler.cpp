@@ -148,7 +148,9 @@ namespace Flourish::Vulkan
                     {
                         subData.FirstSubmitInfo->waitSemaphoreCount = completionSemaphoresWaitCount;
                         subData.FirstSubmitInfo->pWaitSemaphores = submissionData.CompletionSemaphores.data() + completionSemaphoresStartIndex;
-                        subData.FirstSubmitInfo->pWaitDstStageMask = submissionData.CompletionWaitStages.data() + completionSemaphoresStartIndex;
+                        subData.FirstSubmitInfo->pWaitDstStageMask = submissionData.CompletionWaitStages.data() + submissionData.CompletionWaitStages.size();
+                        submissionData.CompletionWaitStages.insert(submissionData.CompletionWaitStages.end(), completionSemaphoresWaitCount, subData.FirstSubBufferWaitStage);
+
                         subData.TimelineSubmitInfos[0].waitSemaphoreValueCount = completionSemaphoresWaitCount;
                         subData.TimelineSubmitInfos[0].pWaitSemaphoreValues = submissionData.CompletionSemaphoreValues.data() + completionSemaphoresStartIndex;
                     }
@@ -156,7 +158,6 @@ namespace Flourish::Vulkan
                     // Add final sub buffer semaphore to completion list for later awaiting
                     submissionData.CompletionSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
                     submissionData.CompletionSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
-                    submissionData.CompletionWaitStages.push_back(subData.FinalSubBufferWaitStage);
                     completionSemaphoresAdded++;
 
                     // For each submission, add the final semaphores of the final sub submission to the final wait semaphores

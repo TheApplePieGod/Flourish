@@ -56,7 +56,6 @@ namespace Flourish::Vulkan
         {
             case GPUWorkloadType::Graphics:
             {
-                m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.DrawWaitStages;
                 #ifdef FL_PLATFORM_MACOS
                     encodedCommandSubmitInfo = &m_SubmissionData.SubmitInfos.emplace_back();
                 #else
@@ -64,10 +63,11 @@ namespace Flourish::Vulkan
                 #endif
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.DrawWaitStages;
+                else
+                    m_SubmissionData.FirstSubBufferWaitStage = *m_SubmissionData.DrawWaitStages;
             } break;
             case GPUWorkloadType::Compute:
             {
-                m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.ComputeWaitStages;
                 #ifdef FL_PLATFORM_MACOS
                     encodedCommandSubmitInfo = &m_SubmissionData.SubmitInfos.emplace_back();
                 #else
@@ -75,10 +75,11 @@ namespace Flourish::Vulkan
                 #endif
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.ComputeWaitStages;
+                else
+                    m_SubmissionData.FirstSubBufferWaitStage = *m_SubmissionData.ComputeWaitStages;
             } break;
             case GPUWorkloadType::Transfer:
             {
-                m_SubmissionData.FinalSubBufferWaitStage = *m_SubmissionData.TransferWaitStages;
                 #ifdef FL_PLATFORM_MACOS
                     encodedCommandSubmitInfo = &m_SubmissionData.SubmitInfos.emplace_back();
                 #else
@@ -86,6 +87,8 @@ namespace Flourish::Vulkan
                 #endif
                 if (m_EncoderSubmissions.size() > 1)
                     encodedCommandSubmitInfo->pWaitDstStageMask = m_SubmissionData.TransferWaitStages;
+                else
+                    m_SubmissionData.FirstSubBufferWaitStage = *m_SubmissionData.TransferWaitStages;
             } break;
         }
 

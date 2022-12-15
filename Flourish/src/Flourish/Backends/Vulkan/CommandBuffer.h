@@ -22,7 +22,7 @@ namespace Flourish::Vulkan
         VkPipelineStageFlags ComputeWaitStages[1] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
         VkSubmitInfo* FirstSubmitInfo;
         VkSubmitInfo* LastSubmitInfo;
-        VkPipelineStageFlags FinalSubBufferWaitStage;
+        VkPipelineStageFlags FirstSubBufferWaitStage;
     };
 
     class CommandBuffer : public Flourish::CommandBuffer
