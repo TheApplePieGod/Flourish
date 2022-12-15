@@ -90,7 +90,7 @@ if (WIN32)
   target_link_libraries(FlourishCore ${spirvglsl})
 elseif(APPLE)
   find_library(shaderc
-    NAMES "libshaderc_shared.dylib"
+    NAMES "libshaderc_combined.a"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
