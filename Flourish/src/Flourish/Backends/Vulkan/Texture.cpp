@@ -26,8 +26,10 @@ namespace Flourish::Vulkan
         imageInfo.format = m_Format;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-        if (m_Info.RenderTarget)
+        if (m_Info.Usage == TextureUsageType::RenderTarget)
             imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        else if (m_Info.Usage == TextureUsageType::ComputeTarget)
+            imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         if (hasInitialData)
             imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -75,7 +77,7 @@ namespace Flourish::Vulkan
 
         VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Channels;
         u32 componentSize = BufferDataTypeSize(ColorFormatBufferDataType(m_Info.Format));
-        m_ImageCount = m_Info.UsageType == BufferUsageType::Dynamic ? Flourish::Context::FrameBufferCount() : 1;
+        m_ImageCount = m_Info.Writability == TextureWritability::PerFrame ? Flourish::Context::FrameBufferCount() : 1;
         
         CreateSampler();
 
@@ -86,8 +88,8 @@ namespace Flourish::Vulkan
         if (hasInitialData)
         {
             #if defined(FL_DEBUG) && defined(FL_LOGGING)
-            if (m_Info.UsageType == BufferUsageType::Dynamic)
-            { FL_LOG_WARN("Creating dynamic texture that has initial data may not work as expected"); }
+            if (m_Info.Writability == TextureWritability::PerFrame)
+            { FL_LOG_WARN("Creating per-frame writable texture that has initial data may not work as expected"); }
             #endif
 
             Buffer::AllocateStagingBuffer(
@@ -156,7 +158,7 @@ namespace Flourish::Vulkan
                     imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
                         m_Sampler,
                         layerView,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                        m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                     ));
                     #endif
                 }
@@ -193,7 +195,7 @@ namespace Flourish::Vulkan
                     m_MipLevels,
                     m_Info.ArrayCount,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     VK_FILTER_LINEAR,
                     cmdBuffer
                 );
@@ -203,7 +205,7 @@ namespace Flourish::Vulkan
                 TransitionImageLayout(
                     imageData.Image,
                     currentLayout,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     m_MipLevels,
                     m_Info.ArrayCount,
                     cmdBuffer
@@ -524,6 +526,14 @@ namespace Flourish::Vulkan
             destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         }
         else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+        {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_GENERAL)
         {
             barrier.srcAccessMask = 0;
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;

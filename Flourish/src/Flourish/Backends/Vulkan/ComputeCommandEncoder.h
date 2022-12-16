@@ -24,6 +24,7 @@ namespace Flourish::Vulkan
         
         void BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
         void BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture) override;
+        void BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
         void FlushPipelineBindings() override;
 
         // TS

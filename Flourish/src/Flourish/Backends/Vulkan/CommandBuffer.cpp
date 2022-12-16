@@ -170,7 +170,7 @@ namespace Flourish::Vulkan
     void CommandBuffer::CheckFrameUpdate()
     {
         if (!m_Info.FrameRestricted) return;
-        
+            
         // Each new frame, we need to clear the previous encoder submissions
         if (m_LastFrameEncoding != Flourish::Context::FrameCount())
         {

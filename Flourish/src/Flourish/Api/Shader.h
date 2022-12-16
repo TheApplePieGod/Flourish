@@ -5,7 +5,7 @@ namespace Flourish
     enum class ShaderResourceType
     {
         None = 0,
-        UniformBuffer, StorageBuffer, Texture, SubpassInput
+        UniformBuffer, StorageBuffer, Texture, StorageTexture, SubpassInput
     };
 
     enum class ShaderResourceAccessType

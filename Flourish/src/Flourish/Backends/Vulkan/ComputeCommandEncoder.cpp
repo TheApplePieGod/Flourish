@@ -22,7 +22,7 @@ namespace Flourish::Vulkan
             false,
             &m_CommandBuffer,
             1, !m_FrameRestricted
-        );   
+        );
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -95,13 +95,37 @@ namespace Flourish::Vulkan
 
     void ComputeCommandEncoder::BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture)
     {
-        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+        ShaderResourceType texType = texture->GetUsageType() == TextureUsageType::ComputeTarget ? ShaderResourceType::StorageTexture : ShaderResourceType::Texture;
+
+        ValidatePipelineBinding(bindingIndex, texType, texture);
+        FL_ASSERT(
+            m_BoundDescriptorSet->GetLayout().GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
+            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+        );
 
         m_BoundDescriptorSet->UpdateBinding(
             bindingIndex, 
-            ShaderResourceType::Texture, 
+            texType, 
             texture,
             false, 0, 0
+        );
+    }
+
+    void ComputeCommandEncoder::BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
+    {
+        ShaderResourceType texType = texture->GetUsageType() == TextureUsageType::ComputeTarget ? ShaderResourceType::StorageTexture : ShaderResourceType::Texture;
+
+        ValidatePipelineBinding(bindingIndex, texType, texture);
+        FL_ASSERT(
+            m_BoundDescriptorSet->GetLayout().GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
+            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+        );
+
+        m_BoundDescriptorSet->UpdateBinding(
+            bindingIndex, 
+            texType, 
+            texture,
+            true, layerIndex, mipLevel
         );
     }
 

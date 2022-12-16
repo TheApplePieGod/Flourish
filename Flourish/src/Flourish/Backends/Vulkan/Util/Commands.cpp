@@ -296,8 +296,6 @@ namespace Flourish::Vulkan
         poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Graphics);
         if (allowReset)
             poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        else
-            poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
         FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->GraphicsPool));
         

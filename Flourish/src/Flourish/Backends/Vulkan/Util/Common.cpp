@@ -157,12 +157,29 @@ namespace Flourish::Vulkan
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
             case ShaderResourceType::Texture: return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            case ShaderResourceType::StorageTexture: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             case ShaderResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             case ShaderResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
             case ShaderResourceType::SubpassInput: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
         }
 
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+    }
+
+    ShaderResourceType Common::RevertShaderResourceType(VkDescriptorType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
+            case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: return ShaderResourceType::Texture;
+            case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: return ShaderResourceType::StorageTexture;
+            case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return ShaderResourceType::UniformBuffer;
+            case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return ShaderResourceType::StorageBuffer;
+            case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return ShaderResourceType::SubpassInput;
+        }
+
+        return ShaderResourceType::None;
     }
 
     VkShaderStageFlags Common::ConvertShaderResourceAccessType(ShaderResourceAccessType type)

@@ -6,6 +6,13 @@
 
 namespace Flourish
 {
+    Texture::Texture(const TextureCreateInfo& createInfo)
+        : m_Info(createInfo)
+    {
+        FL_ASSERT(createInfo.Usage != TextureUsageType::None, "Must define usage when creating texture");
+        m_Channels = ColorFormatComponentCount(createInfo.Format);
+    }
+
     std::shared_ptr<Texture> Texture::Create(const TextureCreateInfo& createInfo)
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a Texture");

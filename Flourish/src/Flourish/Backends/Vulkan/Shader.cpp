@@ -202,7 +202,9 @@ namespace Flourish::Vulkan
 		FL_LOG_DEBUG("GLSL %s shader", typeStrings[static_cast<u16>(m_Type)]);
 		FL_LOG_DEBUG("    %d uniform buffers", resources.uniform_buffers.size());
         FL_LOG_DEBUG("    %d storage buffers", resources.storage_buffers.size());
-		FL_LOG_DEBUG("    %d resources", resources.sampled_images.size());
+		FL_LOG_DEBUG("    %d sampled images", resources.sampled_images.size());
+        FL_LOG_DEBUG("    %d storage images", resources.storage_images.size());
+        FL_LOG_DEBUG("    %d subpass inputs", resources.subpass_inputs.size());
 
         if (resources.uniform_buffers.size() > 0)
 		    FL_LOG_DEBUG("  Uniform buffers:");
@@ -257,6 +259,24 @@ namespace Flourish::Vulkan
             m_ReflectionData.emplace_back(resource.id, ShaderResourceType::Texture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
 
 			FL_LOG_DEBUG("    Image (%s)", resource.name.c_str());
+            FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
+            FL_LOG_DEBUG("      Set = %d", set);
+			FL_LOG_DEBUG("      Binding = %d", binding);
+
+            FL_ASSERT(set == 0, "The 'set' glsl qualifier is currently unsupported and must be zero");
+		}
+
+        if (resources.storage_images.size() > 0)
+		    FL_LOG_DEBUG("  Storage Images:");
+		for (const auto& resource : resources.storage_images)
+		{
+            const auto& imageType = compiler->get_type(resource.type_id);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            
+            m_ReflectionData.emplace_back(resource.id, ShaderResourceType::StorageTexture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
+
+			FL_LOG_DEBUG("    StorageImage (%s)", resource.name.c_str());
             FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);

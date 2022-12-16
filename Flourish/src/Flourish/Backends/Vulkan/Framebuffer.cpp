@@ -109,7 +109,7 @@ namespace Flourish::Vulkan
                 if (attachment.Texture)
                 {
                     auto texture = static_cast<Texture*>(attachment.Texture.get());
-                    FL_ASSERT(texture->IsRenderTarget(), "Cannot use texture in framebuffer that was not created with the RenderTarget flag");
+                    FL_ASSERT(texture->GetUsageType() == TextureUsageType::RenderTarget, "Cannot use texture in framebuffer that is not a RenderTarget");
                     m_CachedImageViews[frame].push_back(
                         texture->GetLayerImageView(
                             frame,

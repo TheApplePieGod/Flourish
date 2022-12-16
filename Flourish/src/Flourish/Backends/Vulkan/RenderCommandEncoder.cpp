@@ -247,13 +247,19 @@ namespace Flourish::Vulkan
                 [texture](const FramebufferColorAttachment& att){ return att.Texture.get() == texture; }
             ) == m_BoundFramebuffer->GetColorAttachments().end(),
             "Cannot bind a texture resource that is currently being written to"
-        )
+        );
+
+        ShaderResourceType texType = texture->GetUsageType() == TextureUsageType::ComputeTarget ? ShaderResourceType::StorageTexture : ShaderResourceType::Texture;
         
-        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+        ValidatePipelineBinding(bindingIndex, texType, texture);
+        FL_ASSERT(
+            m_BoundDescriptorSet->GetLayout().GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
+            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+        );
 
         m_BoundDescriptorSet->UpdateBinding(
             bindingIndex, 
-            ShaderResourceType::Texture, 
+            texType, 
             texture,
             false, 0, 0
         );
@@ -272,11 +278,17 @@ namespace Flourish::Vulkan
             "Cannot bind a texture resource that is currently being written to"
         )
         
-        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+        ShaderResourceType texType = texture->GetUsageType() == TextureUsageType::ComputeTarget ? ShaderResourceType::StorageTexture : ShaderResourceType::Texture;
+
+        ValidatePipelineBinding(bindingIndex, texType, texture);
+        FL_ASSERT(
+            m_BoundDescriptorSet->GetLayout().GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
+            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+        );
 
         m_BoundDescriptorSet->UpdateBinding(
             bindingIndex, 
-            ShaderResourceType::Texture, 
+            texType, 
             texture,
             true, layerIndex, mipLevel
         );

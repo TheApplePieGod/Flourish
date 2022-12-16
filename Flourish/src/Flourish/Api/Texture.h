@@ -14,6 +14,21 @@ namespace Flourish
         R16_FLOAT, RGBA16_FLOAT,
         R32_FLOAT, RGBA32_FLOAT
     };
+    
+    enum class TextureUsageType
+    {
+        None = 0,
+        Readonly,
+        RenderTarget,
+        ComputeTarget
+    };
+    
+    enum class TextureWritability
+    {
+        None = 0,
+        Once,
+        PerFrame
+    };
 
     enum class SamplerFilter
     {
@@ -47,13 +62,13 @@ namespace Flourish
         bool AnisotropyEnable = true;
         u32 MaxAnisotropy = 8;
     };
-
+    
     struct TextureCreateInfo
     {
         u32 Width, Height;
         ColorFormat Format;
-        BufferUsageType UsageType;
-        bool RenderTarget = false; // TODO: revisit this & usage type
+        TextureUsageType Usage = TextureUsageType::Readonly;
+        TextureWritability Writability = TextureWritability::None;
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
         TextureSamplerState SamplerState;
@@ -66,9 +81,7 @@ namespace Flourish
     class Texture
     {
     public:
-        Texture(const TextureCreateInfo& createInfo)
-            : m_Info(createInfo)
-        { m_Channels = ColorFormatComponentCount(createInfo.Format); }
+        Texture(const TextureCreateInfo& createInfo);
         virtual ~Texture() = default;
         
         // TS
@@ -85,7 +98,8 @@ namespace Flourish
         inline u32 GetMipWidth(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Width * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Channels; }
-        inline bool IsRenderTarget() const { return m_Info.RenderTarget; }
+        inline TextureUsageType GetUsageType() const { return m_Info.Usage; }
+        inline TextureWritability GetWritability() const { return m_Info.Writability; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
         inline ColorFormat GetColorFormat() const { return m_Info.Format; }
 

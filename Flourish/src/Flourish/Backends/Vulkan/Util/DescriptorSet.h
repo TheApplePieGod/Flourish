@@ -25,9 +25,18 @@ namespace Flourish::Vulkan
         {
             return bindingIndex < m_Bindings.size() && m_Bindings[bindingIndex].Exists;
         }
-        inline bool IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const
+        inline ShaderResourceType GetBindingType(u32 bindingIndex) const
         {
-            return Common::ConvertShaderResourceType(resourceType) == m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType;
+            return Common::RevertShaderResourceType(m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType);
+        }
+        bool IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const
+        {
+            auto actualType = m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType;
+            return (
+                Common::ConvertShaderResourceType(resourceType) == actualType ||
+                (resourceType == ShaderResourceType::Texture && actualType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ||
+                (resourceType == ShaderResourceType::StorageTexture && actualType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+            );
         }
 
         inline static constexpr u32 MaxSetsPerPool = 50;

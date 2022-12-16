@@ -390,7 +390,7 @@ namespace FlourishTesting
         texCreateInfo.Width = static_cast<u32>(imageWidth);
         texCreateInfo.Height = static_cast<u32>(imageHeight);
         texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
-        texCreateInfo.UsageType = Flourish::BufferUsageType::Static;
+        texCreateInfo.Usage = Flourish::TextureUsageType::Readonly;
         texCreateInfo.AsyncCreation = true;
         if (imagePixels)
         {
@@ -421,8 +421,8 @@ namespace FlourishTesting
         texCreateInfo.Height = m_ScreenHeight;
         texCreateInfo.MipCount = 1;
         texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
-        texCreateInfo.UsageType = Flourish::BufferUsageType::Dynamic;
-        texCreateInfo.RenderTarget = true;
+        texCreateInfo.Usage = Flourish::TextureUsageType::RenderTarget;
+        texCreateInfo.Writability = Flourish::TextureWritability::PerFrame;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         texCreateInfo.InitialData = nullptr;
         texCreateInfo.AsyncCreation = false;

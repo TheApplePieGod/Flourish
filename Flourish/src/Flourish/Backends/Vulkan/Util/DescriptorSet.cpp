@@ -146,6 +146,7 @@ namespace Flourish::Vulkan
             } break;
 
             case ShaderResourceType::Texture:
+            case ShaderResourceType::StorageTexture:
             {
                 Texture* texture = static_cast<Texture*>(resource);
                 FL_ASSERT(texture->GetArrayCount() <= DescriptorSetLayout::MaxDescriptorArrayCount, "Image array count too large");
@@ -153,7 +154,7 @@ namespace Flourish::Vulkan
                 for (u32 i = 0; i < texture->GetArrayCount(); i++)
                 {
                     m_CachedImageInfos[imageInfoBaseIndex + i].sampler = texture->GetSampler();
-                    m_CachedImageInfos[imageInfoBaseIndex + i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    m_CachedImageInfos[imageInfoBaseIndex + i].imageLayout = resourceType == ShaderResourceType::Texture ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
                     if (useOffset)
                         m_CachedImageInfos[imageInfoBaseIndex + i].imageView = texture->GetLayerImageView(offset, size); // size is the mip level here
                     else

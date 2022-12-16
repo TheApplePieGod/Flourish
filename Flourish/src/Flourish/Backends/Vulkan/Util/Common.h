@@ -20,6 +20,7 @@ namespace Flourish::Vulkan
         static VkCullModeFlagBits ConvertCullMode(CullMode mode);
         static VkFrontFace ConvertWindingOrder(WindingOrder order);
         static VkDescriptorType ConvertShaderResourceType(ShaderResourceType type);
+        static ShaderResourceType RevertShaderResourceType(VkDescriptorType type);
         static VkShaderStageFlags ConvertShaderResourceAccessType(ShaderResourceAccessType type);
         static VkBlendFactor ConvertBlendFactor(BlendFactor factor);
         static VkBlendOp ConvertBlendOperation(BlendOperation op);
