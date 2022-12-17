@@ -74,7 +74,7 @@ namespace Flourish::Vulkan
         }, "Render context free");
     }
 
-    void RenderContext::Present(const std::vector<std::vector<std::vector<Flourish::CommandBuffer*>>>& dependencyBuffers)
+    void RenderContext::Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers)
     {
         FL_CRASH_ASSERT(m_LastEncodingFrame == Flourish::Context::FrameCount(), "Cannot present render context that has not been encoded");
         if (m_LastPresentFrame == Flourish::Context::FrameCount())
@@ -86,6 +86,7 @@ namespace Flourish::Vulkan
         
         if (!m_Swapchain.IsValid()) return;
 
+        // TODO: test this when it is empty
         if (!m_CommandBuffer.GetEncoderSubmissions().empty())
         {
             m_SubmissionData.WaitSemaphores.clear();
@@ -97,26 +98,23 @@ namespace Flourish::Vulkan
             m_SubmissionData.WaitSemaphoreValues.push_back(Flourish::Context::FrameCount());
             m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-            for (auto& submission : dependencyBuffers)
+            for (auto& _buffer : dependencyBuffers.back())
             {
-                for (auto& _buffer : submission.back())
-                {
-                    Vulkan::CommandBuffer* buffer = static_cast<Vulkan::CommandBuffer*>(_buffer);
-                    if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
+                Vulkan::CommandBuffer* buffer = static_cast<Vulkan::CommandBuffer*>(_buffer);
+                if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
 
-                    auto& subData = buffer->GetSubmissionData();
-                            
-                    // Add each final sub buffer semaphore to wait on
-                    m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
-                    m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
-                    
-                    // This is fine because we are only submitting graphics commands in the render context command buf
-                    m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
-                }
-
-                Flourish::Context::PushFrameCommandBuffers(submission);
+                auto& subData = buffer->GetSubmissionData();
+                        
+                // Add each final sub buffer semaphore to wait on
+                m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
+                m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
+                
+                // This is fine because we are only submitting graphics commands in the render context command buf
+                m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
             }
-            
+
+            Flourish::Context::PushFrameCommandBuffers(dependencyBuffers);
+        
             // Update the first encoded command to wait until the image is available
             auto& subData = m_CommandBuffer.GetSubmissionData();
             subData.FirstSubmitInfo->waitSemaphoreCount = m_SubmissionData.WaitSemaphores.size();

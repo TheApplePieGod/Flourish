@@ -85,5 +85,10 @@ namespace Flourish::Vulkan
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
         u32* m_ReadyState = nullptr;
+    
+    private:
+        #ifdef FL_USE_IMGUI
+        inline static std::mutex s_ImGuiMutex;
+        #endif
     };
 }

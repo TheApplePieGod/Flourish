@@ -34,9 +34,7 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
-        // TODO: revisit this. Triple nested vectors is not ideal. Possibly create a graph based on defined dependencies?
-        // or at least require user to submit buffers and then here they can provide a list of submission ids to depend on
-        virtual void Present(const std::vector<std::vector<std::vector<CommandBuffer*>>>& dependencyBuffers) = 0;
+        virtual void Present(const std::vector<std::vector<CommandBuffer*>>& dependencyBuffers) = 0;
         virtual void UpdateDimensions(u32 width, u32 height) = 0;
         virtual RenderPass* GetRenderPass() const = 0;
         virtual bool Validate() = 0;

@@ -55,18 +55,22 @@ namespace Flourish::Vulkan
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
 
+        // Lock queues here to ensure we don't submit to the same queue on different threads concurrently. Additionally, lock the present queue
+        // because it is likely that the present queue is just an alias for a different queue and is not its own thing
         LockQueue(workloadType, true);
+        LockPresentQueue(true);
         FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
+        LockPresentQueue(false);
         LockQueue(workloadType, false);
 
         Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore, signalValue, debugName]()
         {
-            if (completionCallback)
-                completionCallback();
-
             m_SemaphoresLock.lock();
             m_UnusedSemaphores.push_back(semaphore[0]);
             m_SemaphoresLock.unlock();
+
+            if (completionCallback)
+                completionCallback();
         }, &semaphore, &signalValue, debugName ? debugName : "Push command finalizer");
         
         return { semaphore[0], signalValue[0] };
@@ -90,16 +94,16 @@ namespace Flourish::Vulkan
         return m_PresentQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
-    VkQueue Queues::Queue(GPUWorkloadType workloadType) const
+    VkQueue Queues::Queue(GPUWorkloadType workloadType, u32 frameIndex) const
     {
         switch (workloadType)
         {
             case GPUWorkloadType::Graphics:
-            { return m_GraphicsQueue.Queues[Flourish::Context::FrameIndex()]; }
+            { return m_GraphicsQueue.Queues[frameIndex]; }
             case GPUWorkloadType::Transfer:
-            { return m_TransferQueue.Queues[Flourish::Context::FrameIndex()]; }
+            { return m_TransferQueue.Queues[frameIndex]; }
             case GPUWorkloadType::Compute:
-            { return m_ComputeQueue.Queues[Flourish::Context::FrameIndex()]; }
+            { return m_ComputeQueue.Queues[frameIndex]; }
         }
 
         FL_ASSERT(false, "Queue for workload not supported");
@@ -121,10 +125,19 @@ namespace Flourish::Vulkan
 
         FL_ASSERT(mutex, "Queue for workload not supported");
 
-        if (lock) mutex->lock();
-        else mutex->unlock();
+        if (lock)
+            mutex->lock();
+        else
+            mutex->unlock();
     }
 
+    void Queues::LockPresentQueue(bool lock)
+    {
+        if (lock)
+            m_PresentQueue.AccessMutex.lock();
+        else
+            m_PresentQueue.AccessMutex.unlock();
+    }
     
     u32 Queues::QueueIndex(GPUWorkloadType workloadType) const
     {
@@ -237,14 +250,15 @@ namespace Flourish::Vulkan
 
     VkSemaphore Queues::RetrieveSemaphore()
     {
+        m_SemaphoresLock.lock();
         if (m_UnusedSemaphores.size() > 0)
         {
-            m_SemaphoresLock.lock();
             auto semaphore = m_UnusedSemaphores.back();
             m_UnusedSemaphores.pop_back();
             m_SemaphoresLock.unlock();
             return semaphore;
         }
+        m_SemaphoresLock.unlock();
 
         return Synchronization::CreateTimelineSemaphore(0);
     }

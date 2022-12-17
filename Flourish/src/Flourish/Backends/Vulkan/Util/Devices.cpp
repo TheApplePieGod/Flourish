@@ -132,6 +132,11 @@ namespace Flourish::Vulkan
         std::vector<VkExtensionProperties> supportedExtensions(supportedExtensionCount);
         vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, supportedExtensions.data());
         
+        #ifdef FL_DEBUG
+        if (Common::SupportsExtension(supportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
+            extensions.push_back("VK_NV_device_diagnostic_checkpoints");
+        #endif
+        
         if (initInfo.RequestedFeatures.SamplerMinMax &&
             Common::SupportsExtension(supportedExtensions, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
         {

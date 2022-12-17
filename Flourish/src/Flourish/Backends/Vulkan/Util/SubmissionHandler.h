@@ -33,7 +33,6 @@ namespace Flourish::Vulkan
         static void ProcessSubmission(
             CommandSubmissionData& submissionData,
             const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers,
-            const std::vector<u32>& counts,
             const std::vector<Flourish::RenderContext*>* contexts,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr

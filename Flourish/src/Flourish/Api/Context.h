@@ -28,7 +28,6 @@ namespace Flourish
     struct ContextCommandSubmissions
     {
         std::vector<std::vector<CommandBuffer*>> Buffers;
-        std::vector<u32> Counts;
         std::vector<RenderContext*> Contexts;
         std::mutex Mutex;
 

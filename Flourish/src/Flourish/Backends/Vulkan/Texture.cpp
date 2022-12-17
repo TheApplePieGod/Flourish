@@ -155,11 +155,13 @@ namespace Flourish::Vulkan
                     imageData.SliceViews.push_back(layerView);
                     
                     #ifdef FL_USE_IMGUI
+                    s_ImGuiMutex.lock();
                     imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
                         m_Sampler,
                         layerView,
                         m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                     ));
+                    s_ImGuiMutex.unlock();
                     #endif
                 }
             }
@@ -186,7 +188,6 @@ namespace Flourish::Vulkan
                     cmdBuffer
                 );
 
-                auto readyState = m_ReadyState;
                 GenerateMipmaps(
                     imageData.Image,
                     m_Format,
@@ -278,8 +279,10 @@ namespace Flourish::Vulkan
                 auto& imageData = images[frame];
                 
                 #ifdef FL_USE_IMGUI
+                s_ImGuiMutex.lock();
                 for (auto handle : imageData.ImGuiHandles)
                     ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
+                s_ImGuiMutex.unlock();
                 #endif
                 
                 // Texture objects wrapping preexisting textures will not have an allocation

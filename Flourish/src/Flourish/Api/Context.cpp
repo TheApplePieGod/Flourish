@@ -8,7 +8,6 @@ namespace Flourish
     void ContextCommandSubmissions::Clear()
     {
         Buffers.clear();
-        Counts.clear();
         Contexts.clear();
     }
 
@@ -80,7 +79,6 @@ namespace Flourish
 
         s_FrameSubmissions.Mutex.lock();
         s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers.begin(), buffers.end());
-        s_FrameSubmissions.Counts.push_back(buffers.size());
         s_FrameSubmissions.Mutex.unlock();
     }
 

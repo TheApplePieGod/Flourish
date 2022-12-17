@@ -1,6 +1,8 @@
 #include "flpch.h"
 #include "Common.h"
 
+#include "Flourish/Backends/Vulkan/Util/DebugCheckpoints.h"
+
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
@@ -276,5 +278,18 @@ namespace Flourish::Vulkan
         }
 
         return VK_SAMPLER_REDUCTION_MODE_MAX_ENUM;
+    }
+
+    void Common::CheckResult(VkResult result, bool ensure)
+    {
+        #ifdef FL_DEBUG && false
+        if (result == VK_ERROR_DEVICE_LOST)
+            DebugCheckpoints::LogCheckpoints();
+        #endif
+
+        if (ensure)
+        { FL_CRASH_ASSERT(result == VK_SUCCESS, "Critical vulkan function failed with error %d", result); }
+        else
+        { FL_ASSERT(result == VK_SUCCESS, "Vulkan function failed with error %d", result); }
     }
 }

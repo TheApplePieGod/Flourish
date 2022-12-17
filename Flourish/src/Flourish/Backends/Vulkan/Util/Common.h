@@ -27,13 +27,15 @@ namespace Flourish::Vulkan
         static VkFilter ConvertSamplerFilter(SamplerFilter filter);
         static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
         static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);
+
+        static void CheckResult(VkResult result, bool ensure);
     };
 }
 
 #ifdef FL_DEBUG
-    #define FL_VK_CHECK_RESULT(func) { auto result = func; FL_ASSERT(result == VK_SUCCESS, "Vulkan function failed with error %d", result); }
+    #define FL_VK_CHECK_RESULT(func) { auto result = func; ::Flourish::Vulkan::Common::CheckResult(result, false); }
 #else
     #define FL_VK_CHECK_RESULT(func) func
 #endif
 
-#define FL_VK_ENSURE_RESULT(func) { auto result = func; FL_CRASH_ASSERT(result == VK_SUCCESS, "Critical vulkan function failed with error %d", result); }
+#define FL_VK_ENSURE_RESULT(func) { auto result = func; ::Flourish::Vulkan::Common::CheckResult(result, true); }

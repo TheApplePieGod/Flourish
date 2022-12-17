@@ -22,7 +22,7 @@ namespace Flourish::Vulkan
         RenderContext(const RenderContextCreateInfo& createInfo);
         ~RenderContext() override;
 
-        void Present(const std::vector<std::vector<std::vector<Flourish::CommandBuffer*>>>& dependencyBuffers) override;
+        void Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers) override;
         void UpdateDimensions(u32 width, u32 height) override;
         RenderPass* GetRenderPass() const override;
         bool Validate() override;

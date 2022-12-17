@@ -253,7 +253,7 @@ namespace Flourish::Vulkan
         {
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                GetPersistentPool(allocInfo.WorkloadType),
+                allocInfo.PersistentPools->Pools.GetPool(allocInfo.WorkloadType),
                 bufferCount,
                 buffers
             );

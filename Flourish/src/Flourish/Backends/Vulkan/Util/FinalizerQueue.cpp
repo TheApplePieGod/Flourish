@@ -46,7 +46,7 @@ namespace Flourish::Vulkan
     void FinalizerQueue::Iterate(bool force)
     {
         m_QueueLock.lock();
-        for (u32 i = 0; i < m_Queue.size(); i++)
+        for (int i = 0; i < m_Queue.size(); i++)
         {
             auto& value = m_Queue.at(i);
             
@@ -55,17 +55,17 @@ namespace Flourish::Vulkan
             {
                 // Check all semaphores for completion
                 u64 semaphoreVal;
-                for (u32 i = 0; i < value.WaitSemaphores.size(); i++)
+                for (u32 j = 0; j < value.WaitSemaphores.size(); j++)
                 {
-                    vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphores[i], &semaphoreVal);
-                    execute = semaphoreVal == value.WaitValues[i]; // Completed
+                    vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphores[j], &semaphoreVal);
+                    execute = semaphoreVal == value.WaitValues[j]; // Completed
                     if (!execute) break; // If any fail then all fail
                 }
             }
             else if (value.Lifetime > 0)
                 value.Lifetime -= 1;
             else
-                execute = false;
+                execute = true;
             
             if (execute || force)
             {
