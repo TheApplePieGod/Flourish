@@ -11,7 +11,7 @@ namespace Flourish::Vulkan
     {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
-        bindingDescription.stride = layout.GetStride();
+        bindingDescription.stride = layout.GetCalculatedStride();
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         return bindingDescription;

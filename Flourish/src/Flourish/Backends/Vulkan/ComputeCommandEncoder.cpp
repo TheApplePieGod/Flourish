@@ -77,19 +77,19 @@ namespace Flourish::Vulkan
     void ComputeCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
     {
         FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");
-        FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
 
         ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
         ValidatePipelineBinding(bindingIndex, bufferType, buffer);
 
-        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * buffer->GetLayout().GetStride());
+        u32 stride = buffer->GetStride();
+        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * stride);
         m_BoundDescriptorSet->UpdateBinding(
             bindingIndex, 
             bufferType, 
             buffer,
             true,
-            buffer->GetLayout().GetStride() * bufferOffset,
-            buffer->GetLayout().GetStride() * elementCount
+            stride * bufferOffset,
+            stride * elementCount
         );
     }
 

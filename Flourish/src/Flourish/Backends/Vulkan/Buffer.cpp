@@ -37,10 +37,10 @@ namespace Flourish::Vulkan
                 {
                     VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
                     FL_ASSERT(
-                        m_Info.Layout.GetStride() % minAlignment == 0,
+                        GetStride() % minAlignment == 0,
                         "Uniform buffer layout must be a multiple of %d but is %d",
                         minAlignment,
-                        m_Info.Layout.GetStride()
+                        GetStride()
                     );
                 }
 
@@ -54,10 +54,10 @@ namespace Flourish::Vulkan
                 {
                     VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
                     FL_ASSERT(
-                        m_Info.Layout.GetStride() % minAlignment == 0,
+                        GetStride() % minAlignment == 0,
                         "Storage buffer layout must be a multiple of %d but is %d",
                         minAlignment,
-                        m_Info.Layout.GetStride()
+                        GetStride()
                     );
                 }
 
@@ -73,7 +73,7 @@ namespace Flourish::Vulkan
 
             case BufferType::Indirect:
             {
-                bufCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                bufCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 m_MemoryDirection = MemoryDirection::CPUToGPU;
             } break;
 

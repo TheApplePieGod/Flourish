@@ -114,20 +114,16 @@ namespace Flourish
     {
     public:
         BufferLayout() = default;
-        BufferLayout(std::initializer_list<BufferLayoutElement> elements)
-            : m_Elements(elements)
-        {
-            m_CalculatedStride = CalculateStrideAndOffsets();
-        }
+        BufferLayout(std::initializer_list<BufferLayoutElement> elements);
 
-        inline u32 GetStride() const { return m_CalculatedStride; }
+        inline u32 GetCalculatedStride() const { return m_CalculatedStride; }
         inline const std::vector<BufferLayoutElement>& GetElements() const { return m_Elements; }
     
     private:
         u32 CalculateStrideAndOffsets();
 
     private:
-        u32 m_CalculatedStride;
+        u32 m_CalculatedStride = 0;
         std::vector<BufferLayoutElement> m_Elements;
     };
 
@@ -142,6 +138,7 @@ namespace Flourish
         BufferType Type;
         BufferUsageType Usage;
         BufferLayout Layout;
+        u32 Stride = 0; // If zero, layout must be defined. Otherwise, the size specified in stride will be used.
         u32 ElementCount = 0;
         void* InitialData = nullptr;
         u32 InitialDataSize = 0; // Bytes
@@ -150,9 +147,7 @@ namespace Flourish
     class Buffer
     {
     public:
-        Buffer(const BufferCreateInfo& createInfo)
-            : m_Info(createInfo)
-        {}
+        Buffer(const BufferCreateInfo& createInfo);
         virtual ~Buffer() = default;
 
         // TS
@@ -164,8 +159,9 @@ namespace Flourish
         // TS
         inline BufferType GetType() const { return m_Info.Type; }
         inline BufferUsageType GetUsage() const { return m_Info.Usage; }
-        inline BufferLayout& GetLayout() { return m_Info.Layout; }
-        inline u32 GetAllocatedSize() const { return m_Info.ElementCount * m_Info.Layout.GetStride(); }
+        inline const BufferLayout& GetLayout() const { return m_Info.Layout; }
+        inline u32 GetStride() const { return m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride; }
+        inline u32 GetAllocatedSize() const { return m_Info.ElementCount * GetStride(); }
         inline u32 GetAllocatedCount() const { return m_Info.ElementCount; }
 
     public:

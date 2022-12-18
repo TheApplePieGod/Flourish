@@ -164,24 +164,20 @@ namespace Flourish::Vulkan
             dependencies[i].srcSubpass = static_cast<u32>(i - 1);
             dependencies[i].dstSubpass = static_cast<u32>(i);
             dependencies[i].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
             dependencies[i].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             dependencies[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            dependencies[i].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+            dependencies[i].dependencyFlags = rendersToSwapchain ? 0 : VK_DEPENDENCY_BY_REGION_BIT;
 
             if (i == 0)
             {
                 dependencies[i].srcSubpass = VK_SUBPASS_EXTERNAL;
-                dependencies[i].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-                dependencies[i].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-                dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                dependencies[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; //| VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                dependencies[i].srcAccessMask = 0;
             }
             if (i == subpasses.size() - 1)
             {
-                dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; //| VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-                dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-                dependencies[i].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+                dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                dependencies[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
             }
         }
 

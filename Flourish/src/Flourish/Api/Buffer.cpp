@@ -6,6 +6,12 @@
 
 namespace Flourish
 {
+    BufferLayout::BufferLayout(std::initializer_list<BufferLayoutElement> elements)
+        : m_Elements(elements)
+    {
+        m_CalculatedStride = CalculateStrideAndOffsets();
+    }
+
     u32 BufferLayout::CalculateStrideAndOffsets()
     {
         u32 stride = 0;
@@ -22,10 +28,17 @@ namespace Flourish
         return stride;
     }
 
+    Buffer::Buffer(const BufferCreateInfo& createInfo)
+        : m_Info(createInfo)
+    {
+        if (m_Info.Stride != 0 && m_Info.Stride % 4 != 0)
+            FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
+    }
+
     void Buffer::SetElements(void* data, u32 elementCount, u32 elementOffset)
     {
         FL_ASSERT(elementCount + elementOffset <= m_Info.ElementCount, "Attempting to set data on buffer which is larger than allocated size");
-        SetBytes(data, m_Info.Layout.GetStride() * elementCount, m_Info.Layout.GetStride() * elementOffset);
+        SetBytes(data, GetStride() * elementCount, GetStride() * elementOffset);
     }
 
     std::shared_ptr<Buffer> Buffer::Create(const BufferCreateInfo& createInfo)

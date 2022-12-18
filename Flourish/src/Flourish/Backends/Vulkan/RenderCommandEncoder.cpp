@@ -155,12 +155,13 @@ namespace Flourish::Vulkan
 
         VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
 
+        u32 stride = _buffer->GetStride();
         vkCmdDrawIndexedIndirect(
             m_CommandBuffer,
             buffer,
-            commandOffset * _buffer->GetLayout().GetStride(),
+            commandOffset * stride,
             drawCount,
-            _buffer->GetLayout().GetStride()
+            stride
         );
     }
     
@@ -226,14 +227,15 @@ namespace Flourish::Vulkan
         ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
         ValidatePipelineBinding(bindingIndex, bufferType, buffer);
 
-        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * buffer->GetLayout().GetStride());
+        u32 stride = buffer->GetStride();
+        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * stride);
         m_BoundDescriptorSet->UpdateBinding(
             bindingIndex, 
             bufferType, 
             buffer,
             true,
-            buffer->GetLayout().GetStride() * bufferOffset,
-            buffer->GetLayout().GetStride() * elementCount
+            stride * bufferOffset,
+            stride * elementCount
         );
     }
 

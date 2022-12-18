@@ -87,7 +87,7 @@ namespace Flourish
         inline WindingOrder GetWindingOrder() const { return m_Info.WindingOrder; }
         inline bool IsDepthTestEnabled() const { return m_Info.DepthTest; }
         inline bool IsDepthWriteEnabled() const { return m_Info.DepthWrite; }
-        inline u32 GetVertexLayoutStride() const { return m_Info.VertexLayout.GetStride(); }
+        inline u32 GetVertexLayoutStride() const { return m_Info.VertexLayout.GetCalculatedStride(); }
         inline const auto& GetBlendStates() const { return m_Info.BlendStates; }
 
     protected:
