@@ -25,45 +25,47 @@ namespace Flourish::Vulkan
         VkPipelineStageFlags FirstSubBufferWaitStage;
     };
 
+    struct CommandBufferEncoderSubmission
+    {
+        CommandBufferEncoderSubmission(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo)
+            : Buffer(buffer), AllocInfo(allocInfo)
+        {}
+
+        VkCommandBuffer Buffer;
+        CommandBufferAllocInfo AllocInfo;
+    };
+
     class CommandBuffer : public Flourish::CommandBuffer
     {
     public:
         CommandBuffer(const CommandBufferCreateInfo& createInfo, bool secondary = false);
         ~CommandBuffer() override;
 
-        void SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo, GPUWorkloadType workloadType);
+        void SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo);
+        void ClearSubmissions();
         Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
         Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
         Flourish::ComputeCommandEncoder* EncodeComputeCommands(Flourish::ComputeTarget* target) override;
 
         inline CommandBufferSubmissionData& GetSubmissionData() { return m_SubmissionData; }
+        inline void SetLastSubmitFrame(u64 frame) { m_LastSubmitFrame = frame; }
 
         // TS
         inline const auto& GetEncoderSubmissions() { CheckFrameUpdate(); return m_EncoderSubmissions; }
         inline u64 GetFinalSemaphoreValue() const { return m_SemaphoreBaseValue + m_EncoderSubmissions.size() + 1; }
+        inline u64 GetLastSubmitFrame() const { return m_LastSubmitFrame; }
 
-    private:
-        struct EncoderSubmission
-        {
-            EncoderSubmission(VkCommandBuffer buffer, GPUWorkloadType workloadType, const CommandBufferAllocInfo& allocInfo)
-                : Buffer(buffer), WorkloadType(workloadType), AllocInfo(allocInfo)
-            {}
-
-            VkCommandBuffer Buffer;
-            GPUWorkloadType WorkloadType;
-            CommandBufferAllocInfo AllocInfo;
-        };
-        
     private:
         void CheckFrameUpdate();
 
     private:
         u64 m_LastFrameEncoding = 0;
+        u64 m_LastSubmitFrame = 0;
         u64 m_SemaphoreBaseValue = 1;
         GraphicsCommandEncoder m_GraphicsCommandEncoder;
         RenderCommandEncoder m_RenderCommandEncoder;
         ComputeCommandEncoder m_ComputeCommandEncoder;
-        std::vector<EncoderSubmission> m_EncoderSubmissions;
+        std::vector<CommandBufferEncoderSubmission> m_EncoderSubmissions;
         CommandBufferSubmissionData m_SubmissionData;
     };
 }

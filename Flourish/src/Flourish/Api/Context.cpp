@@ -71,27 +71,20 @@ namespace Flourish
     {
         if (buffers.empty()) return;
         
-        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
-            for (auto& list : buffers)
-                for (auto buffer : list)
-                    FL_ASSERT(buffer->IsFrameRestricted(), "Cannot include a non frame restricted command buffer in PushFrameCommandBuffers");
-        #endif
-
         s_FrameSubmissions.Mutex.lock();
         s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers.begin(), buffers.end());
         s_FrameSubmissions.Mutex.unlock();
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
+        }
     }
 
     void Context::PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers, std::function<void()> callback)
     {
         if (buffers.empty()) return;
         
-        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
-            for (auto& list : buffers)
-                for (auto buffer : list)
-                    FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in PushCommandBuffers");
-        #endif
-
         switch (s_BackendType)
         {
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessPushSubmission(buffers, callback); } break;

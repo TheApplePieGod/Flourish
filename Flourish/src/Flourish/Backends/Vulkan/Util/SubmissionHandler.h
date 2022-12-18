@@ -23,7 +23,7 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         void WaitOnFrameSemaphores();
-        void ProcessFrameSubmissions();
+        void ProcessFrameSubmissions(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, bool submit);
         
         // TS
         void ProcessPushSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);

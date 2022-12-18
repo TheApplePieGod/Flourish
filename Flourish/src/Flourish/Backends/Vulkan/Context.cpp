@@ -75,7 +75,7 @@ namespace Flourish::Vulkan
     void Context::EndFrame()
     {
         s_FinalizerQueue.Iterate();
-        s_SubmissionHandler.ProcessFrameSubmissions();
+        s_SubmissionHandler.ProcessFrameSubmissions({}, true);
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)

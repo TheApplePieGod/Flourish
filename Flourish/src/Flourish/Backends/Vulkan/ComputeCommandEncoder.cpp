@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
 
         VkCommandBuffer buffer = m_CommandBuffer;
         vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Compute);
+        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo);
     }
 
     void ComputeCommandEncoder::BindPipeline(Flourish::ComputePipeline* pipeline)

@@ -61,7 +61,7 @@ namespace Flourish::Vulkan
         VkCommandBuffer buffer = m_CommandBuffer;
         vkCmdEndRenderPass(buffer);
         vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Graphics);
+        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo);
     }
 
     void RenderCommandEncoder::BindPipeline(const std::string_view pipelineName)

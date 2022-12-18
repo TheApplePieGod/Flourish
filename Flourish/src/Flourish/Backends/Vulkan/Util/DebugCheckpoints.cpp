@@ -10,7 +10,7 @@ namespace Flourish::Vulkan
         s_Mutex.lock();
         u32 newId = ++s_MinId;
         s_Checkpoints[newId] = checkpoint;
-        vkCmdSetCheckpointNV(buffer, (void*)newId);
+        vkCmdSetCheckpointNV(buffer, (void*)(intptr_t)newId);
         s_Mutex.unlock();
         return newId;
     }
@@ -34,12 +34,12 @@ namespace Flourish::Vulkan
             if (data[i].stage == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT)
             {
                 FL_LOG_WARN("Top of pipe checkpoints:");
-                DebugCheckpoints::LogCheckpoint((u32)data[i].pCheckpointMarker);
+                DebugCheckpoints::LogCheckpoint((u32)(intptr_t)data[i].pCheckpointMarker);
             }
             else if (data[i].stage == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT)
             {
                 FL_LOG_WARN("Bottom of pipe checkpoints:");
-                DebugCheckpoints::LogCheckpoint((u32)data[i].pCheckpointMarker);
+                DebugCheckpoints::LogCheckpoint((u32)(intptr_t)data[i].pCheckpointMarker);
             }
         }
     }

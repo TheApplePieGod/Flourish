@@ -37,7 +37,7 @@ namespace Flourish::Vulkan
 
         VkCommandBuffer buffer = m_CommandBuffer;
         vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Graphics);
+        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo);
     }
 
     void GraphicsCommandEncoder::GenerateMipMaps(Flourish::Texture* _texture)

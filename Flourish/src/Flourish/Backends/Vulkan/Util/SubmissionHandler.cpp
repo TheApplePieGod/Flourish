@@ -39,8 +39,23 @@ namespace Flourish::Vulkan
         vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
-    void SubmissionHandler::ProcessFrameSubmissions()
+    void SubmissionHandler::ProcessFrameSubmissions(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, bool submit)
     {
+        for (auto& list : buffers)
+        {
+            for (auto _buffer : list)
+            {
+                auto buffer = static_cast<CommandBuffer*>(_buffer);
+
+                FL_ASSERT(buffer->IsFrameRestricted(), "Cannot include a non frame restricted command buffer in PushFrameCommandBuffers");
+                FL_ASSERT(buffer->GetLastSubmitFrame() != Flourish::Context::FrameCount(), "Cannot push a command buffer twice in one frame");
+                
+                buffer->SetLastSubmitFrame(Flourish::Context::FrameCount());
+            }
+        }
+
+        if (!submit) return;
+
         ProcessSubmission(
             m_FrameSubmissionData,
             Flourish::Context::FrameSubmissions().Buffers,
@@ -52,6 +67,21 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::ProcessPushSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, std::function<void()> callback)
     {
+        std::vector<CommandBufferEncoderSubmission> submissionsToFree;
+
+        for (auto& list : buffers)
+        {
+            for (auto _buffer : list)
+            {
+                auto buffer = static_cast<CommandBuffer*>(_buffer);
+
+                FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in PushCommandBuffers");
+                
+                for (auto& submission : buffer->GetEncoderSubmissions())
+                    submissionsToFree.push_back(submission);
+            }
+        }
+
         std::vector<VkSemaphore> semaphores;
         std::vector<u64> values;
         std::vector<u32> counts = { (u32)buffers.size() };
@@ -66,8 +96,20 @@ namespace Flourish::Vulkan
         );
         m_PushDataMutex.unlock();
         
-        if (callback)
-            Context::FinalizerQueue().PushAsync(callback, &semaphores,  &values, "Push submission finalizer");
+        Context::FinalizerQueue().PushAsync([callback, submissionsToFree]()
+        {
+            for (auto& submission : submissionsToFree)
+                Context::Commands().FreeBuffer(submission.AllocInfo, submission.Buffer);
+
+            if (callback)
+                callback();
+        }, &semaphores,  &values, "Push submission finalizer");
+
+        // Clear when pushing to allow for immediate reencoding since we saved the buffers that need to
+        // be freed
+        for (auto& list : buffers)
+            for (auto buffer : list)
+                static_cast<CommandBuffer*>(buffer)->ClearSubmissions();
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers)

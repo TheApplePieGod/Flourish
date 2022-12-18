@@ -282,10 +282,12 @@ namespace Flourish::Vulkan
 
     void Common::CheckResult(VkResult result, bool ensure)
     {
-        #ifdef FL_DEBUG && false
+        /*
+        #if defined(FL_DEBUG)
         if (result == VK_ERROR_DEVICE_LOST)
             DebugCheckpoints::LogCheckpoints();
         #endif
+        */
 
         if (ensure)
         { FL_CRASH_ASSERT(result == VK_SUCCESS, "Critical vulkan function failed with error %d", result); }

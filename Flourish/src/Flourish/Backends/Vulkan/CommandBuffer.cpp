@@ -40,9 +40,9 @@ namespace Flourish::Vulkan
         }, "Command buffer free");
     }
     
-    void CommandBuffer::SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo, GPUWorkloadType workloadType)
+    void CommandBuffer::SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo)
     {
-        m_EncoderSubmissions.emplace_back(buffer, workloadType, allocInfo);
+        m_EncoderSubmissions.emplace_back(buffer, allocInfo);
         m_Encoding = false;
         
         VkSemaphore* syncSemaphore = &m_SubmissionData.SyncSemaphores[Flourish::Context::FrameIndex()];
@@ -52,7 +52,7 @@ namespace Flourish::Vulkan
         // On macos, we submit each submission sequentially without grouping, so we need to store them sequentially.
         // otherwise we group them by queue type
         VkSubmitInfo* encodedCommandSubmitInfo;
-        switch (workloadType)
+        switch (allocInfo.WorkloadType)
         {
             case GPUWorkloadType::Graphics:
             {
@@ -124,6 +124,19 @@ namespace Flourish::Vulkan
         m_SubmissionData.LastSubmitInfo = encodedCommandSubmitInfo;
     }
 
+    void CommandBuffer::ClearSubmissions()
+    {
+        m_SemaphoreBaseValue += m_EncoderSubmissions.size() + 1;
+        m_EncoderSubmissions.clear();
+        
+        m_SubmissionData.SubmitInfos.clear();
+        m_SubmissionData.GraphicsSubmitInfos.clear();
+        m_SubmissionData.ComputeSubmitInfos.clear();
+        m_SubmissionData.TransferSubmitInfos.clear();
+        m_SubmissionData.TimelineSubmitInfos.clear();
+        m_SubmissionData.SyncSemaphoreValues.clear();
+    }
+
     Flourish::GraphicsCommandEncoder* CommandBuffer::EncodeGraphicsCommands()
     {
         CheckFrameUpdate();
@@ -174,16 +187,9 @@ namespace Flourish::Vulkan
         // Each new frame, we need to clear the previous encoder submissions
         if (m_LastFrameEncoding != Flourish::Context::FrameCount())
         {
-            m_SemaphoreBaseValue += m_EncoderSubmissions.size() + 1;
-            m_EncoderSubmissions.clear();
             m_LastFrameEncoding = Flourish::Context::FrameCount();
             
-            m_SubmissionData.SubmitInfos.clear();
-            m_SubmissionData.GraphicsSubmitInfos.clear();
-            m_SubmissionData.ComputeSubmitInfos.clear();
-            m_SubmissionData.TransferSubmitInfos.clear();
-            m_SubmissionData.TimelineSubmitInfos.clear();
-            m_SubmissionData.SyncSemaphoreValues.clear();
+            ClearSubmissions();
         }
     }
 }
