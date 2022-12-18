@@ -203,7 +203,7 @@ namespace Flourish::Vulkan
                 #ifdef FL_PLATFORM_MACOS
                     for (u32 i = 0; i < subData.SubmitInfos.size(); i++)
                     {
-                        GPUWorkloadType workloadType = buffer->GetEncoderSubmissions()[i].WorkloadType;
+                        GPUWorkloadType workloadType = buffer->GetEncoderSubmissions()[i].AllocInfo.WorkloadType;
                         Context::Queues().LockQueue(workloadType, true);
                         FL_VK_ENSURE_RESULT(vkQueueSubmit(
                             Context::Queues().Queue(workloadType),
