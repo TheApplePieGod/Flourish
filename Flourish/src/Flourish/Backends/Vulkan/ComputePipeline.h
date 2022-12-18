@@ -18,7 +18,6 @@ namespace Flourish::Vulkan
         inline const DescriptorSetLayout& GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 
     private:
-        std::shared_ptr<DescriptorSet> m_DescriptorSet;
         DescriptorSetLayout m_DescriptorSetLayout;
         VkPipelineLayout m_PipelineLayout;
         VkPipeline m_Pipeline;
