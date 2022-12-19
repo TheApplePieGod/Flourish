@@ -26,12 +26,8 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
-        auto semaphores = m_UnusedSemaphores;
-        Context::FinalizerQueue().Push([=]()
-        {
-            for (auto semaphore : semaphores)
-                vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
-        }, "Queues free");
+        for (auto semaphore : m_UnusedSemaphores)
+            vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
     }
     
     PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)

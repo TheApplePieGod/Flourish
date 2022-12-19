@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
         {
             default:
                 break;
-            //case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: { FL_LOG_TRACE("%s", pCallbackData->pMessage); } return VK_TRUE;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: { FL_LOG_TRACE("%s", pCallbackData->pMessage); } return VK_TRUE;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: { FL_LOG_INFO("%s", pCallbackData->pMessage); } return VK_TRUE;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: { FL_LOG_WARN("%s", pCallbackData->pMessage); } return VK_TRUE;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: { FL_LOG_ERROR("%s", pCallbackData->pMessage); } return VK_TRUE;
@@ -44,15 +44,15 @@ namespace Flourish::Vulkan
     {
         FL_LOG_TRACE("Vulkan context shutdown begin");
 
-        s_Queues.Shutdown();
-
         Sync();
 
         s_FinalizerQueue.Shutdown();
-        s_SubmissionHandler.Shutdown();
-        s_Commands.Shutdown();
         if (finalizer)
             finalizer();
+        s_FinalizerQueue.Shutdown();
+        s_Queues.Shutdown();
+        s_SubmissionHandler.Shutdown();
+        s_Commands.Shutdown();
         vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG
