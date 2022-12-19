@@ -5,6 +5,7 @@
 #include "Flourish/Backends/Vulkan/GraphicsCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/ComputeCommandEncoder.h"
+#include "Flourish/Backends/Vulkan/TransferCommandEncoder.h"
 
 namespace Flourish::Vulkan
 {
@@ -46,6 +47,7 @@ namespace Flourish::Vulkan
         Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
         Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
         Flourish::ComputeCommandEncoder* EncodeComputeCommands(Flourish::ComputeTarget* target) override;
+        Flourish::TransferCommandEncoder* EncodeTransferCommands() override;
 
         inline CommandBufferSubmissionData& GetSubmissionData() { return m_SubmissionData; }
         inline void SetLastSubmitFrame(u64 frame) { m_LastSubmitFrame = frame; }
@@ -65,6 +67,7 @@ namespace Flourish::Vulkan
         GraphicsCommandEncoder m_GraphicsCommandEncoder;
         RenderCommandEncoder m_RenderCommandEncoder;
         ComputeCommandEncoder m_ComputeCommandEncoder;
+        TransferCommandEncoder m_TransferCommandEncoder;
         std::vector<CommandBufferEncoderSubmission> m_EncoderSubmissions;
         CommandBufferSubmissionData m_SubmissionData;
     };

@@ -55,8 +55,14 @@ namespace Flourish::Vulkan
             VkImage image,
             VkImageLayout oldLayout,
             VkImageLayout newLayout,
+            u32 baseMip,
             u32 mipLevels,
+            u32 baseLayer,
             u32 layerCount,
+            VkAccessFlags srcAccessMask,
+            VkPipelineStageFlags srcStage,
+            VkAccessFlags dstAccessMask,
+            VkPipelineStageFlags dstStage,
             VkCommandBuffer buffer = nullptr
         );
         static VkImageView CreateImageView(const ImageViewCreateInfo& createInfo);

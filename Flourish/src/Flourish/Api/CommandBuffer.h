@@ -20,6 +20,7 @@ namespace Flourish
     class GraphicsCommandEncoder;
     class RenderCommandEncoder;
     class ComputeCommandEncoder;
+    class TransferCommandEncoder;
     class CommandBuffer
     {
     public:
@@ -31,6 +32,7 @@ namespace Flourish
         virtual GraphicsCommandEncoder* EncodeGraphicsCommands() = 0;
         virtual RenderCommandEncoder* EncodeRenderCommands(Framebuffer* framebuffer) = 0;
         virtual ComputeCommandEncoder* EncodeComputeCommands(ComputeTarget* target) = 0;
+        virtual TransferCommandEncoder* EncodeTransferCommands() = 0;
 
         // TS
         inline bool IsEncoding() const { return m_Encoding; }

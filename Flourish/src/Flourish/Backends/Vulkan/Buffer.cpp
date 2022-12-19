@@ -126,14 +126,33 @@ namespace Flourish::Vulkan
             memcpy((char*)bufferData.AllocationInfo.pMappedData + byteOffset, data, byteCount);
     }
 
-    void Buffer::Flush()
+    void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset)
+    {
+        FL_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to read buffer data that exceeds buffer size");
+
+        auto& bufferData = GetBufferData();
+        if (bufferData.HasComplement)
+            memcpy(outData, (char*)GetStagingBufferData().AllocationInfo.pMappedData + byteOffset, byteCount);
+        else
+            memcpy(outData, (char*)bufferData.AllocationInfo.pMappedData + byteOffset, byteCount);
+    }
+
+    void Buffer::Flush(bool immediate)
+    {
+        FlushInternal(nullptr, immediate);
+    }
+
+    void Buffer::FlushInternal(VkCommandBuffer buffer, bool execute)
     {
         // We don't need to transfer if there is no staging buffer
         auto& bufferData = GetBufferData();
         if (!bufferData.HasComplement) return;
 
-        // Always transfer from staging -> regular
-        CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), GetAllocatedSize());
+        // GPU -> CPU will transfer Regular -> Staging while CPU -> GPU will do the reverse
+        if (m_MemoryDirection == MemoryDirection::GPUToCPU)
+            CopyBufferToBuffer(GetBuffer(), GetStagingBuffer(), GetAllocatedSize(), buffer, execute);
+        else
+            CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), GetAllocatedSize(), buffer, execute);
     }
 
     VkBuffer Buffer::GetBuffer() const
@@ -146,7 +165,7 @@ namespace Flourish::Vulkan
         return m_BufferCount == 1 ? m_StagingBuffers[0].Buffer : m_StagingBuffers[Flourish::Context::FrameIndex()].Buffer;
     }
 
-    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer)
+    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute)
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
@@ -174,17 +193,56 @@ namespace Flourish::Vulkan
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
 
-            Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
+            if (execute)
             {
+                Context::Queues().ExecuteCommand(GPUWorkloadType::Transfer, cmdBuffer, "CopyBufferToBuffer execute");
                 Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
-            }, "CopyBufferToBuffer command free");
+            }
+            else
+            {
+                Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
+                {
+                    Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+                }); //, "CopyBufferToBuffer command free");
+            }
         }
     }
 
     void Buffer::CopyBufferToImage(VkBuffer src, VkImage dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
     {
+        ImageBufferCopyInternal(dst, src, imageWidth, imageHeight, imageLayout, false, buffer);
+    }
+
+    void Buffer::CopyImageToBuffer(VkImage src, VkBuffer dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
+    {
+        ImageBufferCopyInternal(src, dst, imageWidth, imageHeight, imageLayout, true, buffer);
+    }
+
+    void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size)
+    {
+        VkBufferCreateInfo bufCreateInfo{};
+        bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufCreateInfo.size = size;
+        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        VmaAllocationCreateInfo allocCreateInfo = {};
+        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+        FL_VK_ENSURE_RESULT(vmaCreateBuffer(
+            Context::Allocator(),
+            &bufCreateInfo,
+            &allocCreateInfo,
+            &buffer,
+            &alloc,
+            &allocInfo
+        ));
+    }
+
+    void Buffer::ImageBufferCopyInternal(VkImage image, VkBuffer buffer, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, bool imageSrc, VkCommandBuffer cmdBuf)
+    {
         // Create and start command buffer if it wasn't passed in
-        VkCommandBuffer cmdBuffer = buffer;
+        VkCommandBuffer cmdBuffer = cmdBuf;
         CommandBufferAllocInfo allocInfo;
         if (!buffer)
         {
@@ -209,7 +267,10 @@ namespace Flourish::Vulkan
         region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { imageWidth, imageHeight, 1 };
 
-        vkCmdCopyBufferToImage(cmdBuffer, src, dst, imageLayout, 1, &region);
+        if (imageSrc)
+            vkCmdCopyImageToBuffer(cmdBuffer, image, imageLayout, buffer, 1, &region);
+        else
+            vkCmdCopyBufferToImage(cmdBuffer, buffer, image, imageLayout, 1, &region);
 
         if (!buffer)
         {
@@ -218,29 +279,8 @@ namespace Flourish::Vulkan
             Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
             {
                 Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
-            }, "CopyBufferToImage command free");
+            }, "ImageBufferCopyInternal command free");
         }
-    }
-
-    void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size)
-    {
-        VkBufferCreateInfo bufCreateInfo{};
-        bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufCreateInfo.size = size;
-        bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-        FL_VK_ENSURE_RESULT(vmaCreateBuffer(
-            Context::Allocator(),
-            &bufCreateInfo,
-            &allocCreateInfo,
-            &buffer,
-            &alloc,
-            &allocInfo
-        ));
     }
 
     const Buffer::BufferData& Buffer::GetBufferData() const

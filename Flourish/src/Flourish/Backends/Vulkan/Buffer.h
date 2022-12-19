@@ -12,7 +12,10 @@ namespace Flourish::Vulkan
         ~Buffer() override;
 
         void SetBytes(void* data, u32 byteCount, u32 byteOffset) override;
-        void Flush() override;
+        void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) override;
+        void Flush(bool immediate) override;
+
+        void FlushInternal(VkCommandBuffer buffer, bool execute = false);
 
         // TS
         VkBuffer GetBuffer() const;
@@ -24,7 +27,8 @@ namespace Flourish::Vulkan
             VkBuffer src,
             VkBuffer dst,
             u64 size,
-            VkCommandBuffer buffer = nullptr
+            VkCommandBuffer buffer = nullptr,
+            bool execute = false
         );
         static void CopyBufferToImage(
             VkBuffer src,
@@ -34,7 +38,26 @@ namespace Flourish::Vulkan
             VkImageLayout imageLayout,
             VkCommandBuffer buffer = nullptr
         );
+        static void CopyImageToBuffer(
+            VkImage src,
+            VkBuffer dst,
+            u32 imageWidth,
+            u32 imageHeight,
+            VkImageLayout imageLayout,
+            VkCommandBuffer buffer = nullptr
+        );
         static void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size);
+
+    private:
+        static void ImageBufferCopyInternal(
+            VkImage image,
+            VkBuffer buffer,
+            u32 imageWidth,
+            u32 imageHeight,
+            VkImageLayout imageLayout,
+            bool imageSrc,
+            VkCommandBuffer cmdBuf = nullptr
+        );
 
     private:
         struct BufferData

@@ -67,7 +67,7 @@ namespace Flourish::Vulkan
 
             if (completionCallback)
                 completionCallback();
-        }, &semaphore, &signalValue, debugName ? debugName : "Push command finalizer");
+        }, &semaphore, &signalValue, debugName);
         
         return { semaphore[0], signalValue[0] };
     }

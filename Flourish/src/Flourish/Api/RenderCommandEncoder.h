@@ -4,6 +4,8 @@
 
 namespace Flourish
 {
+    class Texture;
+    class Buffer;
     class RenderCommandEncoder : public CommandEncoder
     {
     public:

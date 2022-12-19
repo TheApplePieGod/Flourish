@@ -2,9 +2,7 @@
 
 #include "Flourish/Api/GraphicsCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
-#include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/Commands.h"
-#include "Flourish/Backends/Vulkan/ComputePipeline.h"
 
 namespace Flourish::Vulkan
 {

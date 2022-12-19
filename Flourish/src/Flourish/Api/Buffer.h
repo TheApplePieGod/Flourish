@@ -153,8 +153,9 @@ namespace Flourish
         // TS
         void SetElements(void* data, u32 elementCount, u32 elementOffset);
         virtual void SetBytes(void* data, u32 byteCount, u32 byteOffset) = 0;
+        virtual void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) = 0;
         
-        virtual void Flush() = 0;
+        virtual void Flush(bool immediate = false) = 0;
 
         // TS
         inline BufferType GetType() const { return m_Info.Type; }

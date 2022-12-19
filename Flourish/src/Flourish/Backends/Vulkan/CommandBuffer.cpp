@@ -25,6 +25,7 @@ namespace Flourish::Vulkan
         m_GraphicsCommandEncoder = GraphicsCommandEncoder(this, m_Info.FrameRestricted);
         m_RenderCommandEncoder = RenderCommandEncoder(this, m_Info.FrameRestricted);
         m_ComputeCommandEncoder = ComputeCommandEncoder(this, m_Info.FrameRestricted);
+        m_TransferCommandEncoder = TransferCommandEncoder(this, m_Info.FrameRestricted);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             m_SubmissionData.SyncSemaphores[frame] = Synchronization::CreateTimelineSemaphore(0);
@@ -178,6 +179,19 @@ namespace Flourish::Vulkan
         );
 
         return static_cast<Flourish::ComputeCommandEncoder*>(&m_ComputeCommandEncoder);
+    }
+
+    Flourish::TransferCommandEncoder* CommandBuffer::EncodeTransferCommands()
+    {
+        CheckFrameUpdate();
+
+        FL_CRASH_ASSERT(!m_Encoding, "Cannot begin encoding while another encoding is in progress");
+        FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
+        m_Encoding = true;
+
+        m_TransferCommandEncoder.BeginEncoding();
+
+        return static_cast<Flourish::TransferCommandEncoder*>(&m_TransferCommandEncoder);
     }
     
     void CommandBuffer::CheckFrameUpdate()
