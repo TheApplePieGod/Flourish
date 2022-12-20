@@ -166,8 +166,8 @@ namespace Flourish::Vulkan
 
                         depthAttachmentResolveDescs[i].sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE;
                         depthAttachmentResolveDescs[i].pNext = nullptr;
-                        depthAttachmentResolveDescs[i].depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
-                        depthAttachmentResolveDescs[i].stencilResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+                        depthAttachmentResolveDescs[i].depthResolveMode = VK_RESOLVE_MODE_MAX_BIT;
+                        depthAttachmentResolveDescs[i].stencilResolveMode = VK_RESOLVE_MODE_MAX_BIT;
                         depthAttachmentResolveDescs[i].pDepthStencilResolveAttachment = &depthAttachmentResolveRefs[i];
                     }
                 }
@@ -229,7 +229,6 @@ namespace Flourish::Vulkan
             }
         }
 
-
         VkRenderPassCreateInfo2 renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
         renderPassInfo.attachmentCount = static_cast<u32>(attachmentDescriptions.size());
@@ -238,7 +237,7 @@ namespace Flourish::Vulkan
         renderPassInfo.pSubpasses = subpasses.data();
         renderPassInfo.dependencyCount = static_cast<u32>(dependencies.size());;
         renderPassInfo.pDependencies = dependencies.data();
-          
+        
         FL_VK_ENSURE_RESULT(vkCreateRenderPass2(Context::Devices().Device(), &renderPassInfo, nullptr, &m_RenderPass));
     }
 

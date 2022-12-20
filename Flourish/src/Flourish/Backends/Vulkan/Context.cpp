@@ -106,6 +106,7 @@ namespace Flourish::Vulkan
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
             #elif defined (FL_PLATFORM_MACOS)
+                "VK_KHR_portability_enumeration",
                 "VK_MVK_macos_surface",
                 "VK_EXT_metal_surface"
             #endif
@@ -136,7 +137,10 @@ namespace Flourish::Vulkan
         #endif
         createInfo.enabledExtensionCount = static_cast<u32>(requiredExtensions.size());
         createInfo.ppEnabledExtensionNames = requiredExtensions.data();
-
+        #ifdef FL_PLATFORM_MACOS
+            createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        #endif
+        
         FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance));
 
         // Load all instance functions
