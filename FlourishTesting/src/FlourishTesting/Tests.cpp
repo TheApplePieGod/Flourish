@@ -185,7 +185,7 @@ namespace FlourishTesting
         rpCreateInfo.Subpasses = {
             { {}, { { Flourish::SubpassAttachmentType::Color, 0 } } }
         };
-        rpCreateInfo.SampleCount = Flourish::MsaaSampleCount::None;
+        rpCreateInfo.SampleCount = Flourish::MsaaSampleCount::Four;
         m_SimplePassNoDepth = Flourish::RenderPass::Create(rpCreateInfo);
     }
 

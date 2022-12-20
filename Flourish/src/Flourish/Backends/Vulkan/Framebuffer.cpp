@@ -88,8 +88,10 @@ namespace Flourish::Vulkan
         viewCreateInfo.AspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
 
         u32 attachmentIndex = 0;
-        for (auto& attachment : m_Info.ColorAttachments)
+        for (u32 i = 0; i < m_Info.ColorAttachments.size(); i++)
         {
+            auto& attachment = m_Info.ColorAttachments[i];
+
             VkClearValue clearValue{};
             clearValue.color = {
                 attachment.ClearColor[0],
@@ -98,14 +100,23 @@ namespace Flourish::Vulkan
                 attachment.ClearColor[3]
             };
             m_CachedClearValues.emplace_back(clearValue);
+            if (useResolve)
+                m_CachedClearValues.emplace_back(clearValue);
 
             imageInfo.format = Common::ConvertColorFormat(
-                m_Info.RenderPass->GetColorAttachmentColorFormat(attachmentIndex)
+                m_Info.RenderPass->GetColorAttachmentColorFormat(i)
             );
             viewCreateInfo.Format = imageInfo.format;
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
+                // Buffer texture before resolve
+                if (useResolve)
+                {
+                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
+                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
+                }
+
                 if (attachment.Texture)
                 {
                     auto texture = static_cast<Texture*>(attachment.Texture.get());
@@ -123,14 +134,6 @@ namespace Flourish::Vulkan
                     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
                     PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
                 } 
-                
-                // Create a render target sampled texture regardless of whether or not
-                // a texture was passed in to the final render ouptut
-                if (useResolve)
-                {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
-                }
             }
 
             if (useResolve) attachmentIndex++;

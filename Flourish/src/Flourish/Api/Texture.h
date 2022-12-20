@@ -59,7 +59,7 @@ namespace Flourish
         SamplerFilter MagFilter = SamplerFilter::Linear;
         std::array<SamplerWrapMode, 3> UVWWrap = { SamplerWrapMode::Repeat, SamplerWrapMode::Repeat, SamplerWrapMode::Repeat };
         SamplerReductionMode ReductionMode = SamplerReductionMode::WeightedAverage;
-        bool AnisotropyEnable = true;
+        bool AnisotropyEnable = false;
         u32 MaxAnisotropy = 8;
     };
     
