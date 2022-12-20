@@ -12,7 +12,8 @@ namespace Flourish
         RGB8_UNORM,
         BGR8_UNORM,
         R16_FLOAT, RGBA16_FLOAT,
-        R32_FLOAT, RGBA32_FLOAT
+        R32_FLOAT, RGBA32_FLOAT,
+        Depth
     };
     
     enum class TextureUsageType

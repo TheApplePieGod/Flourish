@@ -46,9 +46,12 @@ namespace Flourish::Vulkan
         
         Texture* texture = static_cast<Texture*>(_texture);
 
+        VkImageAspectFlags aspect = texture->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
         Texture::GenerateMipmaps(
             texture->GetImage(),
             Common::ConvertColorFormat(texture->GetColorFormat()),
+            aspect,
             texture->GetWidth(),
             texture->GetHeight(),
             texture->GetMipCount(),

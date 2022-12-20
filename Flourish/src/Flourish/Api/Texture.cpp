@@ -39,6 +39,7 @@ namespace Flourish
             case ColorFormat::RGBA16_FLOAT: return 4;
             case ColorFormat::R32_FLOAT: return 1;
             case ColorFormat::RGBA32_FLOAT: return 4;
+            case ColorFormat::Depth: return 4;
         }
 
         FL_ASSERT(false, "ColorFormatComponentCount unsupported ColorFormat");
@@ -58,6 +59,7 @@ namespace Flourish
             case ColorFormat::RGBA16_FLOAT: return BufferDataType::HalfFloat;
             case ColorFormat::R32_FLOAT: return BufferDataType::Float;
             case ColorFormat::RGBA32_FLOAT: return BufferDataType::Float;
+            case ColorFormat::Depth: return BufferDataType::Float;
         }
 
         FL_ASSERT(false, "ColorFormatBufferDataType unsupported ColorFormat");

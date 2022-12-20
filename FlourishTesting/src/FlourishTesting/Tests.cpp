@@ -108,7 +108,6 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        //Flourish::Context::SubmitCommandBuffers({{ m_CommandBuffers[objectCount].get() }});
         m_RenderContext->Present({{ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } }});
     }
     
@@ -181,7 +180,9 @@ namespace FlourishTesting
         rpCreateInfo.ColorAttachments = {
             { Flourish::ColorFormat::RGBA8_UNORM }
         };
-        rpCreateInfo.DepthAttachments = { {} };
+        rpCreateInfo.DepthAttachments = {
+            { Flourish::ColorFormat::Depth }
+        };
         rpCreateInfo.Subpasses = {
             { {}, { { Flourish::SubpassAttachmentType::Color, 0 } } }
         };

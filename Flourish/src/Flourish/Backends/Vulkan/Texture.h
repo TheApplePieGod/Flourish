@@ -37,11 +37,13 @@ namespace Flourish::Vulkan
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
         VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
         VkSampler GetSampler() const { return m_Sampler; }
+        bool IsDepthImage() const { return m_IsDepthImage; }
         
     public:
         static void GenerateMipmaps(
             VkImage image,
             VkFormat imageFormat,
+            VkImageAspectFlags imageAspect,
             u32 width,
             u32 height,
             u32 mipLevels,
@@ -55,6 +57,7 @@ namespace Flourish::Vulkan
             VkImage image,
             VkImageLayout oldLayout,
             VkImageLayout newLayout,
+            VkImageAspectFlags imageAspect,
             u32 baseMip,
             u32 mipLevels,
             u32 baseLayer,
@@ -91,6 +94,7 @@ namespace Flourish::Vulkan
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
         u32* m_ReadyState = nullptr;
+        bool m_IsDepthImage = false;
     
     private:
         #ifdef FL_USE_IMGUI

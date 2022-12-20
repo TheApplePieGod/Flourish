@@ -59,11 +59,13 @@ namespace Flourish::Vulkan
         Buffer* buffer = static_cast<Buffer*>(_buffer);
         
         VkImageLayout startingLayout = texture->GetUsageType() == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageAspectFlags aspect = texture->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
         Texture::TransitionImageLayout(
             texture->GetImage(),
             startingLayout,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            aspect,
             mipLevel, 1,
             layerIndex, 1,
             0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -84,6 +86,7 @@ namespace Flourish::Vulkan
             texture->GetImage(),
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             startingLayout,
+            aspect,
             mipLevel, 1,
             layerIndex, 1,
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -100,11 +103,13 @@ namespace Flourish::Vulkan
         Buffer* buffer = static_cast<Buffer*>(_buffer);
 
         VkImageLayout startingLayout = texture->GetUsageType() == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageAspectFlags aspect = texture->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
         Texture::TransitionImageLayout(
             texture->GetImage(),
             startingLayout,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            aspect,
             mipLevel, 1,
             layerIndex, 1,
             0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -125,6 +130,7 @@ namespace Flourish::Vulkan
             texture->GetImage(),
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             startingLayout,
+            aspect,
             mipLevel, 1,
             layerIndex, 1,            
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,

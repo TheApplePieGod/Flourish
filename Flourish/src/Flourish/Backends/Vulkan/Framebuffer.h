@@ -35,6 +35,7 @@ namespace Flourish::Vulkan
         void PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags, u32 frame);
 
     private:
+        bool m_UseResolve;
         std::array<VkFramebuffer, Flourish::Context::MaxFrameBufferCount> m_Framebuffers;
         std::array<std::vector<ImageData>, Flourish::Context::MaxFrameBufferCount> m_Images;
         std::array<std::vector<VkImageView>, Flourish::Context::MaxFrameBufferCount> m_CachedImageViews;

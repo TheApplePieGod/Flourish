@@ -14,7 +14,7 @@ namespace Flourish::Vulkan
         : Flourish::Texture(createInfo)
     {
         m_ReadyState = new u32();
-
+        m_IsDepthImage = m_Info.Format == ColorFormat::Depth;
         m_Format = Common::ConvertColorFormat(m_Info.Format);
 
         // Populate initial image info
@@ -27,7 +27,13 @@ namespace Flourish::Vulkan
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
         if (m_Info.Usage == TextureUsageType::RenderTarget)
-            imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        {
+            if (m_IsDepthImage)
+                imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            else
+                imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            imageInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        }
         else if (m_Info.Usage == TextureUsageType::ComputeTarget)
             imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         if (hasInitialData)
@@ -142,6 +148,7 @@ namespace Flourish::Vulkan
             viewCreateInfo.Format = m_Format;
             viewCreateInfo.MipLevels = m_MipLevels;
             viewCreateInfo.LayerCount = m_Info.ArrayCount;
+            viewCreateInfo.AspectFlags = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             imageData.ImageView = CreateImageView(viewCreateInfo);
             viewCreateInfo.LayerCount = 1;
             viewCreateInfo.MipLevels = 1;
@@ -168,12 +175,14 @@ namespace Flourish::Vulkan
 
             // If we have initial data, we need to perform the data transfer and generate
             // the mipmaps (which can only occur on the graphics queue)
+            VkImageAspectFlags aspect = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
             if (hasInitialData)
             {
                 TransitionImageLayout(
                     imageData.Image,
                     currentLayout,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    aspect,
                     0, m_MipLevels,
                     0, m_Info.ArrayCount,
                     0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -193,6 +202,7 @@ namespace Flourish::Vulkan
                 GenerateMipmaps(
                     imageData.Image,
                     m_Format,
+                    aspect,
                     m_Info.Width,
                     m_Info.Height,
                     m_MipLevels,
@@ -209,6 +219,7 @@ namespace Flourish::Vulkan
                     imageData.Image,
                     currentLayout,
                     m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    aspect,
                     0, m_MipLevels,
                     0, m_Info.ArrayCount,
                     0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -356,6 +367,7 @@ namespace Flourish::Vulkan
     void Texture::GenerateMipmaps(
         VkImage image,
         VkFormat imageFormat,
+        VkImageAspectFlags imageAspect,
         u32 width,
         u32 height,
         u32 mipLevels,
@@ -391,6 +403,7 @@ namespace Flourish::Vulkan
                 image,
                 initialLayout,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                imageAspect,
                 0, mipLevels,
                 0, layerCount,
                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -404,7 +417,7 @@ namespace Flourish::Vulkan
         barrier.image = image;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.aspectMask = imageAspect;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = layerCount;
         barrier.subresourceRange.levelCount = 1;
@@ -430,13 +443,13 @@ namespace Flourish::Vulkan
             VkImageBlit blit{};
             blit.srcOffsets[0] = { 0, 0, 0 };
             blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
-            blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.srcSubresource.aspectMask = imageAspect;
             blit.srcSubresource.mipLevel = i - 1;
             blit.srcSubresource.baseArrayLayer = 0;
             blit.srcSubresource.layerCount = layerCount;
             blit.dstOffsets[0] = { 0, 0, 0 };
             blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
-            blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            blit.dstSubresource.aspectMask = imageAspect;
             blit.dstSubresource.mipLevel = i;
             blit.dstSubresource.baseArrayLayer = 0;
             blit.dstSubresource.layerCount = layerCount;
@@ -501,6 +514,7 @@ namespace Flourish::Vulkan
         VkImage image,
         VkImageLayout oldLayout,
         VkImageLayout newLayout,
+        VkImageAspectFlags imageAspect,
         u32 baseMip,
         u32 mipLevels,
         u32 baseLayer,
@@ -535,7 +549,7 @@ namespace Flourish::Vulkan
         barrier.image = image;
         barrier.srcAccessMask = srcAccessMask;
         barrier.dstAccessMask = dstAccessMask;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.aspectMask = imageAspect;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = mipLevels;
         barrier.subresourceRange.baseArrayLayer = 0;

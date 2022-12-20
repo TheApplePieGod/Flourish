@@ -17,7 +17,12 @@ namespace Flourish
     };
 
     struct FramebufferDepthAttachment
-    {};
+    {
+        // Specify a texture to be used as a render target
+        std::shared_ptr<Texture> Texture = nullptr;
+        u32 LayerIndex = 0;
+        u32 MipLevel = 0;
+    };
 
     struct FramebufferCreateInfo
     {

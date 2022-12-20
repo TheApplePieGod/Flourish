@@ -40,6 +40,7 @@ namespace Flourish::Vulkan
             case ColorFormat::RGBA16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
             case ColorFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
             case ColorFormat::RGBA32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+            case ColorFormat::Depth: return VK_FORMAT_D32_SFLOAT;
         }
 
         return VK_FORMAT_UNDEFINED;
@@ -60,6 +61,7 @@ namespace Flourish::Vulkan
             case VK_FORMAT_R16G16B16A16_SFLOAT: return ColorFormat::RGBA16_FLOAT;
             case VK_FORMAT_R32_SFLOAT: return ColorFormat::R32_FLOAT;
             case VK_FORMAT_R32G32B32A32_SFLOAT: return ColorFormat::RGBA32_FLOAT;
+            case VK_FORMAT_D32_SFLOAT: return ColorFormat::Depth;
         }
 
         return ColorFormat::None;
