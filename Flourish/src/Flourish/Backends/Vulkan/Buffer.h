@@ -11,7 +11,7 @@ namespace Flourish::Vulkan
         Buffer(const BufferCreateInfo& createInfo);
         ~Buffer() override;
 
-        void SetBytes(void* data, u32 byteCount, u32 byteOffset) override;
+        void SetBytes(const void* data, u32 byteCount, u32 byteOffset) override;
         void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) override;
         void Flush(bool immediate) override;
 

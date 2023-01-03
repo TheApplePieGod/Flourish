@@ -19,8 +19,8 @@ namespace Flourish
         virtual void SetLineWidth(float width) = 0;
         virtual void BindVertexBuffer(Buffer* buffer) = 0;
         virtual void BindIndexBuffer(Buffer* buffer) = 0;
-        virtual void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) = 0;
-        virtual void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount) = 0;
+        virtual void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset) = 0;
+        virtual void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset) = 0;
         virtual void DrawIndexedIndirect(Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) = 0;
         virtual void StartNextSubpass() = 0;
         virtual void ClearColorAttachment(u32 attachmentIndex) = 0;

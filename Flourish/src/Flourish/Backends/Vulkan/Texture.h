@@ -73,8 +73,8 @@ namespace Flourish::Vulkan
     private:
         struct ImageData
         {
-            VkImage Image;
-            VkImageView ImageView;
+            VkImage Image = nullptr;
+            VkImageView ImageView = nullptr;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
             std::vector<VkImageView> SliceViews = {};

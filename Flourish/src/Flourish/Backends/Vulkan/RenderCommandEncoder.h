@@ -25,8 +25,8 @@ namespace Flourish::Vulkan
         void SetLineWidth(float width) override;
         void BindVertexBuffer(Flourish::Buffer* buffer) override;
         void BindIndexBuffer(Flourish::Buffer* buffer) override;
-        void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount) override;
-        void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount) override;
+        void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset) override;
+        void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset) override;
         void DrawIndexedIndirect(Flourish::Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) override;
         void StartNextSubpass() override;
         void ClearColorAttachment(u32 attachmentIndex) override;

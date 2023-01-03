@@ -114,7 +114,7 @@ namespace Flourish::Vulkan
         }, "Buffer free");
     }
 
-    void Buffer::SetBytes(void* data, u32 byteCount, u32 byteOffset)
+    void Buffer::SetBytes(const void* data, u32 byteCount, u32 byteOffset)
     {
         FL_ASSERT(m_Info.Usage != BufferUsageType::Static, "Attempting to update buffer that is marked as static");
         FL_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to write buffer data that exceeds buffer size");

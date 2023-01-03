@@ -72,6 +72,7 @@ namespace Flourish::Vulkan
         GraphicsPipeline* pipeline = static_cast<GraphicsPipeline*>(
             m_BoundFramebuffer->GetRenderPass()->GetPipeline(pipelineName).get()
         );
+        FL_ASSERT(pipeline, "BindPipeline() pipeline not found");
         m_BoundPipeline = pipeline;
         m_BoundDescriptorSet = m_BoundFramebuffer->GetPipelineDescriptorSet(pipelineName, pipeline->GetDescriptorSetLayout());
 
@@ -135,18 +136,18 @@ namespace Flourish::Vulkan
         vkCmdBindIndexBuffer(m_CommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
-    void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
+    void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
         
-        vkCmdDraw(m_CommandBuffer, vertexCount, instanceCount, vertexOffset, 0);
+        vkCmdDraw(m_CommandBuffer, vertexCount, instanceCount, vertexOffset, instanceOffset);
     }
 
-    void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount)
+    void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed after encoding has ended");
 
-        vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, 0);
+        vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
     }
 
     void RenderCommandEncoder::DrawIndexedIndirect(Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)

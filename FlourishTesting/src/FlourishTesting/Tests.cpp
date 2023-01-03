@@ -63,7 +63,7 @@ namespace FlourishTesting
                     encoder->BindPipelineTextureResource(0, m_CatTexture.get());
                 encoder->FlushPipelineBindings();
                 encoder->BindVertexBuffer(m_FullTriangleVertices.get()); 
-                encoder->Draw(3, 0, 1);
+                encoder->Draw(3, 0, 1, 0);
                 encoder->EndEncoding();
             }));
             
@@ -93,7 +93,7 @@ namespace FlourishTesting
             encoder->FlushPipelineBindings();
             encoder->BindVertexBuffer(m_QuadVertices.get()); 
             encoder->BindIndexBuffer(m_QuadIndices.get());
-            encoder->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1);
+            encoder->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1, 0);
         }
         encoder->EndEncoding();
 
@@ -102,7 +102,7 @@ namespace FlourishTesting
         frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[objectCount].get());
         frameEncoder->FlushPipelineBindings();
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
-        frameEncoder->Draw(3, 0, 1);
+        frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
         
         for (auto& job : jobs)
@@ -134,7 +134,7 @@ namespace FlourishTesting
         encoder1->FlushPipelineBindings();
         encoder1->BindVertexBuffer(m_QuadVertices.get()); 
         encoder1->BindIndexBuffer(m_QuadIndices.get());
-        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount);
+        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount, 0);
         encoder1->EndEncoding();
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
@@ -142,7 +142,7 @@ namespace FlourishTesting
         frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[0].get());
         frameEncoder->FlushPipelineBindings();
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
-        frameEncoder->Draw(3, 0, 1);
+        frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
 
         m_RenderContext->Present({{ { m_CommandBuffers[0].get() } }});

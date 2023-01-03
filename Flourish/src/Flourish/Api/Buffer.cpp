@@ -35,7 +35,7 @@ namespace Flourish
             FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
     }
 
-    void Buffer::SetElements(void* data, u32 elementCount, u32 elementOffset)
+    void Buffer::SetElements(const void* data, u32 elementCount, u32 elementOffset)
     {
         FL_ASSERT(elementCount + elementOffset <= m_Info.ElementCount, "Attempting to set data on buffer which is larger than allocated size");
         SetBytes(data, GetStride() * elementCount, GetStride() * elementOffset);

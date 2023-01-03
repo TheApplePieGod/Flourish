@@ -151,8 +151,8 @@ namespace Flourish
         virtual ~Buffer() = default;
 
         // TS
-        void SetElements(void* data, u32 elementCount, u32 elementOffset);
-        virtual void SetBytes(void* data, u32 byteCount, u32 byteOffset) = 0;
+        void SetElements(const void* data, u32 elementCount, u32 elementOffset);
+        virtual void SetBytes(const void* data, u32 byteCount, u32 byteOffset) = 0;
         virtual void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) = 0;
         
         virtual void Flush(bool immediate = false) = 0;

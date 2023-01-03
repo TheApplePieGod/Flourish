@@ -252,12 +252,14 @@ namespace Flourish::Vulkan
         if (!submissionData.GraphicsSubmitInfos.empty())
         {
             Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
+            Context::Queues().LockPresentQueue(true);
             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                 Context::Queues().Queue(GPUWorkloadType::Graphics),
                 static_cast<u32>(submissionData.GraphicsSubmitInfos.size()),
                 submissionData.GraphicsSubmitInfos.data(),
                 nullptr
             ));
+            Context::Queues().LockPresentQueue(false);
             Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
         }
         if (!submissionData.ComputeSubmitInfos.empty())
