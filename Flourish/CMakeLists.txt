@@ -73,8 +73,8 @@ if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(DEBUG_LIB_EXTRAS "d")
   endif()
-  find_library(shaderc
-    NAMES "shaderc_shared"
+  find_library(shaderc${DEBUG_LIB_EXTRAS}
+    NAMES "shaderc_combined${DEBUG_LIB_EXTRAS}"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
@@ -113,3 +113,15 @@ target_precompile_headers(
   PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/flpch.h>"
 )
+
+# Copy vulkan dlls to output dir
+if (APPLE)
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
+  )
+else()
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/lib/vulkan-1.dll ${OUTPUT_DIRECTORY}/vulkan-1.dll
+  )
+endif()
