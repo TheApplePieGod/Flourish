@@ -75,8 +75,11 @@ namespace Flourish::Vulkan
         FL_ASSERT(pipeline, "BindPipeline() pipeline not found");
         m_BoundPipeline = pipeline;
         m_BoundDescriptorSet = m_BoundFramebuffer->GetPipelineDescriptorSet(pipelineName, pipeline->GetDescriptorSetLayout());
+        
+        VkPipeline subpassPipeline = pipeline->GetPipeline(m_SubpassIndex);
+        FL_ASSERT(subpassPipeline, "BindPipeline() pipeline not supported for current subpass");
 
-        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetPipeline(m_SubpassIndex));
+        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpassPipeline);
     }
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
