@@ -199,24 +199,19 @@ namespace Flourish::Vulkan
                     finalSemaphoreValues->push_back(submissionData.CompletionSemaphoreValues.back());
                 }
 
-                // If we are on mac, we need to submit each submitinfo individually. Otherwise, we can group them up to be submitted all at once.
-                #ifdef FL_PLATFORM_MACOS
-                    for (u32 i = 0; i < subData.SubmitInfos.size(); i++)
-                    {
-                        GPUWorkloadType workloadType = buffer->GetEncoderSubmissions()[i].AllocInfo.WorkloadType;
-                        Context::Queues().LockQueue(workloadType, true);
-                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                            Context::Queues().Queue(workloadType),
-                            1, &subData.SubmitInfos[i], nullptr
-                        ));
-                        Context::Queues().LockQueue(workloadType, false);
-                    }
-                #else
-                    // Copy submission info
-                    submissionData.GraphicsSubmitInfos.insert(submissionData.GraphicsSubmitInfos.end(), subData.GraphicsSubmitInfos.begin(), subData.GraphicsSubmitInfos.end());
-                    submissionData.ComputeSubmitInfos.insert(submissionData.ComputeSubmitInfos.end(), subData.ComputeSubmitInfos.begin(), subData.ComputeSubmitInfos.end());
-                    submissionData.TransferSubmitInfos.insert(submissionData.TransferSubmitInfos.end(), subData.TransferSubmitInfos.begin(), subData.TransferSubmitInfos.end());
-                #endif
+                // This is not the best thing, but we need to ensure that work gets submitted in order so that we don't get stuck
+                // in a GPU deadlock waiting on semaphores. This occurs when the device does not have three separate queues, so there
+                // might be room for optimization when the device has more than one or two queues.
+                for (u32 i = 0; i < subData.SubmitInfos.size(); i++)
+                {
+                    GPUWorkloadType workloadType = buffer->GetEncoderSubmissions()[i].AllocInfo.WorkloadType;
+                    Context::Queues().LockQueue(workloadType, true);
+                    FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                        Context::Queues().Queue(workloadType),
+                        1, &subData.SubmitInfos[i], nullptr
+                    ));
+                    Context::Queues().LockQueue(workloadType, false);
+                }
             }
 
             // Move completion pointer so that next batch will wait on semaphores from last batch
@@ -232,34 +227,24 @@ namespace Flourish::Vulkan
             {
                 auto context = static_cast<RenderContext*>(_context);
 
-                #ifdef FL_PLATFORM_MACOS
-                    // Can only be graphics so we can safely just insert everything in submitinfos
-                    submissionData.GraphicsSubmitInfos.insert(
-                        submissionData.GraphicsSubmitInfos.end(),
-                        context->CommandBuffer().GetSubmissionData().SubmitInfos.begin(),
-                        context->CommandBuffer().GetSubmissionData().SubmitInfos.end()
-                    );
-                #else
-                    submissionData.GraphicsSubmitInfos.insert(
-                        submissionData.GraphicsSubmitInfos.end(),
-                        context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.begin(),
-                        context->CommandBuffer().GetSubmissionData().GraphicsSubmitInfos.end()
-                    );
-                #endif
+                // Can only be graphics so we can safely just insert everything in submitinfos
+                submissionData.GraphicsSubmitInfos.insert(
+                    submissionData.GraphicsSubmitInfos.end(),
+                    context->CommandBuffer().GetSubmissionData().SubmitInfos.begin(),
+                    context->CommandBuffer().GetSubmissionData().SubmitInfos.end()
+                );
             }
         }
 
         if (!submissionData.GraphicsSubmitInfos.empty())
         {
             Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
-            Context::Queues().LockPresentQueue(true);
             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                 Context::Queues().Queue(GPUWorkloadType::Graphics),
                 static_cast<u32>(submissionData.GraphicsSubmitInfos.size()),
                 submissionData.GraphicsSubmitInfos.data(),
                 nullptr
             ));
-            Context::Queues().LockPresentQueue(false);
             Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
         }
         if (!submissionData.ComputeSubmitInfos.empty())

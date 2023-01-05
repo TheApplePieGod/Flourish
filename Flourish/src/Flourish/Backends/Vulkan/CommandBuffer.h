@@ -11,9 +11,6 @@ namespace Flourish::Vulkan
 {
     struct CommandBufferSubmissionData
     {
-        std::vector<VkSubmitInfo> GraphicsSubmitInfos;
-        std::vector<VkSubmitInfo> ComputeSubmitInfos;
-        std::vector<VkSubmitInfo> TransferSubmitInfos;
         std::vector<VkSubmitInfo> SubmitInfos;
         std::vector<VkTimelineSemaphoreSubmitInfo> TimelineSubmitInfos;
         std::vector<u64> SyncSemaphoreValues;
