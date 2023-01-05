@@ -73,8 +73,8 @@ if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(DEBUG_LIB_EXTRAS "d")
   endif()
-  find_library(shaderc${DEBUG_LIB_EXTRAS}
-    NAMES "shaderc_combined${DEBUG_LIB_EXTRAS}"
+  find_library(shaderc
+    NAMES "shaderc"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
@@ -119,5 +119,9 @@ if (APPLE)
   add_custom_target(CopyVulkanLibs ALL
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
+  )
+elseif(WIN32)
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/shaderc_shared.dll ${OUTPUT_DIRECTORY}/shaderc_shared.dll
   )
 endif()
