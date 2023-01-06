@@ -17,10 +17,9 @@ namespace Flourish
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::CommandBuffer>(createInfo); }
             }
         }
-        catch (const std::exception& e)
-            return nullptr;
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "CommandBuffer not supported for backend");
+        FL_ASSERT(false, "Failed to create CommandBuffer");
         return nullptr;
     }
 }

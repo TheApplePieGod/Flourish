@@ -17,10 +17,9 @@ namespace Flourish
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::ComputePipeline>(createInfo); }
             }
         }
-        catch (const std::exception& e)
-            return nullptr;
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "ComputePipeline not supported for backend");
+        FL_ASSERT(false, "Failed to create ComputePipeline");
         return nullptr;
     }
 

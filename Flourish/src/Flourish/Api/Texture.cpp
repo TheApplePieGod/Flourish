@@ -24,10 +24,9 @@ namespace Flourish
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::Texture>(createInfo); }
             }
         }
-        catch (const std::exception& e)
-            return nullptr;
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "Texture not supported for backend");
+        FL_ASSERT(false, "Failed to create texture");
         return nullptr;
     }
 

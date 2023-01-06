@@ -66,16 +66,23 @@ namespace Flourish::Vulkan
         else
             m_MipLevels = std::min(m_Info.MipCount, maxMipLevels);
 
-        #if defined(FL_DEBUG) && defined(FL_LOGGING)
         if (m_MipLevels < m_Info.MipCount)
-        { FL_LOG_WARN("Image was created with mip levels higher than is supported, so it was clamped to [%d]", m_MipLevels); }
+            FL_LOG_WARN("Image was created with mip levels higher than is supported, so it was clamped to [%d]", m_MipLevels);
         if (newWidth < m_Info.Width)
-        { FL_LOG_WARN("Image was created with width higher than is supported, so it was clamped to [%d]", newWidth); }
+            FL_LOG_WARN("Image was created with width higher than is supported, so it was clamped to [%d]", newWidth);
         if (newHeight < m_Info.Height)
-        { FL_LOG_WARN("Image was created with height higher than is supported, so it was clamped to [%d]", newHeight); }
+            FL_LOG_WARN("Image was created with height higher than is supported, so it was clamped to [%d]", newHeight);
         if (newArrayCount < m_Info.ArrayCount)
-        { FL_LOG_WARN("Image was created with array count higher than is supported, so it was clamped to [%d]", newArrayCount); }
-        #endif
+            FL_LOG_WARN("Image was created with array count higher than is supported, so it was clamped to [%d]", newArrayCount);
+        
+        if (newWidth == 0 || newHeight == 0 || m_MipLevels == 0)
+        {
+            FL_LOG_ERROR(
+                "Failed to create image with invalid dimensions: W:%d, H:%d, Mips:%d",
+                newWidth, newHeight, m_MipLevels
+            );
+            throw std::exception();
+        }
 
         m_Info.Width = newWidth;
         m_Info.Height = newHeight;
@@ -95,7 +102,7 @@ namespace Flourish::Vulkan
         {
             #if defined(FL_DEBUG) && defined(FL_LOGGING)
             if (m_Info.Writability == TextureWritability::PerFrame)
-            { FL_LOG_WARN("Creating per-frame writable texture that has initial data may not work as expected"); }
+                FL_LOG_WARN("Creating per-frame writable texture that has initial data may not work as expected");
             #endif
 
             Buffer::AllocateStagingBuffer(
@@ -116,7 +123,8 @@ namespace Flourish::Vulkan
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         beginInfo.pInheritanceInfo = nullptr;
 
-        FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+        if (!FL_VK_CHECK_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "Texture init command buffer begin"))
+            throw std::exception();
 
         // Create images & views
         VkImageLayout currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -132,14 +140,15 @@ namespace Flourish::Vulkan
             ImageData& imageData = m_Images[frame];
 
             // Create the image
-            vmaCreateImage(
+            if (!FL_VK_CHECK_RESULT(vmaCreateImage(
                 Context::Allocator(),
                 &imageInfo,
                 &allocCreateInfo,
                 &imageData.Image,
                 &imageData.Allocation,
                 &imageData.AllocationInfo
-            );
+            ), "Texture create image"))
+                throw std::exception();
 
             // Create the image view representing the entire texture but also
             // one for each slice of the image (mip / layer)
@@ -229,7 +238,8 @@ namespace Flourish::Vulkan
             }
         }
 
-        FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+        if (!FL_VK_CHECK_RESULT(vkEndCommandBuffer(cmdBuffer), "Texture init command buffer end"))
+            throw std::exception();
 
         if (m_Info.AsyncCreation)
         {
@@ -389,7 +399,7 @@ namespace Flourish::Vulkan
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             beginInfo.pInheritanceInfo = nullptr;
 
-            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "GenerateMipmaps command buffer begin");
         }
 
         // Check if image format supports linear blitting
@@ -502,7 +512,7 @@ namespace Flourish::Vulkan
 
         if (!buffer)
         {
-            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "GenerateMipmaps command buffer end");
 
             Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, allocInfo]()
             {
@@ -538,7 +548,7 @@ namespace Flourish::Vulkan
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             beginInfo.pInheritanceInfo = nullptr;
 
-            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "TransitionImageLayout command buffer begin");
         }
 
         VkImageMemoryBarrier barrier{};
@@ -567,7 +577,7 @@ namespace Flourish::Vulkan
 
         if (!buffer)
         {
-            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "TransitionImageLayout command buffer end");
 
             Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, allocInfo]()
             {
@@ -596,7 +606,13 @@ namespace Flourish::Vulkan
         viewInfo.subresourceRange.layerCount = createInfo.LayerCount;
 
         VkImageView view;
-        FL_VK_CHECK_RESULT(vkCreateImageView(Context::Devices().Device(), &viewInfo, nullptr, &view));
+        if (!FL_VK_CHECK_RESULT(vkCreateImageView(
+            Context::Devices().Device(),
+            &viewInfo,
+            nullptr,
+            &view
+        ), "Create image view"))
+            throw std::exception();
 
         return view;
     }
@@ -640,6 +656,12 @@ namespace Flourish::Vulkan
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = static_cast<float>(m_MipLevels);
 
-        FL_VK_ENSURE_RESULT(vkCreateSampler(Context::Devices().Device(), &samplerInfo, nullptr, &m_Sampler));
+        if (!FL_VK_CHECK_RESULT(vkCreateSampler(
+            Context::Devices().Device(),
+            &samplerInfo,
+            nullptr,
+            &m_Sampler
+        ), "Texture create sampler"))
+            throw std::exception();
     }
 }

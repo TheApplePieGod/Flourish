@@ -102,7 +102,7 @@ namespace Flourish::Vulkan
         for (u32 i = 0; i < createInfo.enabledExtensionCount; i++)
             FL_LOG_INFO("    %s", createInfo.ppEnabledExtensionNames[i]);
 
-        FL_VK_ENSURE_RESULT(vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device));
+        FL_VK_ENSURE_RESULT(vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device), "Create vulkan device");
 
         // Load all device functions for this device. This will have to change
         // if we ever support multiple devices.
@@ -150,7 +150,7 @@ namespace Flourish::Vulkan
             }
         }
         
-        if (indices.IsComplete())
+        if (!indices.IsComplete())
         {
             FL_LOG_DEBUG("Compatible - no. Missing full queue family support");
             return false;

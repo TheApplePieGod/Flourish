@@ -59,7 +59,7 @@ namespace Flourish::Vulkan
         // because it is likely that the present queue is just an alias for a different queue and is not its own thing
         LockQueue(workloadType, true);
         LockPresentQueue(true);
-        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr), "PushCommand queue submit");
         LockPresentQueue(false);
         LockQueue(workloadType, false);
 

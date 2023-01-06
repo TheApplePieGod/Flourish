@@ -12,13 +12,17 @@ namespace Flourish::Vulkan
         if (m_Info.Usage == BufferUsageType::Dynamic)
             m_BufferCount = Flourish::Context::FrameBufferCount();
 
-        #if defined(FL_DEBUG) && defined(FL_LOGGING) 
         if (GetAllocatedSize() == 0)
-        { FL_LOG_WARN("Creating a buffer with zero allocated size"); }
+        {
+            FL_LOG_ERROR("Cannot create a buffer with zero size");
+            throw std::exception();
+        }
+
+        #if defined(FL_DEBUG) && defined(FL_LOGGING) 
         if (m_Info.Usage == BufferUsageType::Static && !m_Info.InitialData)
-        { FL_LOG_WARN("Creating a static buffer with no initial data"); }
+            FL_LOG_WARN("Creating a static buffer with no initial data");
         if (m_Info.Usage == BufferUsageType::Static && GetAllocatedSize() != m_Info.InitialDataSize)
-        { FL_LOG_WARN("Creating a static buffer with initial data of a different size"); }
+            FL_LOG_WARN("Creating a static buffer with initial data of a different size");
         #endif
 
         auto device = Context::Devices().Device();
@@ -36,12 +40,11 @@ namespace Flourish::Vulkan
                 if (m_Info.ElementCount > 1)
                 {
                     VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
-                    FL_ASSERT(
-                        GetStride() % minAlignment == 0,
-                        "Uniform buffer layout must be a multiple of %d but is %d",
-                        minAlignment,
-                        GetStride()
-                    );
+                    if (GetStride() % minAlignment != 0)
+                    {
+                        FL_LOG_ERROR("Uniform buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
+                        throw std::exception();
+                    }
                 }
 
                 bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -53,12 +56,11 @@ namespace Flourish::Vulkan
                 if (m_Info.ElementCount > 1)
                 {
                     VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
-                    FL_ASSERT(
-                        GetStride() % minAlignment == 0,
-                        "Storage buffer layout must be a multiple of %d but is %d",
-                        minAlignment,
-                        GetStride()
-                    );
+                    if (GetStride() % minAlignment != 0)
+                    {
+                        FL_LOG_ERROR("Storage buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
+                        throw std::exception();
+                    }
                 }
 
                 bufCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -92,7 +94,7 @@ namespace Flourish::Vulkan
         
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
         if (m_MemoryDirection == MemoryDirection::GPUToCPU && m_Info.InitialData)
-        { FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have"); }
+            FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have");
         #endif
 
         CreateBuffers(bufCreateInfo);
@@ -107,9 +109,10 @@ namespace Flourish::Vulkan
         {
             for (u32 i = 0; i < bufferCount; i++)
             {
-                if (buffers[i].HasComplement)
+                if (buffers[i].HasComplement && stagingBuffers[i].Buffer)
                     vmaDestroyBuffer(Context::Allocator(), stagingBuffers[i].Buffer, stagingBuffers[i].Allocation);
-                vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
+                if (buffers[i].Buffer)
+                    vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
             }
         }, "Buffer free");
     }
@@ -117,7 +120,7 @@ namespace Flourish::Vulkan
     void Buffer::SetBytes(const void* data, u32 byteCount, u32 byteOffset)
     {
         FL_ASSERT(m_Info.Usage != BufferUsageType::Static, "Attempting to update buffer that is marked as static");
-        FL_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to write buffer data that exceeds buffer size");
+        FL_CRASH_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to write buffer data that exceeds buffer size");
 
         auto& bufferData = GetBufferData();
         if (bufferData.HasComplement)
@@ -128,7 +131,7 @@ namespace Flourish::Vulkan
 
     void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset)
     {
-        FL_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to read buffer data that exceeds buffer size");
+        FL_CRASH_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to read buffer data that exceeds buffer size");
 
         auto& bufferData = GetBufferData();
         if (bufferData.HasComplement)
@@ -179,7 +182,7 @@ namespace Flourish::Vulkan
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             beginInfo.pInheritanceInfo = nullptr;
 
-            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "CopyBufferToBuffer command buffer begin");
         }
 
         VkBufferCopy copy{};
@@ -191,7 +194,7 @@ namespace Flourish::Vulkan
 
         if (!buffer)
         {
-            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "CopyBufferToBuffer command buffer end");
 
             if (execute)
             {
@@ -229,14 +232,15 @@ namespace Flourish::Vulkan
         allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                                 VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-        FL_VK_ENSURE_RESULT(vmaCreateBuffer(
+        if (!FL_VK_CHECK_RESULT(vmaCreateBuffer(
             Context::Allocator(),
             &bufCreateInfo,
             &allocCreateInfo,
             &buffer,
             &alloc,
             &allocInfo
-        ));
+        ), "Buffer create staging buffer"))
+            throw std::exception();
     }
 
     void Buffer::ImageBufferCopyInternal(VkImage image, VkBuffer buffer, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, bool imageSrc, VkCommandBuffer cmdBuf)
@@ -253,7 +257,7 @@ namespace Flourish::Vulkan
             beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
             beginInfo.pInheritanceInfo = nullptr;
 
-            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "ImageBufferCopy command buffer begin");
         }
 
         VkBufferImageCopy region{};
@@ -274,7 +278,7 @@ namespace Flourish::Vulkan
 
         if (!buffer)
         {
-            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer));
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "ImageBufferCopy command buffer end");
             
             Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
             {
@@ -316,14 +320,15 @@ namespace Flourish::Vulkan
         // TODO: handle edge case when some parts of the buffer may be staging and others are dynamic host
         for (u32 i = 0; i < m_BufferCount; i++)
         {
-            FL_VK_ENSURE_RESULT(vmaCreateBuffer(
+            if (!FL_VK_CHECK_RESULT(vmaCreateBuffer(
                 Context::Allocator(),
                 &bufCreateInfo,
                 &allocCreateInfo,
                 &m_Buffers[i].Buffer,
                 &m_Buffers[i].Allocation,
                 &m_Buffers[i].AllocationInfo
-            ));
+            ), "Buffer create buffer"))
+                throw std::exception();
 
             if (dynamicHostBuffer)
             {

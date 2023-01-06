@@ -19,7 +19,7 @@ namespace Flourish::Vulkan
 
     private:
         DescriptorSetLayout m_DescriptorSetLayout;
-        VkPipelineLayout m_PipelineLayout;
-        VkPipeline m_Pipeline;
+        VkPipelineLayout m_PipelineLayout = nullptr;
+        VkPipeline m_Pipeline = nullptr;
     };
 }

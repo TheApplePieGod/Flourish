@@ -146,7 +146,7 @@ namespace Flourish::Vulkan
             &pipelineLayoutInfo,
             nullptr,
             &m_PipelineLayout
-        ), "GraphicsPipeline create layout")
+        ), "GraphicsPipeline create layout"))
             throw std::exception();
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
@@ -201,7 +201,7 @@ namespace Flourish::Vulkan
                 &pipelineInfo,
                 nullptr,
                 &pipeline
-            ), "GraphicsPipeline create pipeline")
+            ), "GraphicsPipeline create pipeline"))
                 throw std::exception();
 
             m_Pipelines[m_Info.CompatibleSubpasses[i]] = pipeline;

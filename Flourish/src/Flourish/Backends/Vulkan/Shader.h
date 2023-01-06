@@ -21,6 +21,6 @@ namespace Flourish::Vulkan
         void Reflect(const std::vector<u32>& compiledData);
 
     private:
-        VkShaderModule m_ShaderModule;
+        VkShaderModule m_ShaderModule = nullptr;
     };
 }

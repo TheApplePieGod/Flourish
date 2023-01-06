@@ -52,7 +52,11 @@ namespace Flourish::Vulkan
                     FreeGraphics.resize(FreeGraphicsPtr + bufferCount);
 
                     allocInfo.commandPool = Pools.GraphicsPool;
-                    FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, FreeGraphics.data() + FreeGraphicsPtr));
+                    if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
+                        Context::Devices().Device(),
+                        &allocInfo, FreeGraphics.data() + FreeGraphicsPtr
+                    ), "Allocate frame command buffers"))
+                        throw std::exception();
                 }
 
                 memcpy(buffers, FreeGraphics.data() + FreeGraphicsPtr, bufferCount * sizeof(VkCommandBuffer));
@@ -66,7 +70,11 @@ namespace Flourish::Vulkan
                     FreeTransfer.resize(FreeTransferPtr + bufferCount);
 
                     allocInfo.commandPool = Pools.TransferPool;
-                    FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, FreeTransfer.data() + FreeTransferPtr));
+                    if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
+                        Context::Devices().Device(),
+                        &allocInfo, FreeTransfer.data() + FreeTransferPtr
+                    ), "Allocate frame command buffers"))
+                        throw std::exception();
                 }
 
                 memcpy(buffers, FreeTransfer.data() + FreeTransferPtr, bufferCount * sizeof(VkCommandBuffer));
@@ -80,7 +88,11 @@ namespace Flourish::Vulkan
                     FreeCompute.resize(FreeComputePtr + bufferCount);
 
                     allocInfo.commandPool = Pools.ComputePool;
-                    FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, FreeCompute.data() + FreeComputePtr));
+                    if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
+                        Context::Devices().Device(),
+                        &allocInfo, FreeCompute.data() + FreeComputePtr
+                    ), "Allocate frame command buffers"))
+                        throw std::exception();
                 }
 
                 memcpy(buffers, FreeCompute.data() + FreeComputePtr, bufferCount * sizeof(VkCommandBuffer));
@@ -229,7 +241,12 @@ namespace Flourish::Vulkan
             allocInfo.commandPool = GetPersistentPool(workloadType);
             FreeQueuedBuffers(s_ThreadPools.PersistentPools.get());
 
-            FL_VK_ENSURE_RESULT(vkAllocateCommandBuffers(Context::Devices().Device(), &allocInfo, buffers));
+            if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
+                Context::Devices().Device(),
+                &allocInfo,
+                buffers
+            ), "Allocate persistent command buffers"))
+                throw std::exception();
         }
         else
         {
@@ -299,15 +316,33 @@ namespace Flourish::Vulkan
         if (allowReset)
             poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->GraphicsPool));
+        if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
+            device,
+            &poolInfo,
+            nullptr,
+            &pools->GraphicsPool
+        ), "Create command pool"))
+            throw std::exception();
         
         poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Compute);
 
-        FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->ComputePool));
+        if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
+            device,
+            &poolInfo,
+            nullptr,
+            &pools->ComputePool
+        ), "Create command pool"))
+            throw std::exception();
 
         poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Transfer);
 
-        FL_VK_ENSURE_RESULT(vkCreateCommandPool(device, &poolInfo, nullptr, &pools->TransferPool));
+        if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
+            device,
+            &poolInfo,
+            nullptr,
+            &pools->TransferPool
+        ), "Create command pool"))
+            throw std::exception();
     }
 
     void Commands::DestroyPools(CommandPools* pools)
@@ -370,9 +405,9 @@ namespace Flourish::Vulkan
             pools->FreeGraphicsPtr = 0;
             pools->FreeComputePtr = 0;
             pools->FreeTransferPtr = 0;
-            vkResetCommandPool(device, pools->Pools.GraphicsPool, 0);
-            vkResetCommandPool(device, pools->Pools.ComputePool, 0);
-            vkResetCommandPool(device, pools->Pools.TransferPool, 0);
+            FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pools->Pools.GraphicsPool, 0), "Reset command pool");
+            FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pools->Pools.ComputePool, 0), "Reset command pool");
+            FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pools->Pools.TransferPool, 0), "Reset command pool");
         }
     }
 }

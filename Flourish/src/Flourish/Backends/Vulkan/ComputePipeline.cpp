@@ -20,13 +20,26 @@ namespace Flourish::Vulkan
         pipelineLayoutInfo.pSetLayouts = layout;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
-        FL_VK_ENSURE_RESULT(vkCreatePipelineLayout(Context::Devices().Device(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout));
+        if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
+            Context::Devices().Device(),
+            &pipelineLayoutInfo,
+            nullptr,
+            &m_PipelineLayout
+        ), "ComputePipeline create layout"))
+            throw std::exception();
 
         VkComputePipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         pipelineInfo.layout = m_PipelineLayout;
         pipelineInfo.stage = shaderStage;
-        FL_VK_ENSURE_RESULT(vkCreateComputePipelines(Context::Devices().Device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline));
+        if (!FL_VK_CHECK_RESULT(vkCreateComputePipelines(
+            Context::Devices().Device(),
+            VK_NULL_HANDLE,
+            1, &pipelineInfo,
+            nullptr,
+            &m_Pipeline
+        ), "ComputePipeline create pipeline"))
+            throw std::exception();
     }
 
     ComputePipeline::~ComputePipeline()
@@ -37,8 +50,10 @@ namespace Flourish::Vulkan
         auto layout = m_PipelineLayout;
         Context::FinalizerQueue().Push([=]()
         {
-            vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
-            vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
+            if (pipeline)
+                vkDestroyPipeline(Context::Devices().Device(), pipeline, nullptr);
+            if (layout)
+                vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Compute pipeline free");
     }
 }

@@ -67,7 +67,7 @@ namespace Flourish::Vulkan
             &layoutInfo,
             nullptr,
             &m_Layout
-        ), "DescriptorSet create layout")
+        ), "DescriptorSet create layout"))
             throw std::exception();
 
         // Populate cached layouts because one is needed for each allocation
@@ -249,7 +249,12 @@ namespace Flourish::Vulkan
         poolInfo.flags = 0;
 
         VkDescriptorPool pool;
-        FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(Context::Devices().Device(), &poolInfo, nullptr, &pool));
+        FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(
+            Context::Devices().Device(),
+            &poolInfo,
+            nullptr,
+            &pool
+        ), "DescriptorSet create pool");
 
         return pool;
     }

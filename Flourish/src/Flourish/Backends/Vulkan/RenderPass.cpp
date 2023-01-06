@@ -238,7 +238,13 @@ namespace Flourish::Vulkan
         renderPassInfo.dependencyCount = static_cast<u32>(dependencies.size());;
         renderPassInfo.pDependencies = dependencies.data();
         
-        FL_VK_ENSURE_RESULT(vkCreateRenderPass2(Context::Devices().Device(), &renderPassInfo, nullptr, &m_RenderPass));
+        if (!FL_VK_CHECK_RESULT(vkCreateRenderPass2(
+            Context::Devices().Device(),
+            &renderPassInfo,
+            nullptr,
+            &m_RenderPass
+        ), "RenderPass create renderpass"))
+            throw std::exception();
     }
 
     RenderPass::~RenderPass()
@@ -246,7 +252,8 @@ namespace Flourish::Vulkan
         auto renderPass = m_RenderPass;
         Context::FinalizerQueue().Push([=]()
         {
-            vkDestroyRenderPass(Context::Devices().Device(), renderPass, nullptr);
+            if (renderPass)
+                vkDestroyRenderPass(Context::Devices().Device(), renderPass, nullptr);
         }, "RenderPass free");
     }
 

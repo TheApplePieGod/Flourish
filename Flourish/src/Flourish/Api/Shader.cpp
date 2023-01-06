@@ -17,10 +17,9 @@ namespace Flourish
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::Shader>(createInfo); }
             }
         }
-        catch (const std::exception& e)
-            return nullptr;
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "Shader not supported for backend");
+        FL_ASSERT(false, "Failed to create shader");
         return nullptr;
     }
 }

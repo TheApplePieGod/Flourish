@@ -177,7 +177,13 @@ namespace Flourish::Vulkan
             framebufferInfo.height = m_Info.Height;
             framebufferInfo.layers = 1;
             
-            FL_VK_ENSURE_RESULT(vkCreateFramebuffer(Context::Devices().Device(), &framebufferInfo, nullptr, &m_Framebuffers[frame]));
+            if (!FL_VK_CHECK_RESULT(vkCreateFramebuffer(
+                Context::Devices().Device(),
+                &framebufferInfo,
+                nullptr,
+                &m_Framebuffers[frame]
+            ), "Framebuffer create framebuffer"))
+                throw std::exception();
         }
     }
 
@@ -190,10 +196,12 @@ namespace Flourish::Vulkan
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
-                vkDestroyFramebuffer(device, framebuffers[frame], nullptr);
+                if (framebuffers[frame])
+                    vkDestroyFramebuffer(device, framebuffers[frame], nullptr);
                 
                 for (auto& imageData : images[frame])
                 {
+                    if (!imageData.Image) continue;
                     vkDestroyImageView(device, imageData.ImageView, nullptr);
                     vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
                 }
@@ -207,14 +215,15 @@ namespace Flourish::Vulkan
         VmaAllocationCreateInfo allocCreateInfo{};
         allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-        vmaCreateImage(
+        if (!FL_VK_CHECK_RESULT(vmaCreateImage(
             Context::Allocator(),
             &imgInfo,
             &allocCreateInfo,
             &imageData.Image,
             &imageData.Allocation,
             &imageData.AllocationInfo
-        );
+        ), "Framebuffer create image"))
+            throw std::exception();
 
         ImageViewCreateInfo viewCreateInfo;
         viewCreateInfo.Format = imgInfo.format;

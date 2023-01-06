@@ -17,10 +17,9 @@ namespace Flourish
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::ComputeTarget>(); }
             }
         }
-        catch (const std::exception& e)
-            return nullptr;
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "ComputeTarget not supported for backend");
+        FL_ASSERT(false, "Failed to create ComputeTarget");
         return nullptr;
     }
 }

@@ -18,12 +18,16 @@ namespace Flourish
 
         FL_LOG_DEBUG("Registering graphics pipeline '%s' to RenderPass", name.data());
 
+        std::shared_ptr<GraphicsPipeline> newPipeline;
         try
         {
-            auto newPipeline = CreatePipeline(createInfo);
+            newPipeline = CreatePipeline(createInfo);
         }
         catch (const std::exception& e)
+        {
+            FL_ASSERT(false, "Failed to create graphics pipeline");
             return nullptr;
+        }
 
         m_Pipelines[nameStr] = newPipeline;
         return newPipeline;
