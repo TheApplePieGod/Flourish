@@ -9,6 +9,8 @@ namespace Flourish::Vulkan
 {
     void SubmissionHandler::Initialize()
     {
+        FL_LOG_TRACE("Vulkan submission handler initialization begin");
+        
         // This will last for a very high number of submissions
         m_FrameSubmissionData.CompletionSemaphores.reserve(500);
         m_FrameSubmissionData.CompletionSemaphoreValues.reserve(500);
@@ -23,7 +25,7 @@ namespace Flourish::Vulkan
     
     void SubmissionHandler::Shutdown()
     {
-
+        FL_LOG_TRACE("Vulkan submission handler shutdown begin");
     }
 
     void SubmissionHandler::WaitOnFrameSemaphores()

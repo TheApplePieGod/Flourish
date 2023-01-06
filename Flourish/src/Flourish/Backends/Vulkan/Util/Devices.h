@@ -21,6 +21,7 @@ namespace Flourish::Vulkan
         void PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
         void PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo);
         VkSampleCountFlagBits GetMaxSampleCount();
+        void DumpDeviceInfo(LogLevel logLevel, const VkPhysicalDeviceProperties& props);
 
     private:
         VkPhysicalDevice m_PhysicalDevice;

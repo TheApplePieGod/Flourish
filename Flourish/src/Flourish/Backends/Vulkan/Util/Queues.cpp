@@ -8,6 +8,8 @@ namespace Flourish::Vulkan
 {
     void Queues::Initialize()
     {
+        FL_LOG_TRACE("Vulkan queues initialization begin");
+
         auto indices = GetQueueFamilies(Context::Devices().PhysicalDevice());
 
         m_GraphicsQueue.QueueIndex = indices.GraphicsFamily.value();
@@ -26,6 +28,8 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
+        FL_LOG_TRACE("Vulkan queues shutdown begin");
+
         for (auto semaphore : m_UnusedSemaphores)
             vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
     }

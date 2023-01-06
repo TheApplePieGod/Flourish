@@ -100,11 +100,13 @@ namespace Flourish::Vulkan
 
     void Commands::Initialize()
     {
-
+        FL_LOG_TRACE("Vulkan commands initialization begin");
     }
 
     void Commands::Shutdown()
     {
+        FL_LOG_TRACE("Vulkan commands shutdown begin");
+
         auto device = Context::Devices().Device();
 
         for (auto& pair : m_PoolsInUse)

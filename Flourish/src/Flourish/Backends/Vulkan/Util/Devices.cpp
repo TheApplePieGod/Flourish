@@ -8,6 +8,8 @@ namespace Flourish::Vulkan
 {
     void Devices::Initialize(const ContextInitializeInfo& initInfo)
     {
+        FL_LOG_TRACE("Vulkan device initialization begin");
+
         VkInstance instance = Context::Instance();
 
         // Required physical device extensions
@@ -36,10 +38,14 @@ namespace Flourish::Vulkan
                 vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_PhysicalDeviceProperties);
                 m_DeviceMaxSampleCount = GetMaxSampleCount();
 
+                FL_LOG_DEBUG("Compatible - yes. Using this device");
+                FL_LOG_INFO("Found a compatible graphics device");
+                DumpDeviceInfo(LogLevel::Info, m_PhysicalDeviceProperties);
+
                 break;
             }
         }
-        FL_CRASH_ASSERT(m_PhysicalDevice, "Unable to find a compatible gpu while initializing");
+        FL_CRASH_ASSERT(m_PhysicalDevice, "Unable to find a compatible graphics device while initializing");
 
         PopulateOptionalExtensions(deviceExtensions, initInfo);
 
@@ -92,6 +98,10 @@ namespace Flourish::Vulkan
             createInfo.enabledLayerCount = 0;
         #endif
 
+        FL_LOG_INFO("%d vulkan device extensions enabled", createInfo.enabledExtensionCount);
+        for (u32 i = 0; i < createInfo.enabledExtensionCount; i++)
+            FL_LOG_INFO("    %s", createInfo.ppEnabledExtensionNames[i]);
+
         FL_VK_ENSURE_RESULT(vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device));
 
         // Load all device functions for this device. This will have to change
@@ -101,6 +111,8 @@ namespace Flourish::Vulkan
 
     void Devices::Shutdown()
     {
+        FL_LOG_TRACE("Vulkan device shutdown begin");
+
         vkDestroyDevice(m_Device, nullptr);
         m_Device = nullptr;
         m_PhysicalDevice = nullptr;
@@ -109,6 +121,18 @@ namespace Flourish::Vulkan
     bool Devices::CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions)
     {
         QueueFamilyIndices indices = Queues::GetQueueFamilies(device);
+        
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(device, &props);
+        
+        FL_LOG_DEBUG("Checking compatability of graphics device");
+        DumpDeviceInfo(LogLevel::Debug, props);
+        
+        if (props.apiVersion < Context::VulkanApiVersion)
+        {
+            FL_LOG_DEBUG("Compatible - no. Vulkan version too low");
+            return false;
+        }
 
         // Get hardware extension support
         u32 supportedExtensionCount = 0;
@@ -118,10 +142,21 @@ namespace Flourish::Vulkan
 
         // Ensure extension compatability
         for (auto extension : extensions)
+        {
             if (!Common::SupportsExtension(supportedExtensions, extension))
+            {
+                FL_LOG_DEBUG("Compatible - no. Missing required extension %s", extension);
                 return false;
+            }
+        }
         
-        return indices.IsComplete();
+        if (indices.IsComplete())
+        {
+            FL_LOG_DEBUG("Compatible - no. Missing full queue family support");
+            return false;
+        }
+            
+        return true;
     }
 
     void Devices::PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
@@ -179,5 +214,35 @@ namespace Flourish::Vulkan
         if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
 
         return VK_SAMPLE_COUNT_1_BIT;
+    }
+
+    void Devices::DumpDeviceInfo(LogLevel logLevel, const VkPhysicalDeviceProperties& props)
+    {
+        const char* deviceTypeName = "Other";
+        switch (props.deviceType)
+        {
+            default: break;
+            case VK_PHYSICAL_DEVICE_TYPE_CPU:
+            { deviceTypeName = "CPU"; } break;
+            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+            { deviceTypeName = "Discrete GPU"; } break;
+            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+            { deviceTypeName = "Integrated GPU"; } break;
+            case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+            { deviceTypeName = "Virtual GPU"; } break;
+        }
+
+        FL_LOG(logLevel, "Device (ID %d)", props.deviceID);       
+        FL_LOG(logLevel, "    Name: %s", props.deviceName);
+        FL_LOG(logLevel, "    Type: %s", deviceTypeName);
+        FL_LOG(logLevel, "    Vendor: %d", props.vendorID);
+        FL_LOG(logLevel, "    Driver Ver: %d", props.driverVersion);
+        FL_LOG(
+            logLevel,
+            "    Vulkan Ver: %d.%d.%d",
+            VK_API_VERSION_MAJOR(props.apiVersion),
+            VK_API_VERSION_MINOR(props.apiVersion),
+            VK_API_VERSION_PATCH(props.apiVersion)
+        );
     }
 }
