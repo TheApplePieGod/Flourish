@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Core/Log.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
@@ -21,6 +22,7 @@ namespace Flourish::Vulkan
         void PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
         void PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo);
         VkSampleCountFlagBits GetMaxSampleCount();
+        void DumpDeviceInfo(LogLevel logLevel, const VkPhysicalDeviceProperties& props);
 
     private:
         VkPhysicalDevice m_PhysicalDevice;

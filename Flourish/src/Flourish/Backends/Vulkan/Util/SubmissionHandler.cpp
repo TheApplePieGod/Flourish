@@ -9,6 +9,8 @@ namespace Flourish::Vulkan
 {
     void SubmissionHandler::Initialize()
     {
+        FL_LOG_TRACE("Vulkan submission handler initialization begin");
+        
         // This will last for a very high number of submissions
         m_FrameSubmissionData.CompletionSemaphores.reserve(500);
         m_FrameSubmissionData.CompletionSemaphoreValues.reserve(500);
@@ -23,7 +25,7 @@ namespace Flourish::Vulkan
     
     void SubmissionHandler::Shutdown()
     {
-
+        FL_LOG_TRACE("Vulkan submission handler shutdown begin");
     }
 
     void SubmissionHandler::WaitOnFrameSemaphores()
@@ -209,7 +211,7 @@ namespace Flourish::Vulkan
                     FL_VK_ENSURE_RESULT(vkQueueSubmit(
                         Context::Queues().Queue(workloadType),
                         1, &subData.SubmitInfos[i], nullptr
-                    ));
+                    ), "Submission handler initial workload submit");
                     Context::Queues().LockQueue(workloadType, false);
                 }
             }
@@ -244,7 +246,7 @@ namespace Flourish::Vulkan
                 static_cast<u32>(submissionData.GraphicsSubmitInfos.size()),
                 submissionData.GraphicsSubmitInfos.data(),
                 nullptr
-            ));
+            ), "Submission handler final graphics submit");
             Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
         }
         if (!submissionData.ComputeSubmitInfos.empty())
@@ -255,7 +257,7 @@ namespace Flourish::Vulkan
                 static_cast<u32>(submissionData.ComputeSubmitInfos.size()),
                 submissionData.ComputeSubmitInfos.data(),
                 nullptr
-            ));
+            ), "Submission handler final compute submit");
             Context::Queues().LockQueue(GPUWorkloadType::Compute, false);
         }
         if (!submissionData.TransferSubmitInfos.empty())
@@ -266,7 +268,7 @@ namespace Flourish::Vulkan
                 static_cast<u32>(submissionData.TransferSubmitInfos.size()),
                 submissionData.TransferSubmitInfos.data(),
                 nullptr
-            ));
+            ), "Submission handler final transfer submit");
             Context::Queues().LockQueue(GPUWorkloadType::Transfer, false);
         }
 
@@ -299,8 +301,13 @@ namespace Flourish::Vulkan
                 Context::Queues().LockPresentQueue(true);
                 auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
                 Context::Queues().LockPresentQueue(false);
-                if (result == VK_ERROR_OUT_OF_DATE_KHR)
+                if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
                     context->Swapchain().Recreate();
+                else if (result != VK_SUCCESS)
+                {
+                    FL_LOG_CRITICAL("Failed to present with error %d", result);
+                    throw std::exception();
+                }
             }
         }
     }

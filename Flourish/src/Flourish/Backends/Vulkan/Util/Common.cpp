@@ -282,7 +282,7 @@ namespace Flourish::Vulkan
         return VK_SAMPLER_REDUCTION_MODE_MAX_ENUM;
     }
 
-    void Common::CheckResult(VkResult result, bool ensure)
+    bool Common::CheckResult(VkResult result, bool ensure, const char* name)
     {
         /*
         #if defined(FL_DEBUG)
@@ -292,8 +292,10 @@ namespace Flourish::Vulkan
         */
 
         if (ensure)
-        { FL_CRASH_ASSERT(result == VK_SUCCESS, "Critical vulkan function failed with error %d", result); }
+        { FL_CRASH_ASSERT(result == VK_SUCCESS, "%s critically failed with error %d", name, result); }
         else
-        { FL_ASSERT(result == VK_SUCCESS, "Vulkan function failed with error %d", result); }
+        { FL_ASSERT(result == VK_SUCCESS, "%s failed with error %d", name, result); }
+        
+        return result == VK_SUCCESS;
     }
 }

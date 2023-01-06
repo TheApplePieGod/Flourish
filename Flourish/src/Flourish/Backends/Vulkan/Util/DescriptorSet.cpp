@@ -62,7 +62,13 @@ namespace Flourish::Vulkan
         layoutInfo.bindingCount = static_cast<u32>(bindings.size());
         layoutInfo.pBindings = bindings.data();
 
-        FL_VK_ENSURE_RESULT(vkCreateDescriptorSetLayout(Context::Devices().Device(), &layoutInfo, nullptr, &m_Layout));
+        if(!FL_VK_CHECK_RESULT(vkCreateDescriptorSetLayout(
+            Context::Devices().Device(),
+            &layoutInfo,
+            nullptr,
+            &m_Layout
+        ), "DescriptorSet create layout"))
+            throw std::exception();
 
         // Populate cached layouts because one is needed for each allocation
         for (u32 i = 0; i < MaxSetsPerPool; i++)
@@ -123,10 +129,11 @@ namespace Flourish::Vulkan
         boundResource.Offset = offset;
         boundResource.Size = size;
 
-        FL_CRASH_ASSERT(
-            bindingIndex < m_Layout.GetBindings().size() && m_Layout.GetBindings()[bindingIndex].Exists,
-            "Attempting to update a descriptor binding that doesn't exist in the shader"
-        );
+        if (bindingIndex >= m_Layout.GetBindings().size() || !m_Layout.GetBindings()[bindingIndex].Exists)
+        {
+            FL_LOG_ERROR("Attempting to update descriptor binding %d that doesn't exist in the shader", bindingIndex);
+            throw std::exception();
+        }
 
         u32 bufferInfoBaseIndex = bindingIndex;
         u32 imageInfoBaseIndex = bindingIndex * DescriptorSetLayout::MaxDescriptorArrayCount;
@@ -242,7 +249,12 @@ namespace Flourish::Vulkan
         poolInfo.flags = 0;
 
         VkDescriptorPool pool;
-        FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(Context::Devices().Device(), &poolInfo, nullptr, &pool));
+        FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(
+            Context::Devices().Device(),
+            &poolInfo,
+            nullptr,
+            &pool
+        ), "DescriptorSet create pool");
 
         return pool;
     }

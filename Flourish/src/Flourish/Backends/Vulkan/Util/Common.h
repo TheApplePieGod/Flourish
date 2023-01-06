@@ -28,14 +28,14 @@ namespace Flourish::Vulkan
         static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
         static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);
 
-        static void CheckResult(VkResult result, bool ensure);
+        static bool CheckResult(VkResult result, bool ensure, const char* name);
     };
 }
 
 #ifdef FL_DEBUG
-    #define FL_VK_CHECK_RESULT(func) { auto result = func; ::Flourish::Vulkan::Common::CheckResult(result, false); }
+    #define FL_VK_CHECK_RESULT(func, name) ::Flourish::Vulkan::Common::CheckResult(func, false, name)
 #else
-    #define FL_VK_CHECK_RESULT(func) func
+    #define FL_VK_CHECK_RESULT(func, name) func
 #endif
 
-#define FL_VK_ENSURE_RESULT(func) { auto result = func; ::Flourish::Vulkan::Common::CheckResult(result, true); }
+#define FL_VK_ENSURE_RESULT(func, name) { auto result = func; ::Flourish::Vulkan::Common::CheckResult(result, true, name); }

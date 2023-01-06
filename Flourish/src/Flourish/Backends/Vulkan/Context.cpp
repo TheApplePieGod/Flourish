@@ -26,8 +26,10 @@ namespace Flourish::Vulkan
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
+        FL_LOG_DEBUG("Initializing vulkan context");
+        
         // Initialize the vulkan loader
-        FL_VK_ENSURE_RESULT(volkInitialize());
+        FL_VK_ENSURE_RESULT(volkInitialize(), "Vulkan loader initialization");
 
         SetupInstance(initInfo);
         s_Devices.Initialize(initInfo);
@@ -46,9 +48,11 @@ namespace Flourish::Vulkan
 
         Sync();
 
+        FL_LOG_TRACE("Running vulkan finalizer pass #1");
         s_FinalizerQueue.Shutdown();
         if (finalizer)
             finalizer();
+        FL_LOG_TRACE("Running vulkan finalizer pass #2");
         s_FinalizerQueue.Shutdown();
         s_Queues.Shutdown();
         s_SubmissionHandler.Shutdown();
@@ -62,6 +66,7 @@ namespace Flourish::Vulkan
             if (destroyDebugUtilsFunc)
                 destroyDebugUtilsFunc(s_Instance, s_DebugMessenger, nullptr);
         #endif
+        FL_LOG_TRACE("Destroying vulkan instance");
         vkDestroyInstance(s_Instance, nullptr);
 
         FL_LOG_DEBUG("Vulkan context shutdown complete");
@@ -80,6 +85,8 @@ namespace Flourish::Vulkan
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
     {
+        FL_LOG_TRACE("Vulkan instance setup begin");
+
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = initInfo.ApplicationName;
@@ -124,7 +131,7 @@ namespace Flourish::Vulkan
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
         #if FL_DEBUG
-            FL_LOG_DEBUG("Configuring validation layers");
+            FL_LOG_TRACE("Configuring validation layers");
             const char* debugExt = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
             bool supportsDebug = Common::SupportsExtension(supportedExtensions, debugExt);
             if (supportsDebug)
@@ -132,6 +139,9 @@ namespace Flourish::Vulkan
             ConfigureValidationLayers();
             createInfo.enabledLayerCount = static_cast<u32>(s_ValidationLayers.size());
             createInfo.ppEnabledLayerNames = s_ValidationLayers.data();
+            FL_LOG_INFO("%d vulkan validation layers enabled", createInfo.enabledLayerCount);
+            for (u32 i = 0; i < createInfo.enabledLayerCount; i++)
+                FL_LOG_INFO("    %s", createInfo.ppEnabledLayerNames[i]);
         #else
             createInfo.enabledLayerCount = 0;
         #endif
@@ -140,8 +150,12 @@ namespace Flourish::Vulkan
         #ifdef FL_PLATFORM_MACOS
             createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
         #endif
+
+        FL_LOG_INFO("%d vulkan instance extensions enabled", createInfo.enabledExtensionCount);
+        for (u32 i = 0; i < createInfo.enabledExtensionCount; i++)
+            FL_LOG_INFO("    %s", createInfo.ppEnabledExtensionNames[i]);
         
-        FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance));
+        FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance), "Vulkan create instance");
 
         // Load all instance functions
         volkLoadInstance(s_Instance);
@@ -167,7 +181,7 @@ namespace Flourish::Vulkan
                     success = func(s_Instance, &createInfo, nullptr, &s_DebugMessenger) == VK_SUCCESS;
             
                 if (!success)
-                    FL_LOG_WARN("Unable to initialize debug utilities") ;
+                    FL_LOG_WARN("Unable to initialize vulkan debug utilities") ;
             }   
         #endif
     }
@@ -185,7 +199,7 @@ namespace Flourish::Vulkan
         createInfo.vulkanApiVersion = VulkanApiVersion;
         createInfo.pVulkanFunctions = &vulkanFunctions;
 
-        vmaCreateAllocator(&createInfo, &s_Allocator);
+        FL_VK_ENSURE_RESULT(vmaCreateAllocator(&createInfo, &s_Allocator), "Vulkan create allocator");
     }
 
     void Context::ConfigureValidationLayers()

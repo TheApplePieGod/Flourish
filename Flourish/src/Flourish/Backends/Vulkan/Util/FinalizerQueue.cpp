@@ -7,7 +7,7 @@ namespace Flourish::Vulkan
 {
     void FinalizerQueue::Initialize()
     {
-        
+        FL_LOG_TRACE("Vulkan finalizer queue initialization begin");
     }
 
     void FinalizerQueue::Shutdown()

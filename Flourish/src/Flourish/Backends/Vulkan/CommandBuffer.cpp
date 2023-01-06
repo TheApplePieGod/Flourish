@@ -12,7 +12,11 @@ namespace Flourish::Vulkan
     CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary)
         : Flourish::CommandBuffer(createInfo)
     {
-        FL_ASSERT(m_Info.MaxEncoders > 0, "Cannot create a command buffer with no encoders");
+        if (m_Info.MaxEncoders == 0)
+        {
+            FL_LOG_ERROR("Cannot create a command buffer with no encoders");
+            throw std::exception();
+        }
 
         m_EncoderSubmissions.reserve(m_Info.MaxEncoders);
 
@@ -35,7 +39,8 @@ namespace Flourish::Vulkan
         Context::FinalizerQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
+                if (semaphores[frame])
+                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
         }, "Command buffer free");
     }
     

@@ -36,6 +36,7 @@ namespace Flourish
 }
 
 #ifdef FL_LOGGING
+    #define FL_LOG(...) ::Flourish::Logger::Log(__VA_ARGS__)
     #define FL_LOG_TRACE(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Trace, __VA_ARGS__)
     #define FL_LOG_DEBUG(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Debug, __VA_ARGS__)
     #define FL_LOG_INFO(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Info, __VA_ARGS__)
@@ -43,6 +44,7 @@ namespace Flourish
     #define FL_LOG_ERROR(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Error, __VA_ARGS__)
     #define FL_LOG_CRITICAL(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Critical, __VA_ARGS__)
 #else
+    #define FL_LOG(...)
     #define FL_LOG_TRACE(...)
     #define FL_LOG_DEBUG(...)
     #define FL_LOG_INFO(...)

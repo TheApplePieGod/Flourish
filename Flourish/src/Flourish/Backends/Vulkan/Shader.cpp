@@ -140,7 +140,13 @@ namespace Flourish::Vulkan
         modCreateInfo.codeSize = compiled.size() * sizeof(u32);
         modCreateInfo.pCode = compiled.data();
 
-        FL_VK_ENSURE_RESULT(vkCreateShaderModule(Context::Devices().Device(), &modCreateInfo, nullptr, &m_ShaderModule));
+        if (!FL_VK_CHECK_RESULT(vkCreateShaderModule(
+            Context::Devices().Device(),
+            &modCreateInfo,
+            nullptr,
+            &m_ShaderModule
+        ), "Shader create shader module"))
+            throw std::exception();
     }
 
     Shader::~Shader()
@@ -150,7 +156,8 @@ namespace Flourish::Vulkan
         auto mod = m_ShaderModule;
         Context::FinalizerQueue().Push([=]()
         {
-            vkDestroyShaderModule(Context::Devices().Device(), mod, nullptr);
+            if (mod)
+                vkDestroyShaderModule(Context::Devices().Device(), mod, nullptr);
         }, "Shader free");
     }
 
@@ -224,7 +231,11 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 
-            FL_ASSERT(set == 0, "The 'set' glsl qualifier is currently unsupported and must be zero");
+            if (set != 0)
+            {
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on uniform %s", set, resource.name.c_str());
+                throw std::exception();
+            }
 		}
 
         if (resources.storage_buffers.size() > 0)
@@ -245,7 +256,11 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 
-            FL_ASSERT(set == 0, "The 'set' glsl qualifier is currently unsupported and must be zero");
+            if (set != 0)
+            {
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on storage %s", set, resource.name.c_str());
+                throw std::exception();
+            }
 		}
 
         if (resources.sampled_images.size() > 0)
@@ -263,7 +278,11 @@ namespace Flourish::Vulkan
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
-            FL_ASSERT(set == 0, "The 'set' glsl qualifier is currently unsupported and must be zero");
+            if (set != 0)
+            {
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on sampler %s", set, resource.name.c_str());
+                throw std::exception();
+            }
 		}
 
         if (resources.storage_images.size() > 0)
@@ -281,7 +300,11 @@ namespace Flourish::Vulkan
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
-            FL_ASSERT(set == 0, "The 'set' glsl qualifier is currently unsupported and must be zero");
+            if (set != 0)
+            {
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on image %s", set, resource.name.c_str());
+                throw std::exception();
+            }
 		}
 
         if (resources.subpass_inputs.size() > 0)
@@ -300,7 +323,11 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
             FL_LOG_DEBUG("      AttachmentIndex = %d", attachmentIndex);
 
-            FL_ASSERT(set == 0, "The 'set' glsl qualifier is currently unsupported and must be zero");
+            if (set != 0)
+            {
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on subpass %s", set, resource.name.c_str());
+                throw std::exception();
+            }
 		}
     }
 }

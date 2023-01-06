@@ -18,7 +18,7 @@ namespace Flourish::Vulkan
 
         // Create the surface
         #ifdef FL_USE_GLFW
-            glfwCreateWindowSurface(instance, createInfo.Window, nullptr, &m_Surface);
+            auto result = glfwCreateWindowSurface(instance, createInfo.Window, nullptr, &m_Surface);
         #elif defined(FL_PLATFORM_WINDOWS)
             VkWin32SurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -26,7 +26,7 @@ namespace Flourish::Vulkan
             surfaceInfo.hinstance = createInfo.Instance;
             surfaceInfo.hwnd = createInfo.Window;
 
-            vkCreateWin32SurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
+            auto result = vkCreateWin32SurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
         #elif defined(FL_PLATFORM_LINUX)
             VkXcbSurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
@@ -34,17 +34,20 @@ namespace Flourish::Vulkan
             surfaceInfo.connection = createInfo.connection;
             surfaceInfo.window = createInfo.window;
 
-            vkCreateXcbSurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
+            auto result = vkCreateXcbSurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
         #else
             VkMacOSSurfaceCreateInfoMVK surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
             surfaceInfo.pView = createInfo.NSView;
 
-            vkCreateMacOSSurfaceMVK(instance, &surfaceInfo, nullptr, &m_Surface);
+            auto result = vkCreateMacOSSurfaceMVK(instance, &surfaceInfo, nullptr, &m_Surface);
         #endif
 
-        FL_ASSERT(m_Surface, "Unable to create window surface");
-        if (!m_Surface) return;
+        if (!m_Surface)
+        {
+            FL_LOG_ERROR("RenderContext window surface failed to create with error %d", result);
+            throw std::exception();
+        }
 
         m_Swapchain.Initialize(createInfo, m_Surface);
         
@@ -65,11 +68,14 @@ namespace Flourish::Vulkan
         auto semaphores = m_SubmissionData.SignalSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
-            vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
+            if (surface)
+                vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
+                if (semaphores[frame][0])
+                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
+                if (semaphores[frame][1])
+                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
             }
         }, "Render context free");
     }
