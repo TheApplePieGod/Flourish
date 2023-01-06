@@ -75,7 +75,11 @@ namespace Flourish::Vulkan
             m_Surface,
             &presentSupport
         );
-        FL_CRASH_ASSERT(presentSupport, "Attempting to create a swapchain using a device that does not support presenting");
+        if (!presentSupport)
+        {
+            FL_LOG_ERROR("Could not create RenderContext because selected device does not support presenting");
+            throw std::exception();
+        }
         
         // Query surface formats
         u32 formatCount = 0;
@@ -85,7 +89,11 @@ namespace Flourish::Vulkan
             formats.resize(formatCount);
             vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_Surface, &formatCount, formats.data());
         }
-        FL_CRASH_ASSERT(formatCount > 0, "Attempting to create a swapchain using a device that does not support any surface formats");
+        if (formatCount == 0)
+        {
+            FL_LOG_ERROR("Could not create RenderContext because selected device does not support any surface formats");
+            throw std::exception();
+        }
 
         // Query present modes
         u32 presentModeCount = 0;
@@ -95,7 +103,11 @@ namespace Flourish::Vulkan
             presentModes.resize(presentModeCount);
             vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_Surface, &presentModeCount, presentModes.data());
         }
-        FL_CRASH_ASSERT(presentModeCount > 0, "Attempting to create a swapchain using a device that does not support any present modes");
+        if (presentModeCount == 0)
+        {
+            FL_LOG_ERROR("Could not create RenderContext because selected device does not support any present modes");
+            throw std::exception();
+        }
 
         // Choose a surface format
         std::array<VkFormat, 4> preferredFormats = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
@@ -208,7 +220,8 @@ namespace Flourish::Vulkan
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
         VkSwapchainKHR newSwapchain;
-        FL_VK_ENSURE_RESULT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapchain));
+        if(!FL_VK_CHECK_RESULT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapchain), "RenderContext create swapchain"))
+            throw std::exception();
 
         if (m_Swapchain)
             CleanupSwapchain();
