@@ -68,13 +68,13 @@ if (NOT FLOURISH_IMGUI_INCLUDE_DIR STREQUAL "OFF")
   message("Flourish compiling with ImGui support")
 endif()
 
-# Link vulkan related libraries
+# Link vulkan related libraries & copy if necessary
 if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)
     set(DEBUG_LIB_EXTRAS "d")
   endif()
   find_library(shaderc
-    NAMES "shaderc"
+    NAMES "shaderc_shared"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
@@ -88,6 +88,10 @@ if (WIN32)
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${spirvglsl})
+
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/shaderc_shared.dll ${OUTPUT_DIRECTORY}/shaderc_shared.dll
+  )
 elseif(APPLE)
   find_library(shaderc
     NAMES "libshaderc_combined.a"
@@ -104,6 +108,11 @@ elseif(APPLE)
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(FlourishCore ${sprivglsl})
+
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
+  )
 else()
 endif()
 
@@ -113,15 +122,3 @@ target_precompile_headers(
   PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/flpch.h>"
 )
-
-# Copy vulkan dlls to output dir
-if (APPLE)
-  add_custom_target(CopyVulkanLibs ALL
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
-  )
-elseif(WIN32)
-  add_custom_target(CopyVulkanLibs ALL
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/shaderc_shared.dll ${OUTPUT_DIRECTORY}/shaderc_shared.dll
-  )
-endif()
