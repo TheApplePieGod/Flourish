@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Core/Log.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
