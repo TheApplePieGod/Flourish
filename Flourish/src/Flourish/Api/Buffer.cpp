@@ -45,10 +45,15 @@ namespace Flourish
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a Buffer");
 
-        switch (Context::BackendType())
+        try
         {
-            case BackendType::Vulkan: { return std::make_shared<Vulkan::Buffer>(createInfo); }
+            switch (Context::BackendType())
+            {
+                case BackendType::Vulkan: { return std::make_shared<Vulkan::Buffer>(createInfo); }
+            }
         }
+        catch (const std::exception& e)
+            return nullptr;
 
         FL_ASSERT(false, "Buffer not supported for backend");
         return nullptr;

@@ -18,7 +18,13 @@ namespace Flourish
 
         FL_LOG_DEBUG("Registering graphics pipeline '%s' to RenderPass", name.data());
 
-        auto newPipeline = CreatePipeline(createInfo);
+        try
+        {
+            auto newPipeline = CreatePipeline(createInfo);
+        }
+        catch (const std::exception& e)
+            return nullptr;
+
         m_Pipelines[nameStr] = newPipeline;
         return newPipeline;
     }

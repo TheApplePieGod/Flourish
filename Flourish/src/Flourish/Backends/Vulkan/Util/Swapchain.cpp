@@ -28,7 +28,8 @@ namespace Flourish::Vulkan
         Context::FinalizerQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
+                if (imageAvailableSemaphores[frame])
+                    vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
         }, "Swapchain shutdown");
     }
     

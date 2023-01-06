@@ -24,7 +24,7 @@ namespace Flourish::Vulkan
 
     private:
         DescriptorSetLayout m_DescriptorSetLayout;
-        VkPipelineLayout m_PipelineLayout;
+        VkPipelineLayout m_PipelineLayout = nullptr;
         std::unordered_map<u32, VkPipeline> m_Pipelines;
     };
 }

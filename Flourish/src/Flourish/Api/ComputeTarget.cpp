@@ -10,10 +10,15 @@ namespace Flourish
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a ComputeTarget");
 
-        switch (Context::BackendType())
+        try
         {
-            case BackendType::Vulkan: { return std::make_shared<Vulkan::ComputeTarget>(); }
+            switch (Context::BackendType())
+            {
+                case BackendType::Vulkan: { return std::make_shared<Vulkan::ComputeTarget>(); }
+            }
         }
+        catch (const std::exception& e)
+            return nullptr;
 
         FL_ASSERT(false, "ComputeTarget not supported for backend");
         return nullptr;

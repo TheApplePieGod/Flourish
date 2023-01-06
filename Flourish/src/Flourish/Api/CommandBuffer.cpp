@@ -10,10 +10,15 @@ namespace Flourish
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a CommandBuffer");
 
-        switch (Context::BackendType())
+        try
         {
-            case BackendType::Vulkan: { return std::make_shared<Vulkan::CommandBuffer>(createInfo); }
+            switch (Context::BackendType())
+            {
+                case BackendType::Vulkan: { return std::make_shared<Vulkan::CommandBuffer>(createInfo); }
+            }
         }
+        catch (const std::exception& e)
+            return nullptr;
 
         FL_ASSERT(false, "CommandBuffer not supported for backend");
         return nullptr;

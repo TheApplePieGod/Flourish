@@ -141,7 +141,13 @@ namespace Flourish::Vulkan
         pipelineLayoutInfo.pSetLayouts = layout;
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
-        FL_VK_ENSURE_RESULT(vkCreatePipelineLayout(Context::Devices().Device(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout));
+        if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
+            Context::Devices().Device(),
+            &pipelineLayoutInfo,
+            nullptr,
+            &m_PipelineLayout
+        ), "GraphicsPipeline create layout")
+            throw std::exception();
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -188,14 +194,16 @@ namespace Flourish::Vulkan
             }
 
             VkPipeline pipeline;
-            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(
+            if(!FL_VK_CHECK_RESULT(vkCreateGraphicsPipelines(
                 Context::Devices().Device(),
                 VK_NULL_HANDLE,
                 1,
                 &pipelineInfo,
                 nullptr,
                 &pipeline
-            ));
+            ), "GraphicsPipeline create pipeline")
+                throw std::exception();
+
             m_Pipelines[m_Info.CompatibleSubpasses[i]] = pipeline;
         }
     }
@@ -210,7 +218,8 @@ namespace Flourish::Vulkan
         {
             for (auto& pair : pipelines)
                 vkDestroyPipeline(Context::Devices().Device(), pair.second, nullptr);
-            vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
+            if (layout)
+                vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Graphics pipeline free");
     }
 }

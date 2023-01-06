@@ -68,11 +68,14 @@ namespace Flourish::Vulkan
         auto semaphores = m_SubmissionData.SignalSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
-            vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
+            if (surface)
+                vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
+                if (semaphores[frame][0])
+                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
+                if (semaphores[frame][1])
+                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
             }
         }, "Render context free");
     }
