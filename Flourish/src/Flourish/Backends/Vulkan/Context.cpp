@@ -113,7 +113,6 @@ namespace Flourish::Vulkan
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
             #elif defined (FL_PLATFORM_MACOS)
-                "VK_KHR_portability_enumeration",
                 "VK_MVK_macos_surface",
                 "VK_EXT_metal_surface"
             #endif
@@ -125,6 +124,12 @@ namespace Flourish::Vulkan
             bool found = Common::SupportsExtension(supportedExtensions, extension);
             FL_CRASH_ASSERT(found, "Vulkan driver is missing the required extension '%s'", extension);
         }
+        
+        // Ensure portability enumeration is enabled on mac but only if it is supported
+        #ifdef FL_PLATFORM_MACOS
+            if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_enumeration"))
+                requiredExtensions.push_back("VK_KHR_portability_enumeration");
+        #endif
 
         // Create instance
         VkInstanceCreateInfo createInfo{};
@@ -148,7 +153,8 @@ namespace Flourish::Vulkan
         createInfo.enabledExtensionCount = static_cast<u32>(requiredExtensions.size());
         createInfo.ppEnabledExtensionNames = requiredExtensions.data();
         #ifdef FL_PLATFORM_MACOS
-            createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+            if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_enumeration"))
+                createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
         #endif
 
         FL_LOG_INFO("%d vulkan instance extensions enabled", createInfo.enabledExtensionCount);

@@ -14,9 +14,6 @@ namespace Flourish::Vulkan
 
         // Required physical device extensions
         std::vector<const char*> deviceExtensions = {
-            #ifdef FL_PLATFORM_MACOS
-                "VK_KHR_portability_subset",
-            #endif
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
         };
@@ -41,7 +38,7 @@ namespace Flourish::Vulkan
                 FL_LOG_DEBUG("Compatible - yes. Using this device");
                 FL_LOG_INFO("Found a compatible graphics device");
                 DumpDeviceInfo(LogLevel::Info, m_PhysicalDeviceProperties);
-
+                
                 break;
             }
         }
@@ -166,6 +163,12 @@ namespace Flourish::Vulkan
         vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, nullptr);
         std::vector<VkExtensionProperties> supportedExtensions(supportedExtensionCount);
         vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, supportedExtensions.data());
+        
+        // Ensure portability subset is enabled on mac but only if it is supported
+        #ifdef FL_PLATFORM_MACOS
+            if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_subset"))
+                extensions.push_back("VK_KHR_portability_subset");
+        #endif
         
         #ifdef FL_DEBUG
         if (Common::SupportsExtension(supportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
