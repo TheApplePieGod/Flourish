@@ -32,10 +32,5 @@ namespace Flourish::Vulkan
     };
 }
 
-#ifdef FL_DEBUG
-    #define FL_VK_CHECK_RESULT(func, name) ::Flourish::Vulkan::Common::CheckResult(func, false, name)
-#else
-    #define FL_VK_CHECK_RESULT(func, name) func
-#endif
-
+#define FL_VK_CHECK_RESULT(func, name) ::Flourish::Vulkan::Common::CheckResult(func, false, name)
 #define FL_VK_ENSURE_RESULT(func, name) { auto result = func; ::Flourish::Vulkan::Common::CheckResult(result, true, name); }
