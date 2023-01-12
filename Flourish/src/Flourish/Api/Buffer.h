@@ -26,7 +26,7 @@ namespace Flourish
     enum class BufferUsageType
     {
         None = 0,
-        Static, Dynamic
+        Static, Dynamic, DynamicOneFrame
     };
 
     /**

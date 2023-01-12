@@ -307,7 +307,7 @@ namespace Flourish::Vulkan
 
         // Assumes that we want cpu visible memory if we have a dyanmic cpu -> gpu buffer
         // TODO: add granularity for this
-        bool dynamicHostBuffer = m_MemoryDirection == MemoryDirection::CPUToGPU && m_Info.Usage == BufferUsageType::Dynamic;
+        bool dynamicHostBuffer = m_MemoryDirection == MemoryDirection::CPUToGPU && (m_Info.Usage == BufferUsageType::Dynamic || m_Info.Usage == BufferUsageType::DynamicOneFrame);
         if (dynamicHostBuffer)
         {
             allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
