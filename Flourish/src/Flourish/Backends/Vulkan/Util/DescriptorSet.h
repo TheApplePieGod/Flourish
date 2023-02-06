@@ -46,7 +46,7 @@ namespace Flourish::Vulkan
     private:
         struct BoundResource
         {
-            void* Resource;
+            const void* Resource;
             u32 Offset;
             u32 Size;
         };
@@ -74,7 +74,7 @@ namespace Flourish::Vulkan
         DescriptorSet(const DescriptorSetLayout& layout);
         ~DescriptorSet();
 
-        void UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource, bool useOffset, u32 offset, u32 size);
+        void UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource, bool useOffset, u32 offset, u32 size);
         void FlushBindings();
 
         inline void UpdateDynamicOffset(u32 bindingIndex, u32 offset)

@@ -119,21 +119,21 @@ namespace Flourish::Vulkan
         vkCmdSetLineWidth(m_CommandBuffer, width);
     }
 
-    void RenderCommandEncoder::BindVertexBuffer(Flourish::Buffer* _buffer)
+    void RenderCommandEncoder::BindVertexBuffer(const Flourish::Buffer* _buffer)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindVertexBuffer after encoding has ended");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
 
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(m_CommandBuffer, 0, 1, &buffer, offsets);
     }
 
-    void RenderCommandEncoder::BindIndexBuffer(Flourish::Buffer* _buffer)
+    void RenderCommandEncoder::BindIndexBuffer(const Flourish::Buffer* _buffer)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindIndexBuffer after encoding has ended");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
         
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindIndexBuffer(m_CommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -153,11 +153,11 @@ namespace Flourish::Vulkan
         vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
     }
 
-    void RenderCommandEncoder::DrawIndexedIndirect(Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
+    void RenderCommandEncoder::DrawIndexedIndirect(const Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexedIndirect after encoding has ended");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
 
         u32 stride = _buffer->GetStride();
         vkCmdDrawIndexedIndirect(
@@ -223,7 +223,7 @@ namespace Flourish::Vulkan
         vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
     }
 
-    void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
+    void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
     {
         FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");
         FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
@@ -243,7 +243,7 @@ namespace Flourish::Vulkan
         );
     }
 
-    void RenderCommandEncoder::BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture)
+    void RenderCommandEncoder::BindPipelineTextureResource(u32 bindingIndex, const Flourish::Texture* texture)
     {
         // Ensure the texture to bind is not an output attachment
         FL_CRASH_ASSERT(
@@ -271,7 +271,7 @@ namespace Flourish::Vulkan
         );
     }
     
-    void RenderCommandEncoder::BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
+    void RenderCommandEncoder::BindPipelineTextureLayerResource(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
     {
         // Ensure the texture to bind is not an output attachment
         FL_CRASH_ASSERT(
@@ -337,7 +337,7 @@ namespace Flourish::Vulkan
         );
     }
     
-    void RenderCommandEncoder::ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource)
+    void RenderCommandEncoder::ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource)
     {
         FL_CRASH_ASSERT(!m_BoundPipelineName.empty(), "Must call BindPipeline before BindPipelineResource");
         FL_CRASH_ASSERT(resource != nullptr, "Cannot bind a null resource to a shader");
