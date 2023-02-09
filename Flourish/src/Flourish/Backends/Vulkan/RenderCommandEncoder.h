@@ -23,18 +23,18 @@ namespace Flourish::Vulkan
         void SetViewport(u32 x, u32 y, u32 width, u32 height) override;
         void SetScissor(u32 x, u32 y, u32 width, u32 height) override;
         void SetLineWidth(float width) override;
-        void BindVertexBuffer(Flourish::Buffer* buffer) override;
-        void BindIndexBuffer(Flourish::Buffer* buffer) override;
+        void BindVertexBuffer(const Flourish::Buffer* buffer) override;
+        void BindIndexBuffer(const Flourish::Buffer* buffer) override;
         void Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset) override;
         void DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset) override;
-        void DrawIndexedIndirect(Flourish::Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) override;
+        void DrawIndexedIndirect(const Flourish::Buffer* indirectBuffer, u32 commandOffset, u32 drawCount) override;
         void StartNextSubpass() override;
         void ClearColorAttachment(u32 attachmentIndex) override;
         void ClearDepthAttachment() override;
         
-        void BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
-        void BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture) override;
-        void BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
+        void BindPipelineBufferResource(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
+        void BindPipelineTextureResource(u32 bindingIndex, const Flourish::Texture* texture) override;
+        void BindPipelineTextureLayerResource(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
         void BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment) override;
         void FlushPipelineBindings() override;
 
@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
     private:
-        void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource);
+        void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
 
     private:
         bool m_FrameRestricted;

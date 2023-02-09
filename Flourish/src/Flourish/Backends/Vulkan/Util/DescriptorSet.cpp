@@ -118,7 +118,7 @@ namespace Flourish::Vulkan
         }, "Descriptor set free");
     }
 
-    void DescriptorSet::UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource, bool useOffset, u32 offset, u32 size)
+    void DescriptorSet::UpdateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource, bool useOffset, u32 offset, u32 size)
     {
         CheckFrameUpdate();
 
@@ -144,7 +144,7 @@ namespace Flourish::Vulkan
             case ShaderResourceType::UniformBuffer:
             case ShaderResourceType::StorageBuffer:
             {
-                Buffer* buffer = static_cast<Buffer*>(resource);
+                const Buffer* buffer = static_cast<const Buffer*>(resource);
                 FL_ASSERT(bindingIndex < m_CachedBufferInfos.size(), "Binding index for buffer resource is too large");
 
                 m_CachedBufferInfos[bufferInfoBaseIndex].buffer = buffer->GetBuffer();
@@ -155,7 +155,7 @@ namespace Flourish::Vulkan
             case ShaderResourceType::Texture:
             case ShaderResourceType::StorageTexture:
             {
-                Texture* texture = static_cast<Texture*>(resource);
+                const Texture* texture = static_cast<const Texture*>(resource);
                 FL_ASSERT(texture->GetArrayCount() <= DescriptorSetLayout::MaxDescriptorArrayCount, "Image array count too large");
 
                 for (u32 i = 0; i < texture->GetArrayCount(); i++)
@@ -172,7 +172,7 @@ namespace Flourish::Vulkan
             case ShaderResourceType::SubpassInput:
             {
                 FL_ASSERT(bindingIndex < m_CachedImageInfos.size(), "Binding index for subpass input is too large");
-                VkImageView view = static_cast<VkImageView>(resource);
+                VkImageView view = (VkImageView)resource;
 
                 // useOffset: is the attachment a color attachment
                 m_CachedImageInfos[imageInfoBaseIndex].sampler = NULL;
