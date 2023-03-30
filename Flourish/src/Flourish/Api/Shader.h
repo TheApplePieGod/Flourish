@@ -11,7 +11,8 @@ namespace Flourish
     enum class ShaderResourceAccessType
     {
         None = 0,
-        Vertex, Fragment, Both, Compute
+        Vertex, Fragment, Both, Compute,
+        All
     };
 
     struct ReflectionDataElement
@@ -44,6 +45,8 @@ namespace Flourish
         std::string_view Path;
     };
 
+    class DescriptorSet;
+    struct DescriptorSetCreateInfo;
     class Shader
     {        
     public:
@@ -51,6 +54,9 @@ namespace Flourish
             : m_Type(createInfo.Type)
         {}
         virtual ~Shader() = default;
+
+        // TS
+        virtual std::shared_ptr<DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) = 0;
 
         // TS
         inline const auto& GetReflectionData() { return m_ReflectionData; }
@@ -61,6 +67,6 @@ namespace Flourish
 
     protected:
         ShaderType m_Type;
-        std::vector<ReflectionDataElement> m_ReflectionData;
+        std::vector<std::vector<ReflectionDataElement>> m_ReflectionData;
     };
 }

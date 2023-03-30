@@ -5,11 +5,15 @@
 
 namespace Flourish::Vulkan
 {
+    class DescriptorPool;
     class Shader : public Flourish::Shader
     {
     public:
         Shader(const ShaderCreateInfo& createInfo);
         ~Shader() override;
+
+        // TS
+        std::shared_ptr<Flourish::DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) override;
 
         // TS
         VkPipelineShaderStageCreateInfo DefineShaderStage(const char* entrypoint = "main");
@@ -22,5 +26,7 @@ namespace Flourish::Vulkan
 
     private:
         VkShaderModule m_ShaderModule = nullptr;
+        std::mutex m_DescriptorPoolMutex;
+        std::vector<std::shared_ptr<DescriptorPool>> m_SetPools;
     };
 }
