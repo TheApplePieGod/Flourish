@@ -213,6 +213,8 @@ namespace Flourish::Vulkan
         FL_LOG_DEBUG("    %d storage images", resources.storage_images.size());
         FL_LOG_DEBUG("    %d subpass inputs", resources.subpass_inputs.size());
 
+        u32 maxSets = Context::Devices().PhysicalDeviceProperties().limits.maxBoundDescriptorSets;
+
         if (resources.uniform_buffers.size() > 0)
 		    FL_LOG_DEBUG("  Uniform buffers:");
 		for (const auto& resource : resources.uniform_buffers)
@@ -231,9 +233,9 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on uniform %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on uniform %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -256,9 +258,9 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on storage %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on storage %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -278,9 +280,9 @@ namespace Flourish::Vulkan
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on sampler %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on sampler %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -300,9 +302,9 @@ namespace Flourish::Vulkan
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on image %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on image %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -323,9 +325,9 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
             FL_LOG_DEBUG("      AttachmentIndex = %d", attachmentIndex);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on subpass %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on subpass %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
