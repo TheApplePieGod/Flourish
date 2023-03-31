@@ -19,7 +19,9 @@ namespace Flourish::Vulkan
 
         // TS
         VkBuffer GetBuffer() const;
+        VkBuffer GetBuffer(u32 frameIndex) const;
         VkBuffer GetStagingBuffer() const;
+        VkBuffer GetStagingBuffer(u32 frameIndex) const;
 
     public:
         // TS

@@ -148,6 +148,18 @@ namespace Flourish::Vulkan
         m_PoolsMutex.unlock();
     }
 
+    bool DescriptorPool::IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const
+    {
+        // Some leniency when checking images
+        // TODO: define this more concretely because it feels hacky
+        auto actualType = m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType;
+        return (
+            Common::ConvertShaderResourceType(resourceType) == actualType ||
+            (resourceType == ShaderResourceType::Texture && actualType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ||
+            (resourceType == ShaderResourceType::StorageTexture && actualType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+        );
+    }
+
     void DescriptorPool::CreateDescriptorPool()
     {
         VkDescriptorPoolCreateInfo poolInfo{};

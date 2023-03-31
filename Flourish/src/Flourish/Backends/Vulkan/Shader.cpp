@@ -184,8 +184,7 @@ namespace Flourish::Vulkan
         auto setPool = m_SetPools[setIndex];
         m_DescriptorPoolMutex.unlock();
 
-        auto alloc = setPool->AllocateSet();
-        return std::make_shared<DescriptorSet>(createInfo, alloc, setPool);
+        return std::make_shared<DescriptorSet>(createInfo, setPool);
     }
 
     VkPipelineShaderStageCreateInfo Shader::DefineShaderStage(const char* entrypoint)

@@ -5,41 +5,6 @@
 
 namespace Flourish::Vulkan
 {
-    class DescriptorSetLayout
-    {
-    public:
-        void Initialize(const std::vector<ReflectionDataElement>& reflectionData);
-        void Shutdown();
-
-        // TS
-        inline VkDescriptorSetLayout GetLayout() const { return m_Layout; }
-        inline const auto& GetBindings() const { return m_Bindings; }
-        inline const auto& GetDynamicOffsets() const { return m_DynamicOffsets; }
-        inline auto& GetDescriptorWrites() { return m_CachedDescriptorWrites; }
-        inline auto& GetDescriptorWrite(u32 bindingIndex) { return m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping]; }
-        inline const auto& GetSetLayouts() { return m_CachedSetLayouts; }
-        inline const auto& GetPoolSizes() { return m_CachedPoolSizes; }
-        
-        // TS
-        inline bool DoesBindingExist(u32 bindingIndex) const
-        {
-            return bindingIndex < m_Bindings.size() && m_Bindings[bindingIndex].Exists;
-        }
-        inline ShaderResourceType GetBindingType(u32 bindingIndex) const
-        {
-            return Common::RevertShaderResourceType(m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType);
-        }
-        bool IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const
-        {
-            auto actualType = m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType;
-            return (
-                Common::ConvertShaderResourceType(resourceType) == actualType ||
-                (resourceType == ShaderResourceType::Texture && actualType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ||
-                (resourceType == ShaderResourceType::StorageTexture && actualType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-            );
-        }
-    };
-
     struct DescriptorSetAllocation
     {
         VkDescriptorSet Set;
@@ -55,11 +20,26 @@ namespace Flourish::Vulkan
         // TS
         DescriptorSetAllocation AllocateSet();
         void FreeSet(const DescriptorSetAllocation& allocation);
+        
+        // TS
+        bool IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const;
 
         // TS
         inline VkDescriptorSetLayout GetLayout() const { return m_Layout; }
         inline bool HasDescriptors() const { return !m_CachedPoolSizes.empty(); }
+        inline u32 GetDynamicOffsetsCount() const { return m_DynamicOffsetsCount; }
         inline const auto& GetBindingData() const { return m_Bindings; }
+        inline const auto& GetCachedWrites() const { return m_CachedDescriptorWrites; }
+
+        // TS
+        inline bool DoesBindingExist(u32 bindingIndex) const
+        {
+            return bindingIndex < m_Bindings.size() && m_Bindings[bindingIndex].Exists;
+        }
+        inline ShaderResourceType GetBindingType(u32 bindingIndex) const
+        {
+            return Common::RevertShaderResourceType(m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType);
+        }
 
         inline static constexpr u32 MaxSetsPerPool = 50;
         inline static constexpr u32 MaxUniqueDescriptors = 100;

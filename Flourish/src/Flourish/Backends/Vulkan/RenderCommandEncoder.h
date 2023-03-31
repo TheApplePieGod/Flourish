@@ -36,6 +36,8 @@ namespace Flourish::Vulkan
         void BindPipelineTextureResource(u32 bindingIndex, const Flourish::Texture* texture) override;
         void BindPipelineTextureLayerResource(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
         void BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment) override;
+
+        // Must call after any changes to descriptor set
         void FlushPipelineBindings() override;
 
         // TS
