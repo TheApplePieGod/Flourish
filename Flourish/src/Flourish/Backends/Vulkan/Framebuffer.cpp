@@ -28,7 +28,7 @@ namespace Flourish::Vulkan
         return m_PipelineDescriptorSets[nameStr].get();
     }
 
-    VkImageView Framebuffer::GetAttachmentImageView(SubpassAttachment attachment)
+    VkImageView Framebuffer::GetAttachmentImageView(SubpassAttachment attachment) const
     {
         // If we have resolves then we want to return those
         u32 newIndex = attachment.AttachmentIndex;

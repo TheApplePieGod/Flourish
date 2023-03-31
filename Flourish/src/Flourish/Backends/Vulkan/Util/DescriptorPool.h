@@ -28,6 +28,7 @@ namespace Flourish::Vulkan
         inline VkDescriptorSetLayout GetLayout() const { return m_Layout; }
         inline bool HasDescriptors() const { return !m_CachedPoolSizes.empty(); }
         inline u32 GetDynamicOffsetsCount() const { return m_DynamicOffsetsCount; }
+        inline u32 GetImageArrayElementCount() const { return m_ImageArrayElements; }
         inline const auto& GetBindingData() const { return m_Bindings; }
         inline const auto& GetCachedWrites() const { return m_CachedDescriptorWrites; }
 
@@ -42,8 +43,6 @@ namespace Flourish::Vulkan
         }
 
         inline static constexpr u32 MaxSetsPerPool = 50;
-        inline static constexpr u32 MaxUniqueDescriptors = 100;
-        inline static constexpr u32 MaxDescriptorArrayCount = 20;
 
     private:
         struct BindingData
@@ -51,6 +50,7 @@ namespace Flourish::Vulkan
             bool Exists = false;
             u32 DescriptorWriteMapping = 0;
             u32 OffsetIndex = 0;
+            u32 ImageArrayIndex = 0;
         };
 
         struct PoolData
@@ -72,6 +72,7 @@ namespace Flourish::Vulkan
         std::vector<BindingData> m_Bindings;
         std::vector<VkWriteDescriptorSet> m_CachedDescriptorWrites;
         std::vector<VkDescriptorPoolSize> m_CachedPoolSizes;
-        u32 m_DynamicOffsetsCount = 0;
+        u32 m_DynamicOffsetsCount = 0; // Equivalent to # of buffers
+        u32 m_ImageArrayElements = 0;
     };
 }

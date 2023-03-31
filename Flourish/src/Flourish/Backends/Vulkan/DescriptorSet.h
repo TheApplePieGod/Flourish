@@ -19,7 +19,7 @@ namespace Flourish::Vulkan
         void BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount) override;
         void BindTexture(u32 bindingIndex, const Flourish::Texture* texture) override;
         void BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
-        void BindSubpassInput(u32 bindingIndex, SubpassAttachment attachment) override;
+        void BindSubpassInput(u32 bindingIndex, const Flourish::Framebuffer* framebuffer, SubpassAttachment attachment) override;
         void FlushBindings() override;
 
         // TS
@@ -30,8 +30,8 @@ namespace Flourish::Vulkan
         {
             u32 WritesReadyCount = 0;
             std::vector<VkWriteDescriptorSet> DescriptorWrites;
-            std::array<VkDescriptorBufferInfo, DescriptorPool::MaxUniqueDescriptors> BufferInfos;
-            std::array<VkDescriptorImageInfo, DescriptorPool::MaxDescriptorArrayCount * DescriptorPool::MaxUniqueDescriptors> ImageInfos;
+            std::vector<VkDescriptorBufferInfo> BufferInfos;
+            std::vector<VkDescriptorImageInfo> ImageInfos;
         };
 
     private:

@@ -14,10 +14,10 @@ namespace Flourish::Vulkan
         ~Framebuffer() override;
 
         DescriptorSet* GetPipelineDescriptorSet(std::string_view name, const DescriptorSetLayout& layout);
-        VkImageView GetAttachmentImageView(SubpassAttachment attachment);
 
         // TS
         VkFramebuffer GetFramebuffer() const;
+        VkImageView GetAttachmentImageView(SubpassAttachment attachment) const;
         const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
 
     private:

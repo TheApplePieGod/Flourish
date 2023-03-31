@@ -3,6 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
+#include "Flourish/Backends/Vulkan/Framebuffer.h"
 #include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
@@ -25,6 +26,8 @@ namespace Flourish::Vulkan
             m_CachedData.back().DescriptorWrites = m_ParentPool->GetCachedWrites();
             for (auto& write : m_CachedData.back().DescriptorWrites)
                 write.dstSet = m_Allocations[i].Set;
+            m_CachedData.back().BufferInfos.resize(m_ParentPool->GetDynamicOffsetsCount());
+            m_CachedData.back().ImageInfos.resize(m_ParentPool->GetImageArrayElementCount());
         }
     }
 
@@ -78,6 +81,73 @@ namespace Flourish::Vulkan
         );
     }
 
+    // TODO: ensure bound texture is not also being written to in framebuffer
+    void DescriptorSet::BindTexture(u32 bindingIndex, const Flourish::Texture* texture)
+    {
+        ShaderResourceType texType =
+            texture->GetUsageType() == TextureUsageType::ComputeTarget
+                ? ShaderResourceType::StorageTexture
+                : ShaderResourceType::Texture;
+        
+        ValidateBinding(bindingIndex, texType, texture);
+        FL_ASSERT(
+            m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
+            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+        );
+
+        UpdateBinding(
+            bindingIndex, 
+            texType, 
+            texture,
+            false, 0, 0
+        );
+    }
+    
+    // TODO: ensure bound texture is not also being written to in framebuffer
+    void DescriptorSet::BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
+    {
+        ShaderResourceType texType =
+            texture->GetUsageType() == TextureUsageType::ComputeTarget
+                ? ShaderResourceType::StorageTexture
+                : ShaderResourceType::Texture;
+
+        ValidateBinding(bindingIndex, texType, texture);
+        FL_ASSERT(
+            m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
+            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+        );
+
+        UpdateBinding(
+            bindingIndex, 
+            texType, 
+            texture,
+            true, layerIndex, mipLevel
+        );
+    }
+
+    // TODO: need to test this
+    void DescriptorSet::BindSubpassInput(u32 bindingIndex, const Flourish::Framebuffer* framebuffer, SubpassAttachment attachment)
+    {
+        // This could be a tighter bound (i.e. also work with OnceDynamicData) if
+        // we modified UpdateBinding slightly somehow
+        if (m_Info.Writability != DescriptorSetWritability::PerFrame)
+        {
+            FL_LOG_ERROR("Cannot bind a subpass input to a descriptor set without PerFrame writability");
+            throw std::exception();
+        }
+
+        ValidateBinding(bindingIndex, ShaderResourceType::SubpassInput, &attachment);
+        
+        VkImageView attView = static_cast<const Framebuffer*>(framebuffer)->GetAttachmentImageView(attachment);
+
+        UpdateBinding(
+            bindingIndex, 
+            ShaderResourceType::SubpassInput, 
+            attView,
+            attachment.Type == SubpassAttachmentType::Color, 0, 0
+        );
+    }
+
     // TODO: might want to disable this in release?
     void DescriptorSet::ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource)
     {
@@ -115,8 +185,8 @@ namespace Flourish::Vulkan
         //                       since we have already validated that resource is static
         //     - OnceDynamicData: cache entry is written for each frameindex
         //     - PerFrame: cache entry for current frameindex is written
-        u32 bufferInfoBaseIndex = bindingIndex;
-        u32 imageInfoBaseIndex = bindingIndex * DescriptorPool::MaxDescriptorArrayCount;
+        u32 bufferInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].OffsetIndex;
+        u32 imageInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].ImageArrayIndex;
         u32 frameIndex = Flourish::Context::FrameIndex();
         for (u32 i = 0; i < m_AllocationCount; i++)
         {
@@ -131,7 +201,6 @@ namespace Flourish::Vulkan
                 case ShaderResourceType::StorageBuffer:
                 {
                     const Buffer* buffer = static_cast<const Buffer*>(resource);
-                    FL_ASSERT(bindingIndex < bufferInfos.size(), "Binding index for buffer resource is too large");
 
                     bufferInfos[bufferInfoBaseIndex].buffer = buffer->GetBuffer(frameIndex);
                     bufferInfos[bufferInfoBaseIndex].offset = offset;
@@ -142,7 +211,6 @@ namespace Flourish::Vulkan
                 case ShaderResourceType::StorageTexture:
                 {
                     const Texture* texture = static_cast<const Texture*>(resource);
-                    FL_ASSERT(texture->GetArrayCount() <= DescriptorPool::MaxDescriptorArrayCount, "Image array count too large");
 
                     for (u32 i = 0; i < texture->GetArrayCount(); i++)
                     {
@@ -158,7 +226,6 @@ namespace Flourish::Vulkan
 
                 case ShaderResourceType::SubpassInput:
                 {
-                    FL_ASSERT(bindingIndex < imageInfos.size(), "Binding index for subpass input is too large");
                     VkImageView view = (VkImageView)resource;
 
                     // useOffset: is the attachment a color attachment

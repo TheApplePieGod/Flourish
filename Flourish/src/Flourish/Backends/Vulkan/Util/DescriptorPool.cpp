@@ -43,12 +43,22 @@ namespace Flourish::Vulkan
             descriptorWrite.descriptorType = binding.descriptorType;
             descriptorWrite.descriptorCount = element.ArrayCount;
 
+            // TODO: ensure buffers are not in an array?
+
             bindingData.DescriptorWriteMapping = m_CachedDescriptorWrites.size(); 
             m_CachedDescriptorWrites.emplace_back(descriptorWrite);
 
             // Populate the dynamic offset info if applicable
-            if (element.ResourceType == ShaderResourceType::UniformBuffer || element.ResourceType == ShaderResourceType::StorageBuffer)
+            if (element.ResourceType == ShaderResourceType::UniformBuffer ||
+                element.ResourceType == ShaderResourceType::StorageBuffer)
                 bindingData.OffsetIndex = m_DynamicOffsetsCount++;
+            else if (element.ResourceType == ShaderResourceType::Texture ||
+                     element.ResourceType == ShaderResourceType::StorageTexture ||
+                     element.ResourceType == ShaderResourceType::SubpassInput)
+            {
+                bindingData.ImageArrayIndex = m_ImageArrayElements;
+                m_ImageArrayElements += element.ArrayCount;
+            }
 
             m_Bindings.emplace_back(bindingData);
             lastBindingIndex = element.BindingIndex;
