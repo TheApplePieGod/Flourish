@@ -16,16 +16,6 @@ namespace Flourish::Vulkan
     Framebuffer::~Framebuffer()
     {
         Cleanup();
-
-        // Descriptor sets get implicitly cleaned up
-    }
-
-    DescriptorSet* Framebuffer::GetPipelineDescriptorSet(std::string_view name, const DescriptorSetLayout& layout)
-    {
-        std::string nameStr(name.data(), name.size());
-        if (m_PipelineDescriptorSets.find(nameStr) == m_PipelineDescriptorSets.end())
-            m_PipelineDescriptorSets[nameStr] = std::make_shared<DescriptorSet>(layout);
-        return m_PipelineDescriptorSets[nameStr].get();
     }
 
     VkImageView Framebuffer::GetAttachmentImageView(SubpassAttachment attachment) const

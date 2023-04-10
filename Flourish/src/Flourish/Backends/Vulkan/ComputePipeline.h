@@ -2,7 +2,6 @@
 
 #include "Flourish/Api/ComputePipeline.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
-#include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 
 namespace Flourish::Vulkan
 {
@@ -15,10 +14,8 @@ namespace Flourish::Vulkan
         // TS
         inline VkPipeline GetPipeline() const { return m_Pipeline; }
         inline VkPipelineLayout GetLayout() const { return m_PipelineLayout; }
-        inline const DescriptorSetLayout& GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 
     private:
-        DescriptorSetLayout m_DescriptorSetLayout;
         VkPipelineLayout m_PipelineLayout = nullptr;
         VkPipeline m_Pipeline = nullptr;
     };

@@ -9,10 +9,19 @@ namespace Flourish::Vulkan
     class Shader : public Flourish::Shader
     {
     public:
+        struct SetData
+        {
+            bool Exists = false;
+            std::vector<ReflectionDataElement> ReflectionData;
+            std::shared_ptr<DescriptorPool> Pool;
+            u32 OffsetIndex = 0; // When computing dynamic offsets
+            u32 DynamicOffsetCount = 0;
+        };
+
+    public:
         Shader(const ShaderCreateInfo& createInfo);
         ~Shader() override;
 
-        // TS
         std::shared_ptr<Flourish::DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) override;
 
         // TS
@@ -20,13 +29,16 @@ namespace Flourish::Vulkan
 
         // TS
         inline VkShaderModule GetShaderModule() const { return m_ShaderModule; }
+        inline u32 GetTotalDynamicOffsets() const { return m_TotalDynamicOffsets; }
+        inline const SetData& GetSetData(u32 setIndex) const { return m_SetData[setIndex]; }
+        inline bool DoesSetExist(u32 setIndex) const { return setIndex < m_SetData.size() && m_SetData[setIndex].Exists; }
 
     private:
         void Reflect(const std::vector<u32>& compiledData);
 
     private:
+        std::vector<SetData> m_SetData;
         VkShaderModule m_ShaderModule = nullptr;
-        std::mutex m_DescriptorPoolMutex;
-        std::vector<std::shared_ptr<DescriptorPool>> m_SetPools;
+        u32 m_TotalDynamicOffsets = 0;
     };
 }

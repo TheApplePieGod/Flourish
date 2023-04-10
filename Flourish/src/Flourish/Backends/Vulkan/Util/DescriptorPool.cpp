@@ -51,7 +51,7 @@ namespace Flourish::Vulkan
             // Populate the dynamic offset info if applicable
             if (element.ResourceType == ShaderResourceType::UniformBuffer ||
                 element.ResourceType == ShaderResourceType::StorageBuffer)
-                bindingData.OffsetIndex = m_DynamicOffsetsCount++;
+                bindingData.BufferArrayIndex = m_BufferCount++;
             else if (element.ResourceType == ShaderResourceType::Texture ||
                      element.ResourceType == ShaderResourceType::StorageTexture ||
                      element.ResourceType == ShaderResourceType::SubpassInput)

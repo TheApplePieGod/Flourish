@@ -5,6 +5,8 @@
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/ComputeTarget.h"
+#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/Shader.h"
 
 namespace Flourish::Vulkan
 {
@@ -37,7 +39,6 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
         m_BoundTarget = nullptr;
-        m_BoundDescriptorSet = nullptr;
         m_BoundPipeline = nullptr;
 
         VkCommandBuffer buffer = m_CommandBuffer;
@@ -47,9 +48,11 @@ namespace Flourish::Vulkan
 
     void ComputeCommandEncoder::BindPipeline(Flourish::ComputePipeline* pipeline)
     {
-        if (m_BoundPipeline == pipeline) return;
+        if (m_BoundPipeline == static_cast<ComputePipeline*>(pipeline)) return;
         m_BoundPipeline = static_cast<ComputePipeline*>(pipeline);
-        m_BoundDescriptorSet = m_BoundTarget->GetPipelineDescriptorSet(m_BoundPipeline);
+
+        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
+        m_DynamicOffsets.ResetOffsets(shader);
 
         vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_BoundPipeline->GetPipeline());
     }
@@ -74,92 +77,28 @@ namespace Flourish::Vulkan
         );
     }
     
-    void ComputeCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
+    void ComputeCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* _set, u32 setIndex)
     {
-        FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
 
-        ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
-        ValidatePipelineBinding(bindingIndex, bufferType, buffer);
+        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
 
-        u32 stride = buffer->GetStride();
-        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * stride);
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            bufferType, 
-            buffer,
-            true,
-            stride * bufferOffset,
-            stride * elementCount
-        );
-    }
-
-    void ComputeCommandEncoder::BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture)
-    {
-        ShaderResourceType texType = texture->GetUsageType() == TextureUsageType::ComputeTarget ? ShaderResourceType::StorageTexture : ShaderResourceType::Texture;
-
-        ValidatePipelineBinding(bindingIndex, texType, texture);
-        FL_ASSERT(
-            m_BoundDescriptorSet->GetLayout().GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
-            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
-        );
-
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            texType, 
-            texture,
-            false, 0, 0
-        );
-    }
-
-    void ComputeCommandEncoder::BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
-    {
-        ShaderResourceType texType = texture->GetUsageType() == TextureUsageType::ComputeTarget ? ShaderResourceType::StorageTexture : ShaderResourceType::Texture;
-
-        ValidatePipelineBinding(bindingIndex, texType, texture);
-        FL_ASSERT(
-            m_BoundDescriptorSet->GetLayout().GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
-            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
-        );
-
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            texType, 
-            texture,
-            true, layerIndex, mipLevel
-        );
-    }
-
-    void ComputeCommandEncoder::FlushPipelineBindings()
-    {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline and bind all resources before FlushBindings");
-
-        // Update a newly allocated descriptor set based on the current bindings or return
-        // a cached one that was created before with the same binding info
-        m_BoundDescriptorSet->FlushBindings();
-
-        FL_CRASH_ASSERT(m_BoundDescriptorSet->GetMostRecentDescriptorSet() != nullptr);
-
-        // Bind the new set
-        VkDescriptorSet sets[1] = { m_BoundDescriptorSet->GetMostRecentDescriptorSet() };
+        auto set = static_cast<const DescriptorSet*>(_set);
+        VkDescriptorSet sets[1] = { set->GetSet() };
         vkCmdBindDescriptorSets(
             m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_COMPUTE,
             m_BoundPipeline->GetLayout(),
             0, 1,
             sets,
-            static_cast<u32>(m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().size()),
-            m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().data()
+            static_cast<u32>(set->GetParentPool()->GetDynamicOffsetsCount()),
+            m_DynamicOffsets.GetOffsetData(shader, setIndex)
         );
     }
 
-    void ComputeCommandEncoder::ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource)
+    void ComputeCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
     {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before BindPipelineResource");
-        FL_CRASH_ASSERT(resource != nullptr, "Cannot bind a null resource to a shader");
-
-        if (!m_BoundDescriptorSet->GetLayout().DoesBindingExist(bindingIndex))
-            return; // Silently ignore, TODO: warning once in the console when this happens
-
-        FL_CRASH_ASSERT(m_BoundDescriptorSet->GetLayout().IsResourceCorrectType(bindingIndex, resourceType), "Attempting to bind a resource that does not match the bind index type");
+        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
+        m_DynamicOffsets.UpdateOffset(shader, setIndex, bindingIndex, offset);
     }
 }

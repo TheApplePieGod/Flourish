@@ -15,7 +15,6 @@ namespace Flourish::Vulkan
         );
         ~DescriptorSet() override;
 
-        void UpdateDynamicOffset(u32 bindingIndex, u32 offset) override;
         void BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount) override;
         void BindTexture(u32 bindingIndex, const Flourish::Texture* texture) override;
         void BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
@@ -24,6 +23,9 @@ namespace Flourish::Vulkan
 
         // TS
         VkDescriptorSet GetSet() const;
+        
+        // TS
+        inline const DescriptorPool* GetParentPool() const { return m_ParentPool.get(); }
 
     private:
         struct CachedData
@@ -49,7 +51,6 @@ namespace Flourish::Vulkan
         u64 m_LastFrameWrite = 0;
         u32 m_AllocationCount = 1;
 
-        std::vector<u32> m_DynamicOffsets;
         std::vector<CachedData> m_CachedData;
 
         std::shared_ptr<DescriptorPool> m_ParentPool;

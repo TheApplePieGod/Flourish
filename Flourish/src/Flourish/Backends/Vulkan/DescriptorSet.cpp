@@ -14,8 +14,6 @@ namespace Flourish::Vulkan
     )
         : Flourish::DescriptorSet(createInfo), m_ParentPool(parentPool)
     {
-        m_DynamicOffsets.resize(m_ParentPool->GetDynamicOffsetsCount(), 0);
-
         if (m_Info.Writability == DescriptorSetWritability::OnceDynamicData || m_Info.Writability == DescriptorSetWritability::PerFrame)
             m_AllocationCount = Flourish::Context::FrameBufferCount();
         for (u32 i = 0; i < m_AllocationCount; i++)
@@ -26,7 +24,7 @@ namespace Flourish::Vulkan
             m_CachedData.back().DescriptorWrites = m_ParentPool->GetCachedWrites();
             for (auto& write : m_CachedData.back().DescriptorWrites)
                 write.dstSet = m_Allocations[i].Set;
-            m_CachedData.back().BufferInfos.resize(m_ParentPool->GetDynamicOffsetsCount());
+            m_CachedData.back().BufferInfos.resize(m_ParentPool->GetBufferCount());
             m_CachedData.back().ImageInfos.resize(m_ParentPool->GetImageArrayElementCount());
         }
     }
@@ -41,19 +39,6 @@ namespace Flourish::Vulkan
             for (u32 i = 0; i < allocCount; i++)
                 pool->FreeSet(allocs[i]);
         }, "DescriptorSet free");
-    }
-
-    void DescriptorSet::UpdateDynamicOffset(u32 bindingIndex, u32 offset)
-    {
-        if (!m_ParentPool->DoesBindingExist(bindingIndex))
-        {
-            FL_LOG_ERROR("Attempting to update dynamic offset for descriptor binding %d that doesn't exist in the set", bindingIndex);
-            throw std::exception();
-        }
-        
-        // TODO: validate total offset ???
-        // also we need to multiply offset by stride so this has to happen somehow
-        m_DynamicOffsets[m_ParentPool->GetBindingData()[bindingIndex].OffsetIndex] = offset;
     }
 
     void DescriptorSet::BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount)
@@ -185,7 +170,7 @@ namespace Flourish::Vulkan
         //                       since we have already validated that resource is static
         //     - OnceDynamicData: cache entry is written for each frameindex
         //     - PerFrame: cache entry for current frameindex is written
-        u32 bufferInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].OffsetIndex;
+        u32 bufferInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].BufferArrayIndex;
         u32 imageInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].ImageArrayIndex;
         u32 frameIndex = Flourish::Context::FrameIndex();
         for (u32 i = 0; i < m_AllocationCount; i++)

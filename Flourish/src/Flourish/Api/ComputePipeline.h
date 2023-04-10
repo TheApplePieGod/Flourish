@@ -19,6 +19,8 @@ namespace Flourish
             ConsolidateReflectionData();
         }
         virtual ~ComputePipeline() = default;
+
+        inline const Shader* GetComputeShader() const { return m_Info.ComputeShader.get(); }
         
     public:
         // TS

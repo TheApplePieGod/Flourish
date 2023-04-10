@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Flourish/Api/Framebuffer.h"
-#include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
@@ -12,8 +11,6 @@ namespace Flourish::Vulkan
     public:
         Framebuffer(const FramebufferCreateInfo& createInfo);
         ~Framebuffer() override;
-
-        DescriptorSet* GetPipelineDescriptorSet(std::string_view name, const DescriptorSetLayout& layout);
 
         // TS
         VkFramebuffer GetFramebuffer() const;
@@ -40,6 +37,5 @@ namespace Flourish::Vulkan
         std::array<std::vector<ImageData>, Flourish::Context::MaxFrameBufferCount> m_Images;
         std::array<std::vector<VkImageView>, Flourish::Context::MaxFrameBufferCount> m_CachedImageViews;
         std::vector<VkClearValue> m_CachedClearValues;
-        std::unordered_map<std::string, std::shared_ptr<DescriptorSet>> m_PipelineDescriptorSets;
     };
 }

@@ -2,9 +2,9 @@
 
 #include "Flourish/Api/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
-#include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/Commands.h"
 #include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
+#include "Flourish/Backends/Vulkan/Util/DynamicOffsets.h"
 
 namespace Flourish::Vulkan
 {
@@ -31,15 +31,10 @@ namespace Flourish::Vulkan
         void StartNextSubpass() override;
         void ClearColorAttachment(u32 attachmentIndex) override;
         void ClearDepthAttachment() override;
+
+        void BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex) override;
+        void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) override;
         
-        void BindPipelineBufferResource(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) override;
-        void BindPipelineTextureResource(u32 bindingIndex, const Flourish::Texture* texture) override;
-        void BindPipelineTextureLayerResource(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
-        void BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment) override;
-
-        // Must call after any changes to descriptor set
-        void FlushPipelineBindings() override;
-
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
 
@@ -52,7 +47,7 @@ namespace Flourish::Vulkan
         VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
         Framebuffer* m_BoundFramebuffer = nullptr;
-        DescriptorSet* m_BoundDescriptorSet = nullptr;
+        std::array<DynamicOffsets, 2> m_DynamicOffsets;
         GraphicsPipeline* m_BoundPipeline = nullptr;
         std::string m_BoundPipelineName = "";
         u32 m_SubpassIndex = 0;

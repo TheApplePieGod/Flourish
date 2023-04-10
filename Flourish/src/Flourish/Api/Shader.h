@@ -45,6 +45,10 @@ namespace Flourish
         std::string_view Path;
     };
 
+    /*
+     * NOTE: Try to keep binding & set indices as low as possible
+     */
+
     class DescriptorSet;
     struct DescriptorSetCreateInfo;
     class Shader
@@ -58,15 +62,11 @@ namespace Flourish
         // TS
         virtual std::shared_ptr<DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) = 0;
 
-        // TS
-        inline const auto& GetReflectionData() { return m_ReflectionData; }
-
     public:
         // TS
         static std::shared_ptr<Shader> Create(const ShaderCreateInfo& createInfo);
 
     protected:
         ShaderType m_Type;
-        std::vector<std::vector<ReflectionDataElement>> m_ReflectionData;
     };
 }
