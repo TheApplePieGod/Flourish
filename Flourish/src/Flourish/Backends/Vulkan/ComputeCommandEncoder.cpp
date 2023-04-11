@@ -101,7 +101,7 @@ namespace Flourish::Vulkan
             m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_COMPUTE,
             m_BoundPipeline->GetLayout(),
-            0, 1,
+            setIndex, 1,
             sets,
             shader->GetSetData()[setIndex].DynamicOffsetCount,
             m_DescriptorBinder.GetDynamicOffsetData(setIndex)

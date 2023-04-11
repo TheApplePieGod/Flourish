@@ -80,6 +80,12 @@ namespace Flourish::Vulkan
             "Attempting to bind a texture to a storage image binding that was not created as a compute target"
         );
 
+        if (m_Info.Writability == DescriptorSetWritability::OnceStaticData && texture->GetWritability() == TextureWritability::PerFrame)
+        {
+            FL_LOG_ERROR("Cannot bind a dynamic texture to a descriptor set with static writability");
+            throw std::exception();
+        }
+
         UpdateBinding(
             bindingIndex, 
             texType, 
@@ -232,7 +238,7 @@ namespace Flourish::Vulkan
             if (m_Info.Writability == DescriptorSetWritability::PerFrame)
                 break;
 
-            frameIndex = (frameIndex + i) % Flourish::Context::FrameBufferCount();
+            frameIndex = (frameIndex + 1) % Flourish::Context::FrameBufferCount();
         }
     }
 
@@ -284,7 +290,7 @@ namespace Flourish::Vulkan
                 break;
             }
 
-            frameIndex = (frameIndex + i) % Flourish::Context::FrameBufferCount();
+            frameIndex = (frameIndex + 1) % Flourish::Context::FrameBufferCount();
         }
 
         m_LastFrameWrite = Flourish::Context::FrameCount();

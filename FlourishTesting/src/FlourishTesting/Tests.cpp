@@ -64,8 +64,6 @@ namespace FlourishTesting
                 else
                     encoder->BindDescriptorSet(m_CatDescriptorSet.get(), 0);
                 encoder->FlushDescriptorSet(0);
-                encoder->BindDescriptorSet(m_ObjectDescriptorSet.get(), 1);
-                encoder->FlushDescriptorSet(1);
                 encoder->BindVertexBuffer(m_FullTriangleVertices.get()); 
                 encoder->Draw(3, 0, 1, 0);
                 encoder->EndEncoding();
@@ -79,8 +77,8 @@ namespace FlourishTesting
             {
                 auto encoder = m_CommandBuffers[objectCount]->EncodeComputeCommands();
                 encoder->BindPipeline(m_ComputePipeline.get());
-                encoder->BindDescriptorSet(m_ObjectDescriptorSet.get(), 1);
-                encoder->FlushDescriptorSet(1);
+                encoder->BindDescriptorSet(m_ObjectDescriptorSet.get(), 0);
+                encoder->FlushDescriptorSet(0);
                 encoder->Dispatch(objectCount, 1, 1);
                 encoder->EndEncoding();
             }));
@@ -95,7 +93,7 @@ namespace FlourishTesting
         {
             encoder->BindDescriptorSet(m_FrameDescriptorSets[i].get(), 0);
             encoder->FlushDescriptorSet(0);
-            encoder->UpdateDynamicOffset(1, 0, i);
+            encoder->UpdateDynamicOffset(1, 0, i * m_ObjectData->GetStride());
             encoder->FlushDescriptorSet(1);
             encoder->BindVertexBuffer(m_QuadVertices.get()); 
             encoder->BindIndexBuffer(m_QuadIndices.get());
@@ -105,8 +103,8 @@ namespace FlourishTesting
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
-        encoder->BindDescriptorSet(m_FrameDescriptorSets[objectCount].get(), 0);
-        encoder->FlushDescriptorSet(0);
+        frameEncoder->BindDescriptorSet(m_FrameDescriptorSets[objectCount].get(), 0);
+        frameEncoder->FlushDescriptorSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
@@ -216,7 +214,7 @@ namespace FlourishTesting
                 vec2 Offset;
             };
 
-            layout(binding = 0) buffer ObjectBuffer {
+            layout(binding = 0, set = 0) buffer ObjectBuffer {
                 Object data[];
             } objectBuffer;
 
@@ -261,7 +259,7 @@ namespace FlourishTesting
 
             layout(location = 0) out vec4 outColor;
 
-            layout(binding = 0) uniform sampler2D tex;
+            layout(binding = 0, set = 0) uniform sampler2D tex;
 
             void main() {
                 outColor = texture(tex, inTexCoord);
@@ -316,7 +314,6 @@ namespace FlourishTesting
         m_ObjectDescriptorSetDynamic = objectVertShader->CreateDescriptorSet(descCreateInfo);
         m_ObjectDescriptorSetDynamic->BindBuffer(0, m_ObjectData.get(), 0, 1);
         m_ObjectDescriptorSetDynamic->FlushBindings();
-        descCreateInfo.Writability = Flourish::DescriptorSetWritability::OnceStaticData;
         descCreateInfo.SetIndex = 0;
         for (u32 i = 0; i < m_FrameTextures.size(); i++)
         {

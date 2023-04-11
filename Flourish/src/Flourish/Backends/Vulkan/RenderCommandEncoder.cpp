@@ -238,7 +238,7 @@ namespace Flourish::Vulkan
         {
             if (m_ShaderRefs[i]->DoesSetExist(setIndex))
             {
-                m_DescriptorBinders[i].BindNewShader(m_ShaderRefs[i]);
+                m_DescriptorBinders[i].BindDescriptorSet(static_cast<const DescriptorSet*>(set), setIndex);
                 return;
             }
         }
@@ -270,12 +270,14 @@ namespace Flourish::Vulkan
         {
             if (m_ShaderRefs[i]->DoesSetExist(setIndex))
             {
+                // TODO: ensure bound
+
                 VkDescriptorSet sets[1] = { m_DescriptorBinders[i].GetDescriptorSet(setIndex)->GetSet() };
                 vkCmdBindDescriptorSets(
                     m_CommandBuffer,
-                    VK_PIPELINE_BIND_POINT_COMPUTE,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
                     m_BoundPipeline->GetLayout(),
-                    0, 1,
+                    setIndex, 1,
                     sets,
                     m_ShaderRefs[i]->GetSetData()[setIndex].DynamicOffsetCount,
                     m_DescriptorBinders[i].GetDynamicOffsetData(setIndex)

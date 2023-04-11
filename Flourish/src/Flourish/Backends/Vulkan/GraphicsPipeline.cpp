@@ -136,7 +136,7 @@ namespace Flourish::Vulkan
         dynamicState.pDynamicStates = dynamicStates;
 
         auto& vertData = vertShader->GetSetData();
-        auto& fragData = vertShader->GetSetData();
+        auto& fragData = fragShader->GetSetData();
         u32 setCount = std::max(
             vertData.size(),
             fragData.size()
