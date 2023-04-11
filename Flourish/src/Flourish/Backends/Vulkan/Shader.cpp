@@ -167,16 +167,13 @@ namespace Flourish::Vulkan
     {
         u32 setIndex = createInfo.SetIndex;
 
-        if (setIndex >= m_SetData.size())
+        if (setIndex >= m_SetData.size() || !m_SetData[setIndex].Exists)
         {
-            FL_ASSERT(false, "AllocateDescriptorSet setIndex out of range");
+            FL_ASSERT(false, "AllocateDescriptorSet invalid set index");
             return nullptr;
         }
 
         auto& data = m_SetData[setIndex];
-        if (!data.Pool)
-            data.Pool = std::make_shared<DescriptorPool>(data.ReflectionData);
-
         return std::make_shared<DescriptorSet>(createInfo, data.Pool);
     }
 
@@ -202,7 +199,7 @@ namespace Flourish::Vulkan
 
     void Shader::Reflect(const std::vector<u32>& compiledData)
     {
-        m_ReflectionData.clear();
+        m_SetData.clear();
 
         // For some reason, compiler needs to be heap allocated because otherwise it causes
         // a crash on macos
@@ -256,7 +253,7 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
-            if (m_SetData.size() < set)
+            if (m_SetData.size() <= set)
                 m_SetData.resize(set + 1);
             m_SetData[set].DynamicOffsetCount++;
             m_SetData[set].Exists = true;
@@ -291,7 +288,7 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
-            if (m_SetData.size() < set)
+            if (m_SetData.size() <= set)
                 m_SetData.resize(set + 1);
             m_SetData[set].DynamicOffsetCount++;
             m_SetData[set].Exists = true;
@@ -324,7 +321,7 @@ namespace Flourish::Vulkan
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
-            if (m_SetData.size() < set)
+            if (m_SetData.size() <= set)
                 m_SetData.resize(set + 1);
             m_SetData[set].Exists = true;
             m_SetData[set].ReflectionData.emplace_back(
@@ -356,7 +353,7 @@ namespace Flourish::Vulkan
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
-            if (m_SetData.size() < set)
+            if (m_SetData.size() <= set)
                 m_SetData.resize(set + 1);
             m_SetData[set].Exists = true;
             m_SetData[set].ReflectionData.emplace_back(
@@ -389,7 +386,7 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
             
-            if (m_SetData.size() < set)
+            if (m_SetData.size() <= set)
                 m_SetData.resize(set + 1);
             m_SetData[set].Exists = true;
             m_SetData[set].ReflectionData.emplace_back(
@@ -415,14 +412,18 @@ namespace Flourish::Vulkan
         // Ensure there are no duplicate binding indices within sets and sort each set
         for (auto& set : m_SetData)
         {
-            if (!set.Exists || set.ReflectionData.empty())
+            if (!set.Exists)
                 continue;
+
+            FL_ASSERT(!set.ReflectionData.empty(), "Cannot have an empty descriptor set");
+
+            set.Pool = std::make_shared<DescriptorPool>(set.ReflectionData);
 
             #ifdef FL_DEBUG
             for (auto& check : set.ReflectionData)
                 for (auto& elem : set.ReflectionData)
                     if (check.BindingIndex == elem.BindingIndex)
-                        FL_ASSERT(check.UniqueId != elem.UniqueId, "Binding index must be unique for all shader resources");
+                        FL_ASSERT(check.UniqueId == elem.UniqueId, "Binding index must be unique for all shader resources");
             #endif
 
             std::sort(
@@ -435,7 +436,7 @@ namespace Flourish::Vulkan
             );
 
             // Update dynamic offsets offset index
-            set.OffsetIndex = m_TotalDynamicOffsets;
+            set.DynamicOffsetIndex = m_TotalDynamicOffsets;
             m_TotalDynamicOffsets += set.DynamicOffsetCount;
 
         }

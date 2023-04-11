@@ -4,6 +4,8 @@
 
 namespace Flourish
 {
+    // TODO: set with multiple writabilities per frame? or some sort of wrapper
+    // that provides this functionality
     enum class DescriptorSetWritability
     {
         None = 0,

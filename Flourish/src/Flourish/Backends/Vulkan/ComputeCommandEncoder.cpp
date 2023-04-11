@@ -4,7 +4,6 @@
 #include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
-#include "Flourish/Backends/Vulkan/ComputeTarget.h"
 #include "Flourish/Backends/Vulkan/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
 
@@ -14,10 +13,9 @@ namespace Flourish::Vulkan
         : m_ParentBuffer(parentBuffer), m_FrameRestricted(frameRestricted)
     {}
 
-    void ComputeCommandEncoder::BeginEncoding(ComputeTarget* target)
+    void ComputeCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
-        m_BoundTarget = target;
 
         m_AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Compute,
@@ -40,7 +38,6 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
-        m_BoundTarget = nullptr;
         m_BoundPipeline = nullptr;
 
         VkCommandBuffer buffer = m_CommandBuffer;

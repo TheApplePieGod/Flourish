@@ -9,8 +9,6 @@ namespace Flourish::Vulkan
     class DescriptorBinder
     {
     public:
-        DescriptorBinder();
-
         void Reset();
         void BindNewShader(const Shader* shader);
 

@@ -1,3 +1,5 @@
+#include "Flourish/Api/DescriptorSet.h"
+#include "Flourish/Api/Shader.h"
 #include "flpch.h"
 #include "Tests.h"
 
@@ -58,10 +60,12 @@ namespace FlourishTesting
                 auto encoder = m_CommandBuffers[i]->EncodeRenderCommands(m_FrameTextureBuffers[i].get());
                 encoder->BindPipeline("simple_image");
                 if (Flourish::Context::FrameCount() % 100 < 50)
-                    encoder->BindPipelineTextureResource(0, m_DogTexture.get());
+                    encoder->BindDescriptorSet(m_DogDescriptorSet.get(), 0);
                 else
-                    encoder->BindPipelineTextureResource(0, m_CatTexture.get());
-                encoder->FlushPipelineBindings();
+                    encoder->BindDescriptorSet(m_CatDescriptorSet.get(), 0);
+                encoder->FlushDescriptorSet(0);
+                encoder->BindDescriptorSet(m_ObjectDescriptorSet.get(), 1);
+                encoder->FlushDescriptorSet(1);
                 encoder->BindVertexBuffer(m_FullTriangleVertices.get()); 
                 encoder->Draw(3, 0, 1, 0);
                 encoder->EndEncoding();
@@ -73,10 +77,10 @@ namespace FlourishTesting
         {
             jobs.push_back(std::async(std::launch::async, [&]()
             {
-                auto encoder = m_CommandBuffers[objectCount]->EncodeComputeCommands(m_ComputeTarget.get());
+                auto encoder = m_CommandBuffers[objectCount]->EncodeComputeCommands();
                 encoder->BindPipeline(m_ComputePipeline.get());
-                encoder->BindPipelineBufferResource(0, m_ObjectData.get(), 0, 0, objectCount);
-                encoder->FlushPipelineBindings();
+                encoder->BindDescriptorSet(m_ObjectDescriptorSet.get(), 1);
+                encoder->FlushDescriptorSet(1);
                 encoder->Dispatch(objectCount, 1, 1);
                 encoder->EndEncoding();
             }));
@@ -86,11 +90,13 @@ namespace FlourishTesting
         
         auto encoder = m_CommandBuffers[objectCount + 1]->EncodeRenderCommands(m_FrameTextureBuffers[objectCount].get());
         encoder->BindPipeline("object_image");
+        encoder->BindDescriptorSet(m_ObjectDescriptorSetDynamic.get(), 1);
         for (u32 i = 0; i < objectCount; i++)
         {
-            encoder->BindPipelineTextureResource(0, m_FrameTextures[i].get());
-            encoder->BindPipelineBufferResource(1, m_ObjectData.get(), 0, i, 1);
-            encoder->FlushPipelineBindings();
+            encoder->BindDescriptorSet(m_FrameDescriptorSets[i].get(), 0);
+            encoder->FlushDescriptorSet(0);
+            encoder->UpdateDynamicOffset(1, 0, i);
+            encoder->FlushDescriptorSet(1);
             encoder->BindVertexBuffer(m_QuadVertices.get()); 
             encoder->BindIndexBuffer(m_QuadIndices.get());
             encoder->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1, 0);
@@ -99,8 +105,8 @@ namespace FlourishTesting
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
-        frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[objectCount].get());
-        frameEncoder->FlushPipelineBindings();
+        encoder->BindDescriptorSet(m_FrameDescriptorSets[objectCount].get(), 0);
+        encoder->FlushDescriptorSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
@@ -129,9 +135,10 @@ namespace FlourishTesting
 
         auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_FrameTextureBuffers[0].get());
         encoder1->BindPipeline("object_image");
-        encoder1->BindPipelineTextureResource(0, m_DogTexture.get());
-        encoder1->BindPipelineBufferResource(1, m_ObjectData.get(), 0, 0, objectCount);
-        encoder1->FlushPipelineBindings();
+        encoder1->BindDescriptorSet(m_DogDescriptorSet.get(), 0);
+        encoder1->FlushDescriptorSet(0);
+        encoder1->BindDescriptorSet(m_ObjectDescriptorSet.get(), 1);
+        encoder1->FlushDescriptorSet(1);
         encoder1->BindVertexBuffer(m_QuadVertices.get()); 
         encoder1->BindIndexBuffer(m_QuadIndices.get());
         encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount, 0);
@@ -139,8 +146,8 @@ namespace FlourishTesting
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
-        frameEncoder->BindPipelineTextureResource(0, m_FrameTextures[0].get());
-        frameEncoder->FlushPipelineBindings();
+        frameEncoder->BindDescriptorSet(m_FrameDescriptorSets[0].get(), 0);
+        frameEncoder->FlushDescriptorSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
@@ -165,9 +172,9 @@ namespace FlourishTesting
         m_RenderContext = Flourish::RenderContext::Create(contextCreateInfo);
         
         CreateRenderPasses();
-        CreatePipelines();
-        CreateBuffers();
         CreateTextures();
+        CreateBuffers();
+        CreatePipelines();
         CreateFramebuffers();
         CreateCommandBuffers();
     }    
@@ -278,7 +285,7 @@ namespace FlourishTesting
 
             layout(location = 0) out vec2 outTexCoord;
 
-            layout(binding = 1) readonly buffer ObjectBuffer {
+            layout(binding = 0, set = 1) readonly buffer ObjectBuffer {
                 Object data[];
             } objectBuffer;
 
@@ -291,8 +298,32 @@ namespace FlourishTesting
             }
         )";
         auto objectVertShader = Flourish::Shader::Create(shaderCreateInfo);
-        
-        m_ComputeTarget = Flourish::ComputeTarget::Create();
+
+        Flourish::DescriptorSetCreateInfo descCreateInfo;
+        descCreateInfo.Writability = Flourish::DescriptorSetWritability::OnceStaticData;
+        descCreateInfo.SetIndex = 0;
+        m_DogDescriptorSet = imageFragShader->CreateDescriptorSet(descCreateInfo);
+        m_DogDescriptorSet->BindTexture(0, m_DogTexture.get());
+        m_DogDescriptorSet->FlushBindings();
+        m_CatDescriptorSet = imageFragShader->CreateDescriptorSet(descCreateInfo);
+        m_CatDescriptorSet->BindTexture(0, m_CatTexture.get());
+        m_CatDescriptorSet->FlushBindings();
+        descCreateInfo.Writability = Flourish::DescriptorSetWritability::OnceDynamicData;
+        descCreateInfo.SetIndex = 1;
+        m_ObjectDescriptorSet = objectVertShader->CreateDescriptorSet(descCreateInfo);
+        m_ObjectDescriptorSet->BindBuffer(0, m_ObjectData.get(), 0, m_ObjectData->GetAllocatedCount());
+        m_ObjectDescriptorSet->FlushBindings();
+        m_ObjectDescriptorSetDynamic = objectVertShader->CreateDescriptorSet(descCreateInfo);
+        m_ObjectDescriptorSetDynamic->BindBuffer(0, m_ObjectData.get(), 0, 1);
+        m_ObjectDescriptorSetDynamic->FlushBindings();
+        descCreateInfo.Writability = Flourish::DescriptorSetWritability::OnceStaticData;
+        descCreateInfo.SetIndex = 0;
+        for (u32 i = 0; i < m_FrameTextures.size(); i++)
+        {
+            m_FrameDescriptorSets.emplace_back(imageFragShader->CreateDescriptorSet(descCreateInfo));
+            m_FrameDescriptorSets[i]->BindTexture(0, m_FrameTextures[i].get());
+            m_FrameDescriptorSets[i]->FlushBindings();
+        }
 
         compCreateInfo.ComputeShader = computeShader;
         m_ComputePipeline = Flourish::ComputePipeline::Create(compCreateInfo);

@@ -32,6 +32,8 @@ namespace Flourish::Vulkan
         void ClearColorAttachment(u32 attachmentIndex) override;
         void ClearDepthAttachment() override;
 
+        // TODO: flush should ensure all are bound
+
         void BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex) override;
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) override;
         void FlushDescriptorSet(u32 setIndex) override;

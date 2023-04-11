@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Flourish/Api/Pipeline.h"
+#include "Flourish/Api/Shader.h"
 
 namespace Flourish
 {
@@ -9,14 +9,13 @@ namespace Flourish
         std::shared_ptr<Shader> ComputeShader;
     };
 
-    class ComputePipeline : public Pipeline
+    class ComputePipeline
     {
     public:
         ComputePipeline(const ComputePipelineCreateInfo& createInfo)
             : m_Info(createInfo)
         {
             FL_ASSERT(createInfo.ComputeShader, "Must specify a compute shader asset");
-            ConsolidateReflectionData();
         }
         virtual ~ComputePipeline() = default;
 
@@ -28,8 +27,5 @@ namespace Flourish
 
     protected:
         ComputePipelineCreateInfo m_Info;
-
-    private:
-        void ConsolidateReflectionData();
     };
 }

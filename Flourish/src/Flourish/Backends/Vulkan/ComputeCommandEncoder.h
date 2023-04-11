@@ -8,7 +8,6 @@
 
 namespace Flourish::Vulkan
 {
-    class ComputeTarget;
     class CommandBuffer;
     class DescriptorSet;
     class ComputeCommandEncoder : public Flourish::ComputeCommandEncoder 
@@ -17,7 +16,7 @@ namespace Flourish::Vulkan
         ComputeCommandEncoder() = default;
         ComputeCommandEncoder(CommandBuffer* parentBuffer, bool frameRestricted);
 
-        void BeginEncoding(ComputeTarget* target);
+        void BeginEncoding();
         void EndEncoding() override;
         void BindPipeline(Flourish::ComputePipeline* pipeline) override;
         void Dispatch(u32 x, u32 y, u32 z) override;
@@ -35,7 +34,6 @@ namespace Flourish::Vulkan
         CommandBufferAllocInfo m_AllocInfo;
         VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
-        ComputeTarget* m_BoundTarget = nullptr;
         ComputePipeline* m_BoundPipeline = nullptr;
         DescriptorBinder m_DescriptorBinder;
     };

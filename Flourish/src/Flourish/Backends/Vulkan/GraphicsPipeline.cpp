@@ -4,6 +4,7 @@
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
 {
@@ -37,9 +38,11 @@ namespace Flourish::Vulkan
     GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
+        auto vertShader = static_cast<Shader*>(createInfo.VertexShader.get());
+        auto fragShader = static_cast<Shader*>(createInfo.FragmentShader.get());
         VkPipelineShaderStageCreateInfo shaderStages[] = {
-            static_cast<Shader*>(createInfo.VertexShader.get())->DefineShaderStage(),
-            static_cast<Shader*>(createInfo.FragmentShader.get())->DefineShaderStage()
+            vertShader->DefineShaderStage(),
+            fragShader->DefineShaderStage()
         };
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
@@ -132,11 +135,25 @@ namespace Flourish::Vulkan
         dynamicState.dynamicStateCount = 3;
         dynamicState.pDynamicStates = dynamicStates;
 
-        VkDescriptorSetLayout layout[1] = { m_DescriptorSetLayout.GetLayout() };
+        auto& vertData = vertShader->GetSetData();
+        auto& fragData = vertShader->GetSetData();
+        u32 setCount = std::max(
+            vertData.size(),
+            fragData.size()
+        );
+        std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
+        for (u32 i = 0; i < setCount; i++)
+        {
+            if (i < vertData.size() && vertData[i].Exists)
+                layouts[i] = vertData[i].Pool->GetLayout();
+            else if (i < fragData.size() && fragData[i].Exists)
+                layouts[i] = fragData[i].Pool->GetLayout();
+        }
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = layout;
+        pipelineLayoutInfo.setLayoutCount = setCount;
+        pipelineLayoutInfo.pSetLayouts = layouts.data();
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
         if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
@@ -208,8 +225,6 @@ namespace Flourish::Vulkan
 
     GraphicsPipeline::~GraphicsPipeline()
     {
-        m_DescriptorSetLayout.Shutdown();
-
         auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;
         Context::FinalizerQueue().Push([=]()

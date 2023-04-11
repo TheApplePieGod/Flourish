@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Flourish/Api/Pipeline.h"
+#include "Flourish/Api/Shader.h"
+#include "Flourish/Api/Buffer.h"
 
 namespace Flourish
 {
@@ -71,14 +72,13 @@ namespace Flourish
     };
 
     class Texture;
-    class GraphicsPipeline : public Pipeline
+    class GraphicsPipeline
     {
     public:
         GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
             : m_Info(createInfo)
         {
             FL_ASSERT(createInfo.VertexShader && createInfo.FragmentShader, "Must specify both vertex and fragment shaders");
-            ConsolidateReflectionData();
         }
         virtual ~GraphicsPipeline() = default;
         
@@ -95,8 +95,5 @@ namespace Flourish
 
     protected:
         GraphicsPipelineCreateInfo m_Info;
-
-    private:
-        void ConsolidateReflectionData();
     };
 }
