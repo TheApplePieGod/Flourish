@@ -37,8 +37,6 @@ namespace Flourish::Vulkan
     GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
-        m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
-
         VkPipelineShaderStageCreateInfo shaderStages[] = {
             static_cast<Shader*>(createInfo.VertexShader.get())->DefineShaderStage(),
             static_cast<Shader*>(createInfo.FragmentShader.get())->DefineShaderStage()

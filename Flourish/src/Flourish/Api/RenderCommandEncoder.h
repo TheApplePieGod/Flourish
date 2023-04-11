@@ -12,7 +12,7 @@ namespace Flourish
     public:
         RenderCommandEncoder() = default;
 
-        // All shader resources must be bound before drawing
+        // All sets must be bound before drawing
         // TODO: pipeline ids?
         virtual void BindPipeline(std::string_view pipelineName) = 0;
         virtual void SetViewport(u32 x, u32 y, u32 width, u32 height) = 0;
@@ -27,11 +27,10 @@ namespace Flourish
         virtual void ClearColorAttachment(u32 attachmentIndex) = 0;
         virtual void ClearDepthAttachment() = 0;
         
-        // All sets must be bound before dispatching
-        // Must rebind set after updating dynamic offsets
-        virtual void BindDescriptorSet(const DescriptorSet* set, u32 setIndex) = 0;
-
-        // offset in bytes
+        // Bind -> Update -> Flush
+        // Offset in bytes
         virtual void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) = 0;
+        virtual void BindDescriptorSet(const DescriptorSet* set, u32 setIndex) = 0;
+        virtual void FlushDescriptorSet(u32 setIndex) = 0;
     };
 }

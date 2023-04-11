@@ -32,6 +32,8 @@ namespace Flourish::Vulkan
 
         // TODO: check result?
         vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
+
+        m_DescriptorBinder.Reset();
     }
 
     void ComputeCommandEncoder::EndEncoding()
@@ -52,7 +54,7 @@ namespace Flourish::Vulkan
         m_BoundPipeline = static_cast<ComputePipeline*>(pipeline);
 
         auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
-        m_DynamicOffsets.ResetOffsets(shader);
+        m_DescriptorBinder.BindNewShader(shader);
 
         vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_BoundPipeline->GetPipeline());
     }
@@ -77,28 +79,35 @@ namespace Flourish::Vulkan
         );
     }
     
-    void ComputeCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* _set, u32 setIndex)
+    void ComputeCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex)
     {
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
 
+        m_DescriptorBinder.BindDescriptorSet(static_cast<const DescriptorSet*>(set), setIndex);
+    }
+
+    void ComputeCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
+    {
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before updating dynamic offsets");
+
+        m_DescriptorBinder.UpdateDynamicOffset(setIndex, bindingIndex, offset);
+    }
+
+    void ComputeCommandEncoder::FlushDescriptorSet(u32 setIndex)
+    {
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a descriptor set");
+
         auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
 
-        auto set = static_cast<const DescriptorSet*>(_set);
-        VkDescriptorSet sets[1] = { set->GetSet() };
+        VkDescriptorSet sets[1] = { m_DescriptorBinder.GetDescriptorSet(setIndex)->GetSet() };
         vkCmdBindDescriptorSets(
             m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_COMPUTE,
             m_BoundPipeline->GetLayout(),
             0, 1,
             sets,
-            static_cast<u32>(set->GetParentPool()->GetDynamicOffsetsCount()),
-            m_DynamicOffsets.GetOffsetData(shader, setIndex)
+            shader->GetSetData()[setIndex].DynamicOffsetCount,
+            m_DescriptorBinder.GetDynamicOffsetData(setIndex)
         );
-    }
-
-    void ComputeCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
-    {
-        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
-        m_DynamicOffsets.UpdateOffset(shader, setIndex, bindingIndex, offset);
     }
 }

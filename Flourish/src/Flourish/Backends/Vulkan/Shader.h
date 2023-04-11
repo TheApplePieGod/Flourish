@@ -14,7 +14,7 @@ namespace Flourish::Vulkan
             bool Exists = false;
             std::vector<ReflectionDataElement> ReflectionData;
             std::shared_ptr<DescriptorPool> Pool;
-            u32 OffsetIndex = 0; // When computing dynamic offsets
+            u32 DynamicOffsetIndex = 0; // When computing dynamic offsets
             u32 DynamicOffsetCount = 0;
         };
 
@@ -30,7 +30,7 @@ namespace Flourish::Vulkan
         // TS
         inline VkShaderModule GetShaderModule() const { return m_ShaderModule; }
         inline u32 GetTotalDynamicOffsets() const { return m_TotalDynamicOffsets; }
-        inline const SetData& GetSetData(u32 setIndex) const { return m_SetData[setIndex]; }
+        inline const auto& GetSetData() const { return m_SetData; }
         inline bool DoesSetExist(u32 setIndex) const { return setIndex < m_SetData.size() && m_SetData[setIndex].Exists; }
 
     private:

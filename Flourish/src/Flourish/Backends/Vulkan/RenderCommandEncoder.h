@@ -4,7 +4,7 @@
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/Commands.h"
 #include "Flourish/Backends/Vulkan/GraphicsPipeline.h"
-#include "Flourish/Backends/Vulkan/Util/DynamicOffsets.h"
+#include "Flourish/Backends/Vulkan/Util/DescriptorBinder.h"
 
 namespace Flourish::Vulkan
 {
@@ -34,12 +34,10 @@ namespace Flourish::Vulkan
 
         void BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex) override;
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) override;
+        void FlushDescriptorSet(u32 setIndex) override;
         
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
-
-    private:
-        void ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
 
     private:
         bool m_FrameRestricted;
@@ -47,9 +45,11 @@ namespace Flourish::Vulkan
         VkCommandBuffer m_CommandBuffer;
         CommandBuffer* m_ParentBuffer;
         Framebuffer* m_BoundFramebuffer = nullptr;
-        std::array<DynamicOffsets, 2> m_DynamicOffsets;
         GraphicsPipeline* m_BoundPipeline = nullptr;
         std::string m_BoundPipelineName = "";
         u32 m_SubpassIndex = 0;
+
+        std::array<DescriptorBinder, 2> m_DescriptorBinders;
+        std::array<const Shader*, 2> m_ShaderRefs;
     };
 }

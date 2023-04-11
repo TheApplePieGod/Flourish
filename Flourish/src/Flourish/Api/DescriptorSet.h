@@ -14,7 +14,7 @@ namespace Flourish
 
     struct DescriptorSetCreateInfo
     {
-        u32 SetIndex;
+        u32 SetIndex; // TODO: move out of create info?
         DescriptorSetWritability Writability;
     };
 
@@ -33,6 +33,7 @@ namespace Flourish
         virtual void BindTextureLayer(u32 bindingIndex, const Texture* texture, u32 layerIndex, u32 mipLevel) = 0;
         virtual void BindSubpassInput(u32 bindingIndex, const Framebuffer* framebuffer, SubpassAttachment attachment) = 0;
 
+        // Cannot flush until all bindings are bound
         virtual void FlushBindings() = 0;
 
     protected:

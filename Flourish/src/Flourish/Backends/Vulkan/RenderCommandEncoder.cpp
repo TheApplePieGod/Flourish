@@ -8,6 +8,7 @@
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
+#include "Flourish/Backends/Vulkan/DescriptorSet.h"
 
 namespace Flourish::Vulkan
 {
@@ -54,7 +55,6 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
         m_BoundFramebuffer = nullptr;
-        m_BoundDescriptorSet = nullptr;
         m_BoundPipeline = nullptr;
         m_BoundPipelineName.clear();
         m_SubpassIndex = 0;
@@ -76,9 +76,14 @@ namespace Flourish::Vulkan
         FL_ASSERT(pipeline, "BindPipeline() pipeline not found");
         m_BoundPipeline = pipeline;
 
-        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
-        m_DynamicOffsets.ResetOffsets(shader);
-        
+        m_ShaderRefs = {
+            static_cast<const Shader*>(m_BoundPipeline->GetVertexShader()),
+            static_cast<const Shader*>(m_BoundPipeline->GetFragmentShader())
+        };
+
+        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+            m_DescriptorBinders[i].BindNewShader(m_ShaderRefs[i]);
+
         VkPipeline subpassPipeline = pipeline->GetPipeline(m_SubpassIndex);
         FL_ASSERT(subpassPipeline, "BindPipeline() pipeline not supported for current subpass");
 
@@ -182,7 +187,6 @@ namespace Flourish::Vulkan
         m_SubpassIndex++;
         m_BoundPipeline = nullptr;
         m_BoundPipelineName.clear();
-        m_BoundDescriptorSet = nullptr;
     }
 
     void RenderCommandEncoder::ClearColorAttachment(u32 attachmentIndex)
@@ -226,28 +230,61 @@ namespace Flourish::Vulkan
         vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
     }
 
-    void ComputeCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* _set, u32 setIndex)
+    void RenderCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex)
     {
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
 
-        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
+        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+        {
+            if (m_ShaderRefs[i]->DoesSetExist(setIndex))
+            {
+                m_DescriptorBinders[i].BindNewShader(m_ShaderRefs[i]);
+                return;
+            }
+        }
 
-        auto set = static_cast<const DescriptorSet*>(_set);
-        VkDescriptorSet sets[1] = { set->GetSet() };
-        vkCmdBindDescriptorSets(
-            m_CommandBuffer,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            m_BoundPipeline->GetLayout(),
-            0, 1,
-            sets,
-            static_cast<u32>(set->GetParentPool()->GetDynamicOffsetsCount()),
-            m_DynamicOffsets.GetOffsetData(shader, setIndex)
-        );
+        FL_CRASH_ASSERT(false, "Set index does not exist in shader");
     }
 
-    void ComputeCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
+    void RenderCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
     {
-        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
-        m_DynamicOffsets.UpdateOffset(shader, setIndex, bindingIndex, offset);
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before updating dynamic offsets");
+
+        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+        {
+            if (m_ShaderRefs[i]->DoesSetExist(setIndex))
+            {
+                m_DescriptorBinders[i].UpdateDynamicOffset(setIndex, bindingIndex, offset);
+                return;
+            }
+        }
+
+        FL_CRASH_ASSERT(false, "Set index does not exist in shader");
+    }
+
+    void RenderCommandEncoder::FlushDescriptorSet(u32 setIndex)
+    {
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a descriptor set");
+
+        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+        {
+            if (m_ShaderRefs[i]->DoesSetExist(setIndex))
+            {
+                VkDescriptorSet sets[1] = { m_DescriptorBinders[i].GetDescriptorSet(setIndex)->GetSet() };
+                vkCmdBindDescriptorSets(
+                    m_CommandBuffer,
+                    VK_PIPELINE_BIND_POINT_COMPUTE,
+                    m_BoundPipeline->GetLayout(),
+                    0, 1,
+                    sets,
+                    m_ShaderRefs[i]->GetSetData()[setIndex].DynamicOffsetCount,
+                    m_DescriptorBinders[i].GetDynamicOffsetData(setIndex)
+                );
+
+                return;
+            }
+        }
+
+        FL_CRASH_ASSERT(false, "Set index does not exist in shader");
     }
 }

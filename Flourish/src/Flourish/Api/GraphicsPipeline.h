@@ -81,7 +81,10 @@ namespace Flourish
             ConsolidateReflectionData();
         }
         virtual ~GraphicsPipeline() = default;
-
+        
+        // TS
+        inline Shader* GetVertexShader() const { return m_Info.VertexShader.get(); }
+        inline Shader* GetFragmentShader() const { return m_Info.FragmentShader.get(); }
         inline VertexTopology GetVertexTopology() const { return m_Info.VertexTopology; }
         inline CullMode GetCullMode() const { return m_Info.CullMode; }
         inline WindingOrder GetWindingOrder() const { return m_Info.WindingOrder; }
