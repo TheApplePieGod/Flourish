@@ -6,6 +6,7 @@
 namespace Flourish::Vulkan
 {
     class DescriptorPool;
+    class DescriptorSet;
     class Shader : public Flourish::Shader
     {
     public:

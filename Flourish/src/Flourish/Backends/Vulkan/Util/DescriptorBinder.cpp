@@ -16,6 +16,13 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(setIndex < m_BoundSets.size(), "Set index out of range");
         FL_CRASH_ASSERT(m_BoundShader->GetSetData()[setIndex].Exists, "Set index does not exist in the shader");
+
+        #ifdef FL_DEBUG
+        FL_ASSERT(
+            m_BoundShader->GetSetData()[setIndex].Pool->CheckCompatibility(set->GetParentPool()),
+            "Trying to bind incompatible descriptor set"
+        );
+        #endif
         
         m_BoundSets[setIndex] = set;
     }

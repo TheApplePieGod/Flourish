@@ -23,6 +23,7 @@ namespace Flourish::Vulkan
         
         // TS
         bool IsResourceCorrectType(u32 bindingIndex, ShaderResourceType resourceType) const;
+        bool CheckCompatibility(const DescriptorPool* other) const;
 
         // TS
         inline VkDescriptorSetLayout GetLayout() const { return m_Layout; }

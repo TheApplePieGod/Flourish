@@ -170,6 +170,29 @@ namespace Flourish::Vulkan
         );
     }
 
+    // TODO: hashing? compatability table?
+    bool DescriptorPool::CheckCompatibility(const DescriptorPool* other) const
+    {
+        const auto& l = m_Bindings;
+        const auto& r = other->m_Bindings;
+
+        if (l.size() != r.size())
+            return false;
+
+        for (u32 i = 0; i < l.size(); i++)
+        {
+            if (l[i].Exists != r[i].Exists)
+                return false;
+            const auto& mapl = m_CachedDescriptorWrites[l[i].DescriptorWriteMapping];
+            const auto& mapr = other->m_CachedDescriptorWrites[r[i].DescriptorWriteMapping];
+            if (mapl.descriptorType != mapr.descriptorType ||
+                mapl.descriptorCount != mapr.descriptorCount)
+                return false;
+        }
+
+        return true;
+    }
+
     void DescriptorPool::CreateDescriptorPool()
     {
         VkDescriptorPoolCreateInfo poolInfo{};
