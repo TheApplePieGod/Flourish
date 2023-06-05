@@ -15,12 +15,12 @@ namespace Flourish::Vulkan
         : Flourish::DescriptorSet(createInfo), m_ParentPool(parentPool)
     {
         FL_ASSERT(
-            static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::FrameWrite) ||
-            !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::MultiWrite)),
+            static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite) ||
+            !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite)),
             "Multiwrite cannot be enabled on a descriptor set if framewrite is not also enabled"
         );
 
-        if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::DynamicData))
+        if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_DynamicData))
             m_AllocationCount = Flourish::Context::FrameBufferCount();
         for (u32 i = 0; i < m_AllocationCount; i++)
         {
@@ -34,7 +34,7 @@ namespace Flourish::Vulkan
             m_CachedData.back().ImageInfos.resize(m_ParentPool->GetImageArrayElementCount());
 
             // Ensure free lists are populated with initial allocations when using multiwrite
-            if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::MultiWrite))
+            if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite))
             {
                 m_SetLists[i].Sets.push_back(m_Allocations[i]);
                 m_SetLists[i].FreeIndex++;
@@ -62,7 +62,7 @@ namespace Flourish::Vulkan
         ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
         ValidateBinding(bindingIndex, bufferType, buffer);
 
-        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::DynamicData)) && buffer->GetUsage() == BufferUsageType::Dynamic)
+        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_DynamicData)) && buffer->GetUsage() == BufferUsageType::Dynamic)
         {
             FL_LOG_ERROR("Cannot bind a dynamic buffer to a descriptor set with static writability");
             throw std::exception();
@@ -93,7 +93,7 @@ namespace Flourish::Vulkan
             "Attempting to bind a texture to a storage image binding that was not created as a compute target"
         );
 
-        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::DynamicData)) && texture->GetWritability() == TextureWritability::PerFrame)
+        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_DynamicData)) && texture->GetWritability() == TextureWritability::PerFrame)
         {
             FL_LOG_ERROR("Cannot bind a dynamic texture to a descriptor set with static writability");
             throw std::exception();
@@ -134,7 +134,7 @@ namespace Flourish::Vulkan
     {
         // This could be a tighter bound (i.e. also work with OnceDynamicData) if
         // we modified UpdateBinding slightly somehow
-        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::FrameWrite)))
+        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
         {
             FL_LOG_ERROR("Cannot bind a subpass input to a descriptor set without PerFrame writability");
             throw std::exception();
@@ -266,7 +266,7 @@ namespace Flourish::Vulkan
 
             // We never want to update more than one frame worth of data if we are
             // meant to be writing per frame manually
-            if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::FrameWrite))
+            if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite))
                 break;
 
             frameIndex = (frameIndex + 1) % Flourish::Context::FrameBufferCount();
@@ -275,20 +275,20 @@ namespace Flourish::Vulkan
 
     void DescriptorSet::FlushBindings()
     {
-        if (m_LastFrameWrite != 0 && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::FrameWrite)))
+        if (m_LastFrameWrite != 0 && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
         {
             FL_ASSERT(false, "Cannot flush descriptor set that has already been written and does not have PerFrame writability");
             return;
         }
 
-        if (m_LastFrameWrite == Flourish::Context::FrameCount() && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::MultiWrite)))
+        if (m_LastFrameWrite == Flourish::Context::FrameCount() && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite)))
         {
             FL_ASSERT(false, "Cannot flush descriptor set twice in one frame without multiwrite enabled");
             return;
         }
 
         // Update the next allocation to write to if we are allowed multiple writes per frame.
-        if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::MultiWrite))
+        if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite))
             SwapNextAllocation();
 
         u32 frameIndex = Flourish::Context::FrameIndex();
@@ -310,7 +310,7 @@ namespace Flourish::Vulkan
                 0, nullptr
             );
 
-            if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::FrameWrite))
+            if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite))
             {
                 // Reset writes for next frame
                 cachedData.WritesReadyCount = 0;
@@ -329,7 +329,7 @@ namespace Flourish::Vulkan
         }
 
         // Once we've written the final set, free the cached memory
-        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::FrameWrite)))
+        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
             m_CachedData = std::vector<CachedData>();
 
         m_LastFrameWrite = Flourish::Context::FrameCount();

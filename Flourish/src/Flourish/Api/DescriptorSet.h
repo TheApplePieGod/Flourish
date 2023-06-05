@@ -6,19 +6,19 @@ namespace Flourish
 {
     enum class DescriptorSetWritability : u8
     {
-        DynamicData = 1,
-        FrameWrite = (1 << 1),
-        MultiWrite = (1 << 2),
+        _DynamicData = 1,
+        _FrameWrite = (1 << 1),
+        _MultiWrite = (1 << 2),
 
         OnceStaticData = 0,
-        OnceDynamicData = DynamicData,
-        PerFrame = DynamicData | FrameWrite,
-        MultiPerFrame = DynamicData | FrameWrite | MultiWrite,
+        OnceDynamicData = _DynamicData,
+        PerFrame = _DynamicData | _FrameWrite,
+        MultiPerFrame = _DynamicData | _FrameWrite | _MultiWrite,
     };
 
     struct DescriptorSetCreateInfo
     {
-        u32 SetIndex; // TODO: move out of create info?
+        u32 SetIndex = 0; // TODO: move out of create info?
         DescriptorSetWritability Writability;
     };
 
