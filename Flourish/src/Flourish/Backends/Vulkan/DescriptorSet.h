@@ -36,6 +36,12 @@ namespace Flourish::Vulkan
             std::vector<VkDescriptorImageInfo> ImageInfos;
         };
 
+        struct SetList
+        {
+            u32 FreeIndex;
+            std::vector<DescriptorSetAllocation> Sets;
+        };
+
     private:
         void ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
         void UpdateBinding(
@@ -55,5 +61,6 @@ namespace Flourish::Vulkan
 
         std::shared_ptr<DescriptorPool> m_ParentPool;
         std::array<DescriptorSetAllocation, Flourish::Context::MaxFrameBufferCount> m_Allocations;
+        std::array<SetList, Flourish::Context::MaxFrameBufferCount> m_SetLists;
     };
 }
