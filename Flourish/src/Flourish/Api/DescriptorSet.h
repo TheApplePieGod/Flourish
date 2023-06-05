@@ -4,14 +4,16 @@
 
 namespace Flourish
 {
-    // TODO: set with multiple writabilities per frame? or some sort of wrapper
-    // that provides this functionality
-    enum class DescriptorSetWritability
+    enum class DescriptorSetWritability : u8
     {
-        None = 0,
-        OnceStaticData,
-        OnceDynamicData,
-        PerFrame
+        DynamicData = 1,
+        FrameWrite = (1 << 1),
+        MultiWrite = (1 << 2),
+
+        OnceStaticData = 0,
+        OnceDynamicData = DynamicData,
+        PerFrame = DynamicData | FrameWrite,
+        MultiPerFrame = DynamicData | FrameWrite | MultiWrite,
     };
 
     struct DescriptorSetCreateInfo

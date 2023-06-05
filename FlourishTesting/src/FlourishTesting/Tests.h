@@ -68,7 +68,7 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::DescriptorSet> m_ObjectDescriptorSetDynamic;
         std::shared_ptr<Flourish::DescriptorSet> m_DogDescriptorSet;
         std::shared_ptr<Flourish::DescriptorSet> m_CatDescriptorSet;
-        std::vector<std::shared_ptr<Flourish::DescriptorSet>> m_FrameDescriptorSets;
+        std::shared_ptr<Flourish::DescriptorSet> m_FrameDescriptorSet;
         
         std::shared_ptr<Flourish::Texture> m_DogTexture;
         std::shared_ptr<Flourish::Texture> m_CatTexture;

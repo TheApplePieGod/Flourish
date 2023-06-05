@@ -38,11 +38,12 @@ namespace Flourish::Vulkan
 
         struct SetList
         {
-            u32 FreeIndex;
+            u32 FreeIndex = 0;
             std::vector<DescriptorSetAllocation> Sets;
         };
 
     private:
+        void SwapNextAllocation();
         void ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
         void UpdateBinding(
             u32 bindingIndex,

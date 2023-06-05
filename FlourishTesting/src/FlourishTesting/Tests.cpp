@@ -91,7 +91,9 @@ namespace FlourishTesting
         encoder->BindDescriptorSet(m_ObjectDescriptorSetDynamic.get(), 1);
         for (u32 i = 0; i < objectCount; i++)
         {
-            encoder->BindDescriptorSet(m_FrameDescriptorSets[i].get(), 0);
+            m_FrameDescriptorSet->BindTexture(0, m_FrameTextures[i].get());
+            m_FrameDescriptorSet->FlushBindings();
+            encoder->BindDescriptorSet(m_FrameDescriptorSet.get(), 0);
             encoder->FlushDescriptorSet(0);
             encoder->UpdateDynamicOffset(1, 0, i * m_ObjectData->GetStride());
             encoder->FlushDescriptorSet(1);
@@ -103,7 +105,9 @@ namespace FlourishTesting
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
-        frameEncoder->BindDescriptorSet(m_FrameDescriptorSets[objectCount].get(), 0);
+        m_FrameDescriptorSet->BindTexture(0, m_FrameTextures[objectCount].get());
+        m_FrameDescriptorSet->FlushBindings();
+        frameEncoder->BindDescriptorSet(m_FrameDescriptorSet.get(), 0);
         frameEncoder->FlushDescriptorSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
@@ -144,7 +148,8 @@ namespace FlourishTesting
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
-        frameEncoder->BindDescriptorSet(m_FrameDescriptorSets[0].get(), 0);
+        m_FrameDescriptorSet->BindTexture(0, m_FrameTextures[0].get());
+        m_FrameDescriptorSet->FlushBindings();
         frameEncoder->FlushDescriptorSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
@@ -315,12 +320,8 @@ namespace FlourishTesting
         m_ObjectDescriptorSetDynamic->BindBuffer(0, m_ObjectData.get(), 0, 1);
         m_ObjectDescriptorSetDynamic->FlushBindings();
         descCreateInfo.SetIndex = 0;
-        for (u32 i = 0; i < m_FrameTextures.size(); i++)
-        {
-            m_FrameDescriptorSets.emplace_back(imageFragShader->CreateDescriptorSet(descCreateInfo));
-            m_FrameDescriptorSets[i]->BindTexture(0, m_FrameTextures[i].get());
-            m_FrameDescriptorSets[i]->FlushBindings();
-        }
+        descCreateInfo.Writability = Flourish::DescriptorSetWritability::MultiPerFrame;
+        m_FrameDescriptorSet = imageFragShader->CreateDescriptorSet(descCreateInfo);
 
         compCreateInfo.ComputeShader = computeShader;
         m_ComputePipeline = Flourish::ComputePipeline::Create(compCreateInfo);
