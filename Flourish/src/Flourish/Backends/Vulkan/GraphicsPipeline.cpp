@@ -4,6 +4,7 @@
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
@@ -44,6 +45,9 @@ namespace Flourish::Vulkan
             vertShader->DefineShaderStage(),
             fragShader->DefineShaderStage()
         };
+
+        std::array<Shader*, 2> shaders = { vertShader, fragShader };
+        m_DescriptorData.Populate(shaders.data(), shaders.size());
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
         auto attributeDescriptions = GenerateVertexAttributeDescriptions(createInfo.VertexLayout.GetElements());
@@ -135,20 +139,11 @@ namespace Flourish::Vulkan
         dynamicState.dynamicStateCount = 3;
         dynamicState.pDynamicStates = dynamicStates;
 
-        auto& vertData = vertShader->GetSetData();
-        auto& fragData = fragShader->GetSetData();
-        u32 setCount = std::max(
-            vertData.size(),
-            fragData.size()
-        );
+        u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
         for (u32 i = 0; i < setCount; i++)
-        {
-            if (i < vertData.size() && vertData[i].Exists)
-                layouts[i] = vertData[i].Pool->GetLayout();
-            else if (i < fragData.size() && fragData[i].Exists)
-                layouts[i] = fragData[i].Pool->GetLayout();
-        }
+            if (m_DescriptorData.SetData[i].Exists)
+                layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -234,5 +229,10 @@ namespace Flourish::Vulkan
             if (layout)
                 vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Graphics pipeline free");
+    }
+
+    std::shared_ptr<Flourish::DescriptorSet> GraphicsPipeline::CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo)
+    {
+        return m_DescriptorData.CreateDescriptorSet(createInfo);
     }
 }

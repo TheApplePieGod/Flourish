@@ -4,28 +4,55 @@
 
 namespace Flourish::Vulkan
 {
+    class DescriptorPool;
+    class DescriptorSet;
     class Shader;
+    struct PipelineDescriptorData
+    {
+        struct SetData
+        {
+            bool Exists = false;
+            std::vector<ReflectionDataElement> ReflectionData;
+            std::shared_ptr<DescriptorPool> Pool;
+            u32 DynamicOffsetIndex = 0; // When computing dynamic offsets
+            u32 DynamicOffsetCount = 0;
+        };
+
+        std::vector<SetData> SetData;
+        u32 TotalDynamicOffsets = 0;
+
+        void Populate(Shader** shaders, u32 count);
+
+        // TS
+        std::shared_ptr<DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo);
+    };
+
     class DescriptorSet;
     class DescriptorBinder
     {
     public:
         void Reset();
-        void BindNewShader(const Shader* shader);
+        void BindPipelineData(const PipelineDescriptorData* data);
 
         // TODO: option to reset offsets after flushing
 
         /*
-         * Assumes shader will always be set & valid
+         * Assumes pipeline data will always be set & valid
          */
         void BindDescriptorSet(const DescriptorSet* set, u32 setIndex);
         const DescriptorSet* GetDescriptorSet(u32 setIndex);
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset);
         u32* GetDynamicOffsetData(u32 setIndex);
 
+        inline bool DoesSetExist(u32 setIndex) const
+        { return setIndex < m_BoundData->SetData.size() && m_BoundData->SetData[setIndex].Exists; }
+
+        inline bool GetDynamicOffsetCount(u32 setIndex) const { return m_BoundData->SetData[setIndex].DynamicOffsetCount; }
+
     private:
         std::vector<const DescriptorSet*> m_BoundSets;
         std::vector<u32> m_DynamicOffsets;
-        const Shader* m_BoundShader;
+        const PipelineDescriptorData* m_BoundData;
     };
 }
 

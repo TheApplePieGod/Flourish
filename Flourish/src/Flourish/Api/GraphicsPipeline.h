@@ -72,6 +72,8 @@ namespace Flourish
     };
 
     class Texture;
+    class DescriptorSet;
+    struct DescriptorSetCreateInfo;
     class GraphicsPipeline
     {
     public:
@@ -81,6 +83,10 @@ namespace Flourish
             FL_ASSERT(createInfo.VertexShader && createInfo.FragmentShader, "Must specify both vertex and fragment shaders");
         }
         virtual ~GraphicsPipeline() = default;
+
+        // TS
+        // NOTE: Try to keep binding & set indices as low as possible
+        virtual std::shared_ptr<DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) = 0;
         
         // TS
         inline Shader* GetVertexShader() const { return m_Info.VertexShader.get(); }

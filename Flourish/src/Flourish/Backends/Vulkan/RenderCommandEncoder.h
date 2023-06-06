@@ -49,9 +49,7 @@ namespace Flourish::Vulkan
         Framebuffer* m_BoundFramebuffer = nullptr;
         GraphicsPipeline* m_BoundPipeline = nullptr;
         std::string m_BoundPipelineName = "";
+        DescriptorBinder m_DescriptorBinder;
         u32 m_SubpassIndex = 0;
-
-        std::array<DescriptorBinder, 2> m_DescriptorBinders;
-        std::array<const Shader*, 2> m_ShaderRefs;
     };
 }

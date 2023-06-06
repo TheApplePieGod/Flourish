@@ -76,13 +76,7 @@ namespace Flourish::Vulkan
         FL_ASSERT(pipeline, "BindPipeline() pipeline not found");
         m_BoundPipeline = pipeline;
 
-        m_ShaderRefs = {
-            static_cast<const Shader*>(m_BoundPipeline->GetVertexShader()),
-            static_cast<const Shader*>(m_BoundPipeline->GetFragmentShader())
-        };
-
-        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
-            m_DescriptorBinders[i].BindNewShader(m_ShaderRefs[i]);
+        m_DescriptorBinder.BindPipelineData(m_BoundPipeline->GetDescriptorData());
 
         VkPipeline subpassPipeline = pipeline->GetPipeline(m_SubpassIndex);
         FL_ASSERT(subpassPipeline, "BindPipeline() pipeline not supported for current subpass");
@@ -234,13 +228,10 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
 
-        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+        if (m_DescriptorBinder.DoesSetExist(setIndex))
         {
-            if (m_ShaderRefs[i]->DoesSetExist(setIndex))
-            {
-                m_DescriptorBinders[i].BindDescriptorSet(static_cast<const DescriptorSet*>(set), setIndex);
-                return;
-            }
+            m_DescriptorBinder.BindDescriptorSet(static_cast<const DescriptorSet*>(set), setIndex);
+            return;
         }
 
         FL_CRASH_ASSERT(false, "Set index does not exist in shader");
@@ -250,13 +241,10 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before updating dynamic offsets");
 
-        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+        if (m_DescriptorBinder.DoesSetExist(setIndex))
         {
-            if (m_ShaderRefs[i]->DoesSetExist(setIndex))
-            {
-                m_DescriptorBinders[i].UpdateDynamicOffset(setIndex, bindingIndex, offset);
-                return;
-            }
+            m_DescriptorBinder.UpdateDynamicOffset(setIndex, bindingIndex, offset);
+            return;
         }
 
         FL_CRASH_ASSERT(false, "Set index does not exist in shader");
@@ -266,25 +254,22 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a descriptor set");
 
-        for (u32 i = 0; i < m_DescriptorBinders.size(); i++)
+        if (m_DescriptorBinder.DoesSetExist(setIndex))
         {
-            if (m_ShaderRefs[i]->DoesSetExist(setIndex))
-            {
-                // TODO: ensure bound
+            // TODO: ensure bound
 
-                VkDescriptorSet sets[1] = { m_DescriptorBinders[i].GetDescriptorSet(setIndex)->GetSet() };
-                vkCmdBindDescriptorSets(
-                    m_CommandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_BoundPipeline->GetLayout(),
-                    setIndex, 1,
-                    sets,
-                    m_ShaderRefs[i]->GetSetData()[setIndex].DynamicOffsetCount,
-                    m_DescriptorBinders[i].GetDynamicOffsetData(setIndex)
-                );
+            VkDescriptorSet sets[1] = { m_DescriptorBinder.GetDescriptorSet(setIndex)->GetSet() };
+            vkCmdBindDescriptorSets(
+                m_CommandBuffer,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                m_BoundPipeline->GetLayout(),
+                setIndex, 1,
+                sets,
+                m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
+                m_DescriptorBinder.GetDynamicOffsetData(setIndex)
+            );
 
-                return;
-            }
+            return;
         }
 
         FL_CRASH_ASSERT(false, "Set index does not exist in shader");

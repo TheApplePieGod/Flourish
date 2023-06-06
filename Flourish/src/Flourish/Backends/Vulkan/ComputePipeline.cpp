@@ -3,6 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
@@ -13,17 +14,17 @@ namespace Flourish::Vulkan
         auto shader = static_cast<Shader*>(createInfo.ComputeShader.get());
         VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
-        auto& setData = shader->GetSetData();
-        std::vector<VkDescriptorSetLayout> layouts(setData.size(), VK_NULL_HANDLE);
-        for (u32 i = 0; i < setData.size(); i++)
-        {
-            if (setData[i].Exists)
-                layouts[i] = setData[i].Pool->GetLayout();
-        }
+        m_DescriptorData.Populate(&shader, 1);
+
+        u32 setCount = m_DescriptorData.SetData.size();
+        std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
+        for (u32 i = 0; i < setCount; i++)
+            if (m_DescriptorData.SetData[i].Exists)
+                layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = setData.size();
+        pipelineLayoutInfo.setLayoutCount = setCount;
         pipelineLayoutInfo.pSetLayouts = layouts.data();
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
@@ -60,5 +61,10 @@ namespace Flourish::Vulkan
             if (layout)
                 vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Compute pipeline free");
+    }
+
+    std::shared_ptr<Flourish::DescriptorSet> ComputePipeline::CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo)
+    {
+        return m_DescriptorData.CreateDescriptorSet(createInfo);
     }
 }

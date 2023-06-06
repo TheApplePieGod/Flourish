@@ -163,20 +163,6 @@ namespace Flourish::Vulkan
         }, "Shader free");
     }
 
-    std::shared_ptr<Flourish::DescriptorSet> Shader::CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo)
-    {
-        u32 setIndex = createInfo.SetIndex;
-
-        if (setIndex >= m_SetData.size() || !m_SetData[setIndex].Exists)
-        {
-            FL_ASSERT(false, "AllocateDescriptorSet invalid set index");
-            return nullptr;
-        }
-
-        auto& data = m_SetData[setIndex];
-        return std::make_shared<DescriptorSet>(createInfo, data.Pool);
-    }
-
     VkPipelineShaderStageCreateInfo Shader::DefineShaderStage(const char* entrypoint)
     {
         VkShaderStageFlagBits stage;
@@ -199,7 +185,7 @@ namespace Flourish::Vulkan
 
     void Shader::Reflect(const std::vector<u32>& compiledData)
     {
-        m_SetData.clear();
+        m_ReflectionData.clear();
 
         // For some reason, compiler needs to be heap allocated because otherwise it causes
         // a crash on macos
@@ -222,8 +208,10 @@ namespace Flourish::Vulkan
         
         // This is not great, and may potentially have performance implications.
         // We are doing this because it makes the API simpler. Potentially in the
-        // future we can have a separate DescriptorSetAllocator class that can be
-        // defined from reflection data but also have control over access types
+        // future we can allow users to hint at which stages sets will be used in.
+        // Otherwise, sets created from a graphics pipeline can't be used in a
+        // compute pipeline and vice versa. Maybe it makes sense to separate them
+        // so that is also an option.
         accessType = ShaderResourceAccessType::All;
 
         const char* typeStrings[] = {
@@ -253,11 +241,7 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
-            if (m_SetData.size() <= set)
-                m_SetData.resize(set + 1);
-            m_SetData[set].DynamicOffsetCount++;
-            m_SetData[set].Exists = true;
-            m_SetData[set].ReflectionData.emplace_back(
+            m_ReflectionData.emplace_back(
                 resource.id,
                 ShaderResourceType::UniformBuffer,
                 accessType,
@@ -288,11 +272,7 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
-            if (m_SetData.size() <= set)
-                m_SetData.resize(set + 1);
-            m_SetData[set].DynamicOffsetCount++;
-            m_SetData[set].Exists = true;
-            m_SetData[set].ReflectionData.emplace_back(
+            m_ReflectionData.emplace_back(
                 resource.id,
                 ShaderResourceType::StorageBuffer,
                 accessType,
@@ -321,10 +301,7 @@ namespace Flourish::Vulkan
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
-            if (m_SetData.size() <= set)
-                m_SetData.resize(set + 1);
-            m_SetData[set].Exists = true;
-            m_SetData[set].ReflectionData.emplace_back(
+            m_ReflectionData.emplace_back(
                 resource.id,
                 ShaderResourceType::Texture,
                 accessType,
@@ -353,10 +330,7 @@ namespace Flourish::Vulkan
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
-            if (m_SetData.size() <= set)
-                m_SetData.resize(set + 1);
-            m_SetData[set].Exists = true;
-            m_SetData[set].ReflectionData.emplace_back(
+            m_ReflectionData.emplace_back(
                 resource.id,
                 ShaderResourceType::StorageTexture,
                 accessType,
@@ -386,10 +360,7 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
             
-            if (m_SetData.size() <= set)
-                m_SetData.resize(set + 1);
-            m_SetData[set].Exists = true;
-            m_SetData[set].ReflectionData.emplace_back(
+            m_ReflectionData.emplace_back(
                 resource.id,
                 ShaderResourceType::SubpassInput,
                 accessType,
@@ -408,37 +379,5 @@ namespace Flourish::Vulkan
                 throw std::exception();
             }
 		}
-
-        // Ensure there are no duplicate binding indices within sets and sort each set
-        for (auto& set : m_SetData)
-        {
-            if (!set.Exists)
-                continue;
-
-            FL_ASSERT(!set.ReflectionData.empty(), "Cannot have an empty descriptor set");
-
-            set.Pool = std::make_shared<DescriptorPool>(set.ReflectionData);
-
-            #ifdef FL_DEBUG
-            for (auto& check : set.ReflectionData)
-                for (auto& elem : set.ReflectionData)
-                    if (check.BindingIndex == elem.BindingIndex)
-                        FL_ASSERT(check.UniqueId == elem.UniqueId, "Binding index must be unique for all shader resources");
-            #endif
-
-            std::sort(
-                set.ReflectionData.begin(),
-                set.ReflectionData.end(),
-                [](const ReflectionDataElement& a, const ReflectionDataElement& b)
-                {
-                    return a.BindingIndex < b.BindingIndex;
-                }
-            );
-
-            // Update dynamic offsets offset index
-            set.DynamicOffsetIndex = m_TotalDynamicOffsets;
-            m_TotalDynamicOffsets += set.DynamicOffsetCount;
-
-        }
     }
 }

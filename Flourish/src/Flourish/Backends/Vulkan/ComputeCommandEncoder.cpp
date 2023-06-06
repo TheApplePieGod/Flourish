@@ -50,8 +50,7 @@ namespace Flourish::Vulkan
         if (m_BoundPipeline == static_cast<ComputePipeline*>(pipeline)) return;
         m_BoundPipeline = static_cast<ComputePipeline*>(pipeline);
 
-        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
-        m_DescriptorBinder.BindNewShader(shader);
+        m_DescriptorBinder.BindPipelineData(m_BoundPipeline->GetDescriptorData());
 
         vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_BoundPipeline->GetPipeline());
     }
@@ -103,7 +102,7 @@ namespace Flourish::Vulkan
             m_BoundPipeline->GetLayout(),
             setIndex, 1,
             sets,
-            shader->GetSetData()[setIndex].DynamicOffsetCount,
+            m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
             m_DescriptorBinder.GetDynamicOffsetData(setIndex)
         );
     }
