@@ -18,15 +18,15 @@ namespace Flourish
     struct ReflectionDataElement
     {
         ReflectionDataElement() = default;
-        ReflectionDataElement(u32 uniqueId, ShaderResourceType resourceType, ShaderResourceAccessType accessType, u32 bindingIndex, u32 setIndex, u32 arrayCount)
-            : UniqueId(uniqueId), ResourceType(resourceType), AccessType(accessType), BindingIndex(bindingIndex), SetIndex(setIndex), ArrayCount(arrayCount)
+        ReflectionDataElement(ShaderResourceType resourceType, ShaderResourceAccessType accessType, u32 bindingIndex, u32 setIndex, u32 size, u32 arrayCount)
+            : ResourceType(resourceType), AccessType(accessType), BindingIndex(bindingIndex), SetIndex(setIndex), Size(size), ArrayCount(arrayCount)
         {}
 
-        u32 UniqueId;
         ShaderResourceType ResourceType;
         ShaderResourceAccessType AccessType;
         u32 BindingIndex;
         u32 SetIndex;
+        u32 Size;
         u32 ArrayCount;
     };
 

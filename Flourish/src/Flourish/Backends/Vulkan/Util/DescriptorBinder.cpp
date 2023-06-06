@@ -20,7 +20,30 @@ namespace Flourish::Vulkan
                     SetData.resize(elem.SetIndex + 1);
                 auto& set = SetData[elem.SetIndex];
                 set.Exists = true;
+
+                // Check the set for duplicate bindings. Duplicates are most likely
+                // OK if they look similar. We could in the future improve debug
+                // analysis. Regardless, duplicate bindings with the same data should
+                // not be added twice.
+                u32 bindingIndex = elem.BindingIndex;
+                auto found = std::find_if(
+                    set.ReflectionData.begin(),
+                    set.ReflectionData.end(),
+                    [bindingIndex](const auto& check) { return check.BindingIndex == bindingIndex; }
+                );
+                if (found != set.ReflectionData.end())
+                {
+                    FL_ASSERT(
+                        (found->Size == elem.Size &&
+                         found->ArrayCount == elem.ArrayCount),
+                        "Binding index must be unique for all shader resources"
+                    );
+
+                    continue;
+                }
+
                 set.ReflectionData.emplace_back(elem);
+
                 if (elem.ResourceType == ShaderResourceType::StorageBuffer || elem.ResourceType == ShaderResourceType::UniformBuffer)
                     set.DynamicOffsetCount++;
             }
@@ -34,15 +57,6 @@ namespace Flourish::Vulkan
 
             FL_ASSERT(!set.ReflectionData.empty(), "Cannot have an empty descriptor set");
 
-            set.Pool = std::make_shared<DescriptorPool>(set.ReflectionData);
-
-            #ifdef FL_DEBUG
-            for (auto& check : set.ReflectionData)
-                for (auto& elem : set.ReflectionData)
-                    if (check.BindingIndex == elem.BindingIndex)
-                        FL_ASSERT(check.UniqueId == elem.UniqueId, "Binding index must be unique for all shader resources");
-            #endif
-
             std::sort(
                 set.ReflectionData.begin(),
                 set.ReflectionData.end(),
@@ -51,6 +65,8 @@ namespace Flourish::Vulkan
                     return a.BindingIndex < b.BindingIndex;
                 }
             );
+
+            set.Pool = std::make_shared<DescriptorPool>(set.ReflectionData);
 
             // Update dynamic offsets offset index
             set.DynamicOffsetIndex = TotalDynamicOffsets;

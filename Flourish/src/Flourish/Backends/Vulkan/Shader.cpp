@@ -187,6 +187,8 @@ namespace Flourish::Vulkan
     {
         m_ReflectionData.clear();
 
+        u32 size = compiledData.size();
+
         // For some reason, compiler needs to be heap allocated because otherwise it causes
         // a crash on macos
         auto compiler = std::make_unique<spirv_cross::Compiler>(compiledData.data(), compiledData.size());
@@ -242,11 +244,11 @@ namespace Flourish::Vulkan
 			size_t memberCount = bufferType.member_types.size();
 
             m_ReflectionData.emplace_back(
-                resource.id,
                 ShaderResourceType::UniformBuffer,
                 accessType,
                 binding,
-                set, 1
+                set,
+                bufferSize, 1
             );
 
 			FL_LOG_DEBUG("    %s", resource.name.c_str());
@@ -273,11 +275,11 @@ namespace Flourish::Vulkan
 			size_t memberCount = bufferType.member_types.size();
 
             m_ReflectionData.emplace_back(
-                resource.id,
                 ShaderResourceType::StorageBuffer,
                 accessType,
                 binding,
-                set, 1
+                set,
+                bufferSize, 1
             );
 
 			FL_LOG_DEBUG("    %s", resource.name.c_str());
@@ -302,11 +304,10 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
             m_ReflectionData.emplace_back(
-                resource.id,
                 ShaderResourceType::Texture,
                 accessType,
                 binding,
-                set,
+                set, 0,
                 imageType.array.empty() ? 1 : imageType.array[0]
             );
 
@@ -331,11 +332,10 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             
             m_ReflectionData.emplace_back(
-                resource.id,
                 ShaderResourceType::StorageTexture,
                 accessType,
                 binding,
-                set,
+                set, 0,
                 imageType.array.empty() ? 1 : imageType.array[0]
             );
 
@@ -361,11 +361,10 @@ namespace Flourish::Vulkan
             u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
             
             m_ReflectionData.emplace_back(
-                resource.id,
                 ShaderResourceType::SubpassInput,
                 accessType,
                 binding,
-                set, 1
+                set, 0, 1
             );
 
 			FL_LOG_DEBUG("    Input (%s)", resource.name.c_str());
