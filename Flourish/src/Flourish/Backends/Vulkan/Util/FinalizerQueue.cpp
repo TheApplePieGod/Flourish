@@ -73,6 +73,7 @@ namespace Flourish::Vulkan
                 { FL_LOG_TRACE("Finalizer: %s", value.DebugName); }
                 m_QueueLock.unlock();
                 value.Execute();
+                value.Execute = nullptr; // Ensure function data gets cleaned up before relocking
                 m_QueueLock.lock();
                 m_Queue.erase(m_Queue.begin() + i);
                 i -= 1;
