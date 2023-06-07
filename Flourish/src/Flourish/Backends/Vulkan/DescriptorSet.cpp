@@ -48,10 +48,20 @@ namespace Flourish::Vulkan
         auto allocs = m_Allocations;
         auto allocCount = m_AllocationCount;
         auto pool = m_ParentPool;
+        auto writability = m_Info.Writability;
+        auto setLists = m_SetLists;
         Context::FinalizerQueue().Push([=]()
         {
-            for (u32 i = 0; i < allocCount; i++)
-                pool->FreeSet(allocs[i]);
+            if (static_cast<u8>(writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite))
+            {
+                for (u32 i = 0; i < allocCount; i++)
+                    for (auto& alloc : setLists[i].Sets)
+                        pool->FreeSet(alloc);
+            }
+            else
+                for (u32 i = 0; i < allocCount; i++)
+                    pool->FreeSet(allocs[i]);
+            
         }, "DescriptorSet free");
     }
 
@@ -200,6 +210,12 @@ namespace Flourish::Vulkan
         u32 size
     )
     {
+        if (m_LastFrameWrite != 0 && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
+        {
+            FL_ASSERT(false, "Cannot update descriptor set that has already been written and does not have PerFrame writability");
+            return;
+        }
+        
         // Update descriptor information. The for loop is structured such that the
         // following behavior occurs for different writabilities:
         //     - OnceStaticData: one cache entry is written, frame index won't matter

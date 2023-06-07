@@ -289,6 +289,8 @@ namespace Flourish::Vulkan
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
+            if (imageType.image.dim == spv::Dim::DimCube)
+                arrayCount *= 6;
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::Texture,
@@ -318,6 +320,8 @@ namespace Flourish::Vulkan
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
+            if (imageType.image.dim == spv::Dim::DimCube)
+                arrayCount *= 6;
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageTexture,

@@ -27,13 +27,20 @@ int main(int argc, char** argv)
     Flourish::Logger::SetLogFunction(Log);
     
     // Init context and run tests
-    Flourish::ContextInitializeInfo contextInitInfo;
-    contextInitInfo.Backend = Flourish::BackendType::Vulkan;
-    contextInitInfo.ApplicationName = "FlourishTesting";
-    Flourish::Context::Initialize(contextInitInfo);
-    auto tests = std::make_shared<FlourishTesting::Tests>();
-    tests->Run();
-    tests.reset();
+    try
+    {
+        Flourish::ContextInitializeInfo contextInitInfo;
+        contextInitInfo.Backend = Flourish::BackendType::Vulkan;
+        contextInitInfo.ApplicationName = "FlourishTesting";
+        Flourish::Context::Initialize(contextInitInfo);
+        auto tests = std::make_shared<FlourishTesting::Tests>();
+        tests->Run();
+    }
+    catch (std::exception& e)
+    {
+        FL_LOG_ERROR("Crashed: %s", e.what());
+    }
+
     Flourish::Context::Shutdown();
 
     return 0;
