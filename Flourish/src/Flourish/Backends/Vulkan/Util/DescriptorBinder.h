@@ -50,7 +50,7 @@ namespace Flourish::Vulkan
         inline bool DoesSetExist(u32 setIndex) const
         { return setIndex < m_BoundData->SetData.size() && m_BoundData->SetData[setIndex].Exists; }
 
-        inline bool GetDynamicOffsetCount(u32 setIndex) const { return m_BoundData->SetData[setIndex].DynamicOffsetCount; }
+        inline u32 GetDynamicOffsetCount(u32 setIndex) const { return m_BoundData->SetData[setIndex].DynamicOffsetCount; }
 
     private:
         std::vector<const DescriptorSet*> m_BoundSets;

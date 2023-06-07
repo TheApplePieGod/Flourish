@@ -257,7 +257,6 @@ namespace Flourish::Vulkan
         if (m_DescriptorBinder.DoesSetExist(setIndex))
         {
             // TODO: ensure bound
-
             VkDescriptorSet sets[1] = { m_DescriptorBinder.GetDescriptorSet(setIndex)->GetSet() };
             vkCmdBindDescriptorSets(
                 m_CommandBuffer,
