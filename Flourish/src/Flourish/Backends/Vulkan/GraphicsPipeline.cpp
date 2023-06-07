@@ -197,6 +197,13 @@ namespace Flourish::Vulkan
             if (fillCompatible)
                 m_Info.CompatibleSubpasses.push_back(i);
             pipelineInfo.subpass = m_Info.CompatibleSubpasses[i];
+
+            // Ensure Compatability
+            if (renderPass->GetColorAttachmentCount(m_Info.CompatibleSubpasses[i]) != m_Info.BlendStates.size())
+            {
+                FL_LOG_ERROR("Pipeline has blend state count that does not match with a compatible subpass");
+                throw std::exception();
+            }
             
             if (i > 0)
             {

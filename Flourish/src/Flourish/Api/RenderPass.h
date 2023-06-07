@@ -59,6 +59,7 @@ namespace Flourish
         // TS
         std::shared_ptr<GraphicsPipeline> CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo);
         std::shared_ptr<GraphicsPipeline> GetPipeline(std::string_view name);
+        u32 GetColorAttachmentCount(u32 subpassIndex);
 
         // TS
         inline MsaaSampleCount GetSampleCount() const { return m_Info.SampleCount; }
