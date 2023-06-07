@@ -8,6 +8,13 @@
 
 namespace Flourish::Vulkan
 {
+    void DescriptorSet::StoredReferences::Clear()
+    {
+        Buffer = nullptr;
+        Texture = nullptr;
+        Framebuffer = nullptr;
+    }
+
     DescriptorSet::DescriptorSet(
         const DescriptorSetCreateInfo& createInfo,
         DescriptorSetPipelineCompatability compatability,
@@ -20,6 +27,9 @@ namespace Flourish::Vulkan
             !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite)),
             "Multiwrite cannot be enabled on a descriptor set if framewrite is not also enabled"
         );
+
+        if (m_Info.StoreBindingReferences)
+            m_StoredReferences.resize(m_ParentPool->GetBindingData().size());
 
         if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_DynamicData))
             m_AllocationCount = Flourish::Context::FrameBufferCount();
@@ -63,6 +73,58 @@ namespace Flourish::Vulkan
                     pool->FreeSet(allocs[i]);
             
         }, "DescriptorSet free");
+    }
+
+    void DescriptorSet::BindBuffer(u32 bindingIndex, const std::shared_ptr<Flourish::Buffer>& buffer, u32 bufferOffset, u32 elementCount)
+    {
+        FL_CRASH_ASSERT(!m_Info.StoreBindingReferences || bindingIndex < m_StoredReferences.size(), "Binding index out of range");
+
+        if (m_Info.StoreBindingReferences)
+        {
+            m_StoredReferences[bindingIndex].Clear();
+            m_StoredReferences[bindingIndex].Buffer = buffer;
+        }
+
+        BindBuffer(bindingIndex, buffer.get(), bufferOffset, elementCount);
+    }
+
+    void DescriptorSet::BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture)
+    {
+        if (m_Info.StoreBindingReferences)
+        {
+            FL_CRASH_ASSERT(bindingIndex < m_StoredReferences.size(), "Binding index out of range");
+
+            m_StoredReferences[bindingIndex].Clear();
+            m_StoredReferences[bindingIndex].Texture = texture;
+        }
+
+        BindTexture(bindingIndex, texture.get());
+    }
+    
+    void DescriptorSet::BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel)
+    {
+        if (m_Info.StoreBindingReferences)
+        {
+            FL_CRASH_ASSERT(bindingIndex < m_StoredReferences.size(), "Binding index out of range");
+
+            m_StoredReferences[bindingIndex].Clear();
+            m_StoredReferences[bindingIndex].Texture = texture;
+        }
+
+        BindTextureLayer(bindingIndex, texture.get(), layerIndex, mipLevel);
+    }
+
+    void DescriptorSet::BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Flourish::Framebuffer>& framebuffer, SubpassAttachment attachment)
+    {
+        if (m_Info.StoreBindingReferences)
+        {
+            FL_CRASH_ASSERT(bindingIndex < m_StoredReferences.size(), "Binding index out of range");
+
+            m_StoredReferences[bindingIndex].Clear();
+            m_StoredReferences[bindingIndex].Framebuffer = framebuffer;
+        }
+
+        BindSubpassInput(bindingIndex, framebuffer.get(), attachment);
     }
 
     void DescriptorSet::BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount)

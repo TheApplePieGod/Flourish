@@ -16,6 +16,10 @@ namespace Flourish::Vulkan
         );
         ~DescriptorSet() override;
 
+        void BindBuffer(u32 bindingIndex, const std::shared_ptr<Flourish::Buffer>& buffer, u32 bufferOffset, u32 elementCount) override;
+        void BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture) override;
+        void BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel) override;
+        void BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Flourish::Framebuffer>& framebuffer, SubpassAttachment attachment) override;
         void BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount) override;
         void BindTexture(u32 bindingIndex, const Flourish::Texture* texture) override;
         void BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
@@ -29,6 +33,15 @@ namespace Flourish::Vulkan
         inline const DescriptorPool* GetParentPool() const { return m_ParentPool.get(); }
 
     private:
+        struct StoredReferences
+        {
+            std::shared_ptr<Flourish::Buffer> Buffer;
+            std::shared_ptr<Flourish::Texture> Texture;
+            std::shared_ptr<Flourish::Framebuffer> Framebuffer;
+
+            void Clear();
+        };
+
         struct CachedData
         {
             u32 WritesReadyCount = 0;
@@ -60,6 +73,7 @@ namespace Flourish::Vulkan
         u32 m_AllocationCount = 1;
 
         std::vector<CachedData> m_CachedData;
+        std::vector<StoredReferences> m_StoredReferences;
 
         std::shared_ptr<DescriptorPool> m_ParentPool;
         std::array<DescriptorSetAllocation, Flourish::Context::MaxFrameBufferCount> m_Allocations;

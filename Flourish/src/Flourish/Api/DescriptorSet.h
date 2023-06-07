@@ -31,6 +31,7 @@ namespace Flourish
     struct DescriptorSetCreateInfo
     {
         DescriptorSetWritability Writability;
+        bool StoreBindingReferences = false;
     };
 
     // TODO: Change name to resourcebindings or something more descriptive
@@ -43,6 +44,10 @@ namespace Flourish
         virtual ~DescriptorSet() = default;
 
         // Offset and elementcount in element size not bytes
+        virtual void BindBuffer(u32 bindingIndex, const std::shared_ptr<Buffer>& buffer, u32 bufferOffset, u32 elementCount) = 0;
+        virtual void BindTexture(u32 bindingIndex, const std::shared_ptr<Texture>& texture) = 0;
+        virtual void BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Texture>& texture, u32 layerIndex, u32 mipLevel) = 0;
+        virtual void BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Framebuffer>& framebuffer, SubpassAttachment attachment) = 0;
         virtual void BindBuffer(u32 bindingIndex, const Buffer* buffer, u32 bufferOffset, u32 elementCount) = 0;
         virtual void BindTexture(u32 bindingIndex, const Texture* texture) = 0;
         virtual void BindTextureLayer(u32 bindingIndex, const Texture* texture, u32 layerIndex, u32 mipLevel) = 0;
