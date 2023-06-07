@@ -288,17 +288,18 @@ namespace Flourish::Vulkan
             const auto& imageType = compiler->get_type(resource.type_id);
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::Texture,
                 m_Type,
                 binding,
                 set, 0,
-                imageType.array.empty() ? 1 : imageType.array[0]
+                arrayCount
             );
 
 			FL_LOG_DEBUG("    Image (%s)", resource.name.c_str());
-            FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
+            FL_LOG_DEBUG("      ArrayCount = %d", arrayCount);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
@@ -316,17 +317,18 @@ namespace Flourish::Vulkan
             const auto& imageType = compiler->get_type(resource.type_id);
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageTexture,
                 m_Type,
                 binding,
                 set, 0,
-                imageType.array.empty() ? 1 : imageType.array[0]
+                arrayCount
             );
 
 			FL_LOG_DEBUG("    StorageImage (%s)", resource.name.c_str());
-            FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
+            FL_LOG_DEBUG("      ArrayCount = %d", arrayCount);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
