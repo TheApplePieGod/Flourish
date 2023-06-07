@@ -2,40 +2,23 @@
 
 namespace Flourish
 {
+    namespace ShaderTypeEnum
+    {
+        enum Value : u8
+        {
+            None = 0,
+            Vertex = 1 << 0,
+            Fragment = 1 << 1,
+            Compute = 1 << 2
+        };
+    }
+    typedef ShaderTypeEnum::Value ShaderTypeFlags;
+    typedef u8 ShaderType;
+
     enum class ShaderResourceType
     {
         None = 0,
         UniformBuffer, StorageBuffer, Texture, StorageTexture, SubpassInput
-    };
-
-    enum class ShaderResourceAccessType
-    {
-        None = 0,
-        Vertex, Fragment, Both, Compute,
-        All
-    };
-
-    struct ReflectionDataElement
-    {
-        ReflectionDataElement() = default;
-        ReflectionDataElement(ShaderResourceType resourceType, ShaderResourceAccessType accessType, u32 bindingIndex, u32 setIndex, u32 size, u32 arrayCount)
-            : ResourceType(resourceType), AccessType(accessType), BindingIndex(bindingIndex), SetIndex(setIndex), Size(size), ArrayCount(arrayCount)
-        {}
-
-        ShaderResourceType ResourceType;
-        ShaderResourceAccessType AccessType;
-        u32 BindingIndex;
-        u32 SetIndex;
-        u32 Size;
-        u32 ArrayCount;
-    };
-
-    enum class ShaderType
-    {
-        None = 0,
-        Vertex,
-        Fragment,
-        Compute
     };
 
     struct ShaderCreateInfo

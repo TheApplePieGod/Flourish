@@ -99,9 +99,9 @@ namespace Flourish::Vulkan
         {
             default:
             { FL_CRASH_ASSERT(false, "Can't compile unsupported shader type"); } break;
-            case ShaderType::Vertex: { shaderKind = shaderc_glsl_vertex_shader; } break;
-            case ShaderType::Fragment: { shaderKind = shaderc_glsl_fragment_shader; } break;
-            case ShaderType::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
+            case ShaderTypeFlags::Vertex: { shaderKind = shaderc_glsl_vertex_shader; } break;
+            case ShaderTypeFlags::Fragment: { shaderKind = shaderc_glsl_fragment_shader; } break;
+            case ShaderTypeFlags::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
         }
 
         shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
@@ -168,9 +168,9 @@ namespace Flourish::Vulkan
         VkShaderStageFlagBits stage;
         switch (m_Type)
         {
-            case ShaderType::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
-            case ShaderType::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
-            case ShaderType::Compute: { stage = VK_SHADER_STAGE_COMPUTE_BIT; } break;
+            case ShaderTypeFlags::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
+            case ShaderTypeFlags::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
+            case ShaderTypeFlags::Compute: { stage = VK_SHADER_STAGE_COMPUTE_BIT; } break;
         }
 
         VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -198,29 +198,15 @@ namespace Flourish::Vulkan
         memset(&resources.builtin_inputs, 0, sizeof(resources.builtin_inputs));
         memset(&resources.builtin_outputs, 0, sizeof(resources.builtin_outputs));
 
-        ShaderResourceAccessType accessType;
-        /*
+        const char* typeString = "";
         switch (m_Type)
         {
-            case ShaderType::Vertex: { accessType = ShaderResourceAccessType::Vertex; } break;
-            case ShaderType::Fragment: { accessType = ShaderResourceAccessType::Fragment; } break;
-            case ShaderType::Compute: { accessType = ShaderResourceAccessType::Compute; } break;
+            case ShaderTypeFlags::Vertex: { typeString = "Vertex"; } break;
+            case ShaderTypeFlags::Fragment: { typeString = "Fragment"; } break;
+            case ShaderTypeFlags::Compute: { typeString = "Compute"; } break;
         }
-        */
-        
-        // This is not great, and may potentially have performance implications.
-        // We are doing this because it makes the API simpler. Potentially in the
-        // future we can allow users to hint at which stages sets will be used in.
-        // Otherwise, sets created from a graphics pipeline can't be used in a
-        // compute pipeline and vice versa. Maybe it makes sense to separate them
-        // so that is also an option.
-        accessType = ShaderResourceAccessType::All;
 
-        const char* typeStrings[] = {
-            "None", "Vertex", "Fragment", "Compute"
-        };
-
-		FL_LOG_DEBUG("GLSL %s shader", typeStrings[static_cast<u16>(m_Type)]);
+		FL_LOG_DEBUG("GLSL %s shader", typeString);
 		FL_LOG_DEBUG("    %d uniform buffers", resources.uniform_buffers.size());
         FL_LOG_DEBUG("    %d storage buffers", resources.storage_buffers.size());
 		FL_LOG_DEBUG("    %d sampled images", resources.sampled_images.size());
@@ -245,10 +231,10 @@ namespace Flourish::Vulkan
 
             m_ReflectionData.emplace_back(
                 ShaderResourceType::UniformBuffer,
-                accessType,
+                m_Type,
                 binding,
                 set,
-                bufferSize, 1
+                (u32)bufferSize, 1
             );
 
 			FL_LOG_DEBUG("    %s", resource.name.c_str());
@@ -276,10 +262,10 @@ namespace Flourish::Vulkan
 
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageBuffer,
-                accessType,
+                m_Type,
                 binding,
                 set,
-                bufferSize, 1
+                (u32)bufferSize, 1
             );
 
 			FL_LOG_DEBUG("    %s", resource.name.c_str());
@@ -305,7 +291,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::Texture,
-                accessType,
+                m_Type,
                 binding,
                 set, 0,
                 imageType.array.empty() ? 1 : imageType.array[0]
@@ -333,7 +319,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageTexture,
-                accessType,
+                m_Type,
                 binding,
                 set, 0,
                 imageType.array.empty() ? 1 : imageType.array[0]
@@ -362,7 +348,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::SubpassInput,
-                accessType,
+                m_Type,
                 binding,
                 set, 0, 1
             );

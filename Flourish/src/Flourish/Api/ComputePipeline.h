@@ -23,7 +23,7 @@ namespace Flourish
         
         // TS
         // NOTE: Try to keep binding & set indices as low as possible
-        virtual std::shared_ptr<DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) = 0;
+        virtual std::shared_ptr<DescriptorSet> CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo) = 0;
 
         inline const Shader* GetComputeShader() const { return m_Info.ComputeShader.get(); }
         

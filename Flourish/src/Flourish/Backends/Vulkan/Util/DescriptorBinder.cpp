@@ -39,6 +39,8 @@ namespace Flourish::Vulkan
                         "Binding index must be unique for all shader resources"
                     );
 
+                    found->AccessType |= elem.AccessType;
+
                     continue;
                 }
 
@@ -74,10 +76,8 @@ namespace Flourish::Vulkan
         }
     }
 
-    std::shared_ptr<DescriptorSet> PipelineDescriptorData::CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo)
+    std::shared_ptr<DescriptorSet> PipelineDescriptorData::CreateDescriptorSet(u32 setIndex, DescriptorSetPipelineCompatability compatability, const DescriptorSetCreateInfo& createInfo)
     {
-        u32 setIndex = createInfo.SetIndex;
-
         if (setIndex >= SetData.size() || !SetData[setIndex].Exists)
         {
             FL_ASSERT(false, "AllocateDescriptorSet invalid set index");
@@ -85,7 +85,7 @@ namespace Flourish::Vulkan
         }
 
         auto& data = SetData[setIndex];
-        return std::make_shared<DescriptorSet>(createInfo, data.Pool);
+        return std::make_shared<DescriptorSet>(createInfo, compatability, data.Pool);
     }
 
     void DescriptorBinder::Reset()
@@ -97,6 +97,7 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(setIndex < m_BoundSets.size(), "Set index out of range");
         FL_CRASH_ASSERT(m_BoundData->SetData[setIndex].Exists, "Set index does not exist in the shader");
+        FL_CRASH_ASSERT(set->GetPipelineCompatability() & m_BoundData->Compatability, "Set is not compatible with this pipeline type");
 
         #ifdef FL_DEBUG
         FL_ASSERT(

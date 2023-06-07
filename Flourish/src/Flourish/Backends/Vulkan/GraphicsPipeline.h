@@ -18,7 +18,7 @@ namespace Flourish::Vulkan
         ~GraphicsPipeline() override;
 
         // TS
-        std::shared_ptr<Flourish::DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) override;
+        std::shared_ptr<Flourish::DescriptorSet> CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo) override;
         
         // TS
         inline VkPipelineLayout GetLayout() const { return m_PipelineLayout; }

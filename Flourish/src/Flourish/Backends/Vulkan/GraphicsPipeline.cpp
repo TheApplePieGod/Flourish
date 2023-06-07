@@ -48,6 +48,7 @@ namespace Flourish::Vulkan
 
         std::array<Shader*, 2> shaders = { vertShader, fragShader };
         m_DescriptorData.Populate(shaders.data(), shaders.size());
+        m_DescriptorData.Compatability = DescriptorSetPipelineCompatabilityFlags::Graphics;
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
         auto attributeDescriptions = GenerateVertexAttributeDescriptions(createInfo.VertexLayout.GetElements());
@@ -231,8 +232,12 @@ namespace Flourish::Vulkan
         }, "Graphics pipeline free");
     }
 
-    std::shared_ptr<Flourish::DescriptorSet> GraphicsPipeline::CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo)
+    std::shared_ptr<Flourish::DescriptorSet> GraphicsPipeline::CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo)
     {
-        return m_DescriptorData.CreateDescriptorSet(createInfo);
+        return m_DescriptorData.CreateDescriptorSet(
+            setIndex,
+            DescriptorSetPipelineCompatabilityFlags::Graphics,
+            createInfo
+        );
     }
 }

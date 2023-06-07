@@ -4,6 +4,7 @@
 #include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
+#include "Flourish/Backends/Vulkan/Shader.h"
 
 namespace Flourish::Vulkan
 {
@@ -29,7 +30,7 @@ namespace Flourish::Vulkan
             binding.binding = element.BindingIndex;
             binding.descriptorType = Common::ConvertShaderResourceType(element.ResourceType);
             binding.descriptorCount = element.ArrayCount;
-            binding.stageFlags = Common::ConvertShaderResourceAccessType(element.AccessType);
+            binding.stageFlags = Common::ConvertShaderAccessType(element.AccessType);
             binding.pImmutableSamplers = nullptr;
             bindings.emplace_back(binding);
 

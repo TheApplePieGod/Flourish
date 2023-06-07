@@ -207,7 +207,7 @@ namespace FlourishTesting
         Flourish::ComputePipelineCreateInfo compCreateInfo;
         
         // Compute shader
-        shaderCreateInfo.Type = Flourish::ShaderType::Compute;
+        shaderCreateInfo.Type = Flourish::ShaderTypeFlags::Compute;
         shaderCreateInfo.Source = R"(
             #version 460
 
@@ -239,7 +239,7 @@ namespace FlourishTesting
         auto computeShader = Flourish::Shader::Create(shaderCreateInfo);
 
         // Simple vert shader
-        shaderCreateInfo.Type = Flourish::ShaderType::Vertex;
+        shaderCreateInfo.Type = Flourish::ShaderTypeFlags::Vertex;
         shaderCreateInfo.Source = R"(
             #version 460
 
@@ -256,7 +256,7 @@ namespace FlourishTesting
         auto simpleVertShader = Flourish::Shader::Create(shaderCreateInfo);
 
         // Image frag shader
-        shaderCreateInfo.Type = Flourish::ShaderType::Fragment;
+        shaderCreateInfo.Type = Flourish::ShaderTypeFlags::Fragment;
         shaderCreateInfo.Source = R"(
             #version 460
 
@@ -273,7 +273,7 @@ namespace FlourishTesting
         auto imageFragShader = Flourish::Shader::Create(shaderCreateInfo);
 
         // Object vert shader
-        shaderCreateInfo.Type = Flourish::ShaderType::Vertex;
+        shaderCreateInfo.Type = Flourish::ShaderTypeFlags::Vertex;
         shaderCreateInfo.Source = R"(
             #version 460
 
@@ -325,24 +325,21 @@ namespace FlourishTesting
 
         Flourish::DescriptorSetCreateInfo descCreateInfo;
         descCreateInfo.Writability = Flourish::DescriptorSetWritability::OnceStaticData;
-        descCreateInfo.SetIndex = 0;
-        m_DogDescriptorSet = mainPipeline->CreateDescriptorSet(descCreateInfo);
+        m_DogDescriptorSet = mainPipeline->CreateDescriptorSet(0, descCreateInfo);
         m_DogDescriptorSet->BindTexture(0, m_DogTexture.get());
         m_DogDescriptorSet->FlushBindings();
-        m_CatDescriptorSet = mainPipeline->CreateDescriptorSet(descCreateInfo);
+        m_CatDescriptorSet = mainPipeline->CreateDescriptorSet(0, descCreateInfo);
         m_CatDescriptorSet->BindTexture(0, m_CatTexture.get());
         m_CatDescriptorSet->FlushBindings();
         descCreateInfo.Writability = Flourish::DescriptorSetWritability::OnceDynamicData;
-        descCreateInfo.SetIndex = 1;
-        m_ObjectDescriptorSet = objectPipeline->CreateDescriptorSet(descCreateInfo);
+        m_ObjectDescriptorSet = m_ComputePipeline->CreateDescriptorSet(0, descCreateInfo);
         m_ObjectDescriptorSet->BindBuffer(0, m_ObjectData.get(), 0, m_ObjectData->GetAllocatedCount());
         m_ObjectDescriptorSet->FlushBindings();
-        m_ObjectDescriptorSetDynamic = objectPipeline->CreateDescriptorSet(descCreateInfo);
+        m_ObjectDescriptorSetDynamic = objectPipeline->CreateDescriptorSet(1, descCreateInfo);
         m_ObjectDescriptorSetDynamic->BindBuffer(0, m_ObjectData.get(), 0, 1);
         m_ObjectDescriptorSetDynamic->FlushBindings();
-        descCreateInfo.SetIndex = 0;
         descCreateInfo.Writability = Flourish::DescriptorSetWritability::MultiPerFrame;
-        m_FrameDescriptorSet = mainPipeline->CreateDescriptorSet(descCreateInfo);
+        m_FrameDescriptorSet = mainPipeline->CreateDescriptorSet(0, descCreateInfo);
     }
     
     void Tests::CreateBuffers()

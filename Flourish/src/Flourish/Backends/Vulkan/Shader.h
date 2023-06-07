@@ -5,6 +5,21 @@
 
 namespace Flourish::Vulkan
 {
+    struct ReflectionDataElement
+    {
+        ReflectionDataElement() = default;
+        ReflectionDataElement(ShaderResourceType resourceType, ShaderType accessType, u32 bindingIndex, u32 setIndex, u32 size, u32 arrayCount)
+            : ResourceType(resourceType), AccessType(accessType), BindingIndex(bindingIndex), SetIndex(setIndex), Size(size), ArrayCount(arrayCount)
+        {}
+
+        ShaderResourceType ResourceType;
+        ShaderType AccessType;
+        u32 BindingIndex;
+        u32 SetIndex;
+        u32 Size;
+        u32 ArrayCount;
+    };
+
     class DescriptorPool;
     class DescriptorSet;
     class Shader : public Flourish::Shader

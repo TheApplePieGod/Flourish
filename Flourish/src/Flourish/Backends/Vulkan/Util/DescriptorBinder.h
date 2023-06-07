@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
@@ -7,6 +8,7 @@ namespace Flourish::Vulkan
     class DescriptorPool;
     class DescriptorSet;
     class Shader;
+    struct ReflectionDataElement;
     struct PipelineDescriptorData
     {
         struct SetData
@@ -20,11 +22,12 @@ namespace Flourish::Vulkan
 
         std::vector<SetData> SetData;
         u32 TotalDynamicOffsets = 0;
+        DescriptorSetPipelineCompatability Compatability;
 
         void Populate(Shader** shaders, u32 count);
 
         // TS
-        std::shared_ptr<DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo);
+        std::shared_ptr<DescriptorSet> CreateDescriptorSet(u32 setIndex, DescriptorSetPipelineCompatability compatability, const DescriptorSetCreateInfo& createInfo);
     };
 
     class DescriptorSet;

@@ -11,6 +11,7 @@ namespace Flourish::Vulkan
         u32 PoolIndex;
     };
 
+    struct ReflectionDataElement;
     class DescriptorPool
     {
     public:

@@ -13,7 +13,7 @@ namespace Flourish::Vulkan
         ~ComputePipeline() override;
 
         // TS
-        std::shared_ptr<Flourish::DescriptorSet> CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo) override;
+        std::shared_ptr<Flourish::DescriptorSet> CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo) override;
 
         // TS
         inline VkPipeline GetPipeline() const { return m_Pipeline; }

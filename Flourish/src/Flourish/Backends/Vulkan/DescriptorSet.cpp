@@ -10,9 +10,10 @@ namespace Flourish::Vulkan
 {
     DescriptorSet::DescriptorSet(
         const DescriptorSetCreateInfo& createInfo,
+        DescriptorSetPipelineCompatability compatability,
         const std::shared_ptr<DescriptorPool>& parentPool
     )
-        : Flourish::DescriptorSet(createInfo), m_ParentPool(parentPool)
+        : Flourish::DescriptorSet(createInfo, compatability), m_ParentPool(parentPool)
     {
         FL_ASSERT(
             static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite) ||

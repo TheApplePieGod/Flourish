@@ -4,6 +4,18 @@
 
 namespace Flourish
 {
+    namespace DescriptorSetPipelineCompatabilityEnum
+    {
+        enum Value : u8
+        {
+            None = 0,
+            Graphics = 1 << 0,
+            Compute = 1 << 1,
+        };
+    }
+    typedef DescriptorSetPipelineCompatabilityEnum::Value DescriptorSetPipelineCompatabilityFlags;
+    typedef u8 DescriptorSetPipelineCompatability;
+
     enum class DescriptorSetWritability : u8
     {
         _DynamicData = 1,
@@ -18,7 +30,6 @@ namespace Flourish
 
     struct DescriptorSetCreateInfo
     {
-        u32 SetIndex = 0; // TODO: move out of create info?
         DescriptorSetWritability Writability;
     };
 
@@ -26,8 +37,8 @@ namespace Flourish
     class DescriptorSet
     {
     public:
-        DescriptorSet(const DescriptorSetCreateInfo& createInfo)
-            : m_Info(createInfo)
+        DescriptorSet(const DescriptorSetCreateInfo& createInfo, DescriptorSetPipelineCompatability compatability)
+            : m_Info(createInfo), m_Compatability(compatability)
         {}
         virtual ~DescriptorSet() = default;
 
@@ -40,7 +51,11 @@ namespace Flourish
         // Cannot flush until all bindings are bound
         virtual void FlushBindings() = 0;
 
+        // TS
+        inline DescriptorSetPipelineCompatability GetPipelineCompatability() const { return m_Compatability; }
+
     protected:
         DescriptorSetCreateInfo m_Info;
+        DescriptorSetPipelineCompatability m_Compatability;
     };
 }

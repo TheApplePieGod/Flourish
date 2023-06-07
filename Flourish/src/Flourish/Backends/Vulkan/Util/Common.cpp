@@ -186,20 +186,13 @@ namespace Flourish::Vulkan
         return ShaderResourceType::None;
     }
 
-    VkShaderStageFlags Common::ConvertShaderResourceAccessType(ShaderResourceAccessType type)
+    VkShaderStageFlags Common::ConvertShaderAccessType(ShaderType type)
     {
-        switch (type)
-        {
-            default:
-            { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
-            case ShaderResourceAccessType::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
-            case ShaderResourceAccessType::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-            case ShaderResourceAccessType::Both: return (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-            case ShaderResourceAccessType::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-            case ShaderResourceAccessType::All: return (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
-        }
-
-        return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+        VkShaderStageFlags result = 0;
+        result |= ((type & ShaderTypeFlags::Vertex) > 0) * VK_SHADER_STAGE_VERTEX_BIT;
+        result |= ((type & ShaderTypeFlags::Fragment) > 0) * VK_SHADER_STAGE_FRAGMENT_BIT;
+        result |= ((type & ShaderTypeFlags::Compute) > 0) * VK_SHADER_STAGE_COMPUTE_BIT;
+        return result;
     }
 
     VkBlendFactor Common::ConvertBlendFactor(BlendFactor factor)

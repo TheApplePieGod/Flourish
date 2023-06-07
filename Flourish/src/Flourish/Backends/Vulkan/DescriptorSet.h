@@ -11,6 +11,7 @@ namespace Flourish::Vulkan
     public:
         DescriptorSet(
             const DescriptorSetCreateInfo& createInfo,
+            DescriptorSetPipelineCompatability compatability,
             const std::shared_ptr<DescriptorPool>& parentPool
         );
         ~DescriptorSet() override;

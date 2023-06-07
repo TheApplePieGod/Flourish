@@ -15,6 +15,7 @@ namespace Flourish::Vulkan
         VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
         m_DescriptorData.Populate(&shader, 1);
+        m_DescriptorData.Compatability = DescriptorSetPipelineCompatabilityFlags::Compute;
 
         u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
@@ -63,8 +64,12 @@ namespace Flourish::Vulkan
         }, "Compute pipeline free");
     }
 
-    std::shared_ptr<Flourish::DescriptorSet> ComputePipeline::CreateDescriptorSet(const DescriptorSetCreateInfo& createInfo)
+    std::shared_ptr<Flourish::DescriptorSet> ComputePipeline::CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo)
     {
-        return m_DescriptorData.CreateDescriptorSet(createInfo);
+        return m_DescriptorData.CreateDescriptorSet(
+            setIndex,
+            DescriptorSetPipelineCompatabilityFlags::Compute,
+            createInfo
+        );
     }
 }
