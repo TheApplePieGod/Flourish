@@ -17,12 +17,12 @@ namespace Flourish::Vulkan
         ~DescriptorSet() override;
 
         void BindBuffer(u32 bindingIndex, const std::shared_ptr<Flourish::Buffer>& buffer, u32 bufferOffset, u32 elementCount) override;
-        void BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture) override;
-        void BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel) override;
+        void BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 arrayIndex = 0) override;
+        void BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex = 0) override;
         void BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Flourish::Framebuffer>& framebuffer, SubpassAttachment attachment) override;
         void BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount) override;
-        void BindTexture(u32 bindingIndex, const Flourish::Texture* texture) override;
-        void BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel) override;
+        void BindTexture(u32 bindingIndex, const Flourish::Texture* texture, u32 arrayIndex = 0) override;
+        void BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex = 0) override;
         void BindSubpassInput(u32 bindingIndex, const Flourish::Framebuffer* framebuffer, SubpassAttachment attachment) override;
         void FlushBindings() override;
 
@@ -65,7 +65,8 @@ namespace Flourish::Vulkan
             const void* resource,
             bool useOffset,
             u32 offset,
-            u32 size
+            u32 size,
+            u32 arrayIndex
         );
 
     private:

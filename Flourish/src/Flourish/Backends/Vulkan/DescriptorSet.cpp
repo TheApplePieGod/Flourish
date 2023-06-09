@@ -88,7 +88,7 @@ namespace Flourish::Vulkan
         BindBuffer(bindingIndex, buffer.get(), bufferOffset, elementCount);
     }
 
-    void DescriptorSet::BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture)
+    void DescriptorSet::BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 arrayIndex)
     {
         if (m_Info.StoreBindingReferences)
         {
@@ -98,10 +98,10 @@ namespace Flourish::Vulkan
             m_StoredReferences[bindingIndex].Texture = texture;
         }
 
-        BindTexture(bindingIndex, texture.get());
+        BindTexture(bindingIndex, texture.get(), arrayIndex);
     }
     
-    void DescriptorSet::BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel)
+    void DescriptorSet::BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex)
     {
         if (m_Info.StoreBindingReferences)
         {
@@ -111,7 +111,7 @@ namespace Flourish::Vulkan
             m_StoredReferences[bindingIndex].Texture = texture;
         }
 
-        BindTextureLayer(bindingIndex, texture.get(), layerIndex, mipLevel);
+        BindTextureLayer(bindingIndex, texture.get(), layerIndex, mipLevel, arrayIndex);
     }
 
     void DescriptorSet::BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Flourish::Framebuffer>& framebuffer, SubpassAttachment attachment)
@@ -148,12 +148,13 @@ namespace Flourish::Vulkan
             buffer,
             true,
             stride * bufferOffset,
-            stride * elementCount
+            stride * elementCount,
+            0
         );
     }
 
     // TODO: ensure bound texture is not also being written to in framebuffer
-    void DescriptorSet::BindTexture(u32 bindingIndex, const Flourish::Texture* texture)
+    void DescriptorSet::BindTexture(u32 bindingIndex, const Flourish::Texture* texture, u32 arrayIndex)
     {
         ShaderResourceType texType =
             texture->GetUsageType() == TextureUsageType::ComputeTarget
@@ -176,12 +177,13 @@ namespace Flourish::Vulkan
             bindingIndex, 
             texType, 
             texture,
-            false, 0, 0
+            false, 0, 0,
+            arrayIndex
         );
     }
     
     // TODO: ensure bound texture is not also being written to in framebuffer
-    void DescriptorSet::BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
+    void DescriptorSet::BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex)
     {
         ShaderResourceType texType =
             texture->GetUsageType() == TextureUsageType::ComputeTarget
@@ -198,7 +200,8 @@ namespace Flourish::Vulkan
             bindingIndex, 
             texType, 
             texture,
-            true, layerIndex, mipLevel
+            true, layerIndex, mipLevel,
+            arrayIndex
         );
     }
 
@@ -221,7 +224,8 @@ namespace Flourish::Vulkan
             bindingIndex, 
             ShaderResourceType::SubpassInput, 
             attView,
-            attachment.Type == SubpassAttachmentType::Color, 0, 0
+            attachment.Type == SubpassAttachmentType::Color,
+            0, 0, 0
         );
     }
 
@@ -269,7 +273,8 @@ namespace Flourish::Vulkan
         const void* resource,
         bool useOffset,
         u32 offset,
-        u32 size
+        u32 size,
+        u32 arrayIndex
     )
     {
         if (m_LastFrameWrite != 0 && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
@@ -286,6 +291,7 @@ namespace Flourish::Vulkan
         //     - PerFrame: cache entry for current frameindex is written
         u32 bufferInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].BufferArrayIndex;
         u32 imageInfoBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].ImageArrayIndex;
+        u32 writeIndex = m_ParentPool->GetBindingData()[bindingIndex].DescriptorWriteMapping;
         u32 frameIndex = Flourish::Context::FrameIndex();
         for (u32 i = 0; i < m_AllocationCount; i++)
         {
@@ -311,16 +317,13 @@ namespace Flourish::Vulkan
                 {
                     const Texture* texture = static_cast<const Texture*>(resource);
 
-                    for (u32 i = 0; i < texture->GetArrayCount(); i++)
-                    {
-                        imageInfos[imageInfoBaseIndex + i].sampler = texture->GetSampler();
-                        imageInfos[imageInfoBaseIndex + i].imageLayout = resourceType == ShaderResourceType::Texture ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
-                        if (useOffset)
-                            // size is the mip level here
-                            imageInfos[imageInfoBaseIndex + i].imageView = texture->GetLayerImageView(frameIndex, offset, size); 
-                        else
-                            imageInfos[imageInfoBaseIndex + i].imageView = texture->GetImageView(frameIndex);
-                    }
+                    imageInfos[imageInfoBaseIndex + arrayIndex].sampler = texture->GetSampler();
+                    imageInfos[imageInfoBaseIndex + arrayIndex].imageLayout = resourceType == ShaderResourceType::Texture ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+                    if (useOffset)
+                        // size is the mip level here
+                        imageInfos[imageInfoBaseIndex + arrayIndex].imageView = texture->GetLayerImageView(frameIndex, offset, size); 
+                    else
+                        imageInfos[imageInfoBaseIndex + arrayIndex].imageView = texture->GetImageView(frameIndex);
                 } break;
 
                 case ShaderResourceType::SubpassInput:
@@ -334,7 +337,7 @@ namespace Flourish::Vulkan
                 } break;
             }
 
-            VkWriteDescriptorSet& descriptorWrite = cachedData.DescriptorWrites[bindingIndex];
+            VkWriteDescriptorSet& descriptorWrite = cachedData.DescriptorWrites[writeIndex];
             if (descriptorWrite.pBufferInfo == nullptr && descriptorWrite.pImageInfo == nullptr)
                 cachedData.WritesReadyCount++;
 

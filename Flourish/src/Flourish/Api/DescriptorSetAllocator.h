@@ -5,10 +5,12 @@
 
 namespace Flourish
 {
+    // Access flags MUST match the shader usage
     struct DescriptorSetLayoutElement
     {
-        ShaderResourceType ResourceType;
         u32 BindingIndex = 0;
+        ShaderResourceType ResourceType;
+        ShaderType AccessFlags = 0;
         u32 ArrayCount = 1;
     };
 

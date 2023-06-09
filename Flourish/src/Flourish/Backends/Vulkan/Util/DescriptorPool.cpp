@@ -29,7 +29,7 @@ namespace Flourish::Vulkan
             VkDescriptorSetLayoutBinding binding{};
             binding.binding = element.BindingIndex;
             binding.descriptorType = Common::ConvertShaderResourceType(element.ResourceType);
-            binding.descriptorCount = element.ArrayCount;
+            binding.descriptorCount = 1;//element.ArrayCount;
             binding.stageFlags = Common::ConvertShaderAccessType(element.AccessType);
             binding.pImmutableSamplers = nullptr;
             bindings.emplace_back(binding);
@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
             descriptorWrite.dstBinding = element.BindingIndex;
             descriptorWrite.dstArrayElement = 0;
             descriptorWrite.descriptorType = binding.descriptorType;
-            descriptorWrite.descriptorCount = element.ArrayCount;
+            descriptorWrite.descriptorCount = 1;//element.ArrayCount;
 
             // TODO: ensure buffers are not in an array?
 
@@ -172,6 +172,7 @@ namespace Flourish::Vulkan
     }
 
     // TODO: hashing? compatability table?
+    // TODO: should also check accesstype compatability
     bool DescriptorPool::CheckCompatibility(const DescriptorPool* other) const
     {
         const auto& l = m_Bindings;

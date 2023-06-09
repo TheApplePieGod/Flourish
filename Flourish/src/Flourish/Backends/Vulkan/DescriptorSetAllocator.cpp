@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
 
             reflectionData.emplace_back(
                 elem.ResourceType,
-                m_Info.Compatability,
+                elem.AccessFlags,
                 elem.BindingIndex,
                 0, 0, // Not used in DescriptorPool
                 elem.ArrayCount

@@ -129,7 +129,7 @@ namespace Flourish::Vulkan
             memcpy((char*)bufferData.AllocationInfo.pMappedData + byteOffset, data, byteCount);
     }
 
-    void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset)
+    void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const
     {
         FL_CRASH_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to read buffer data that exceeds buffer size");
 
