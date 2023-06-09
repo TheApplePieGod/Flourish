@@ -312,8 +312,6 @@ namespace FlourishTesting
         gpCreateInfo.VertexTopology = Flourish::VertexTopology::TriangleList;
         gpCreateInfo.VertexLayout = m_VertexLayout;
         gpCreateInfo.BlendStates = { { false } };
-        gpCreateInfo.DepthTest = true;
-        gpCreateInfo.DepthWrite = true;
         gpCreateInfo.CullMode = Flourish::CullMode::Backface;
         gpCreateInfo.WindingOrder = Flourish::WindingOrder::Clockwise;
         auto mainPipeline = m_RenderContext->GetRenderPass()->CreatePipeline("main", gpCreateInfo);

@@ -154,6 +154,25 @@ namespace Flourish::Vulkan
         return VK_FRONT_FACE_MAX_ENUM;
     }
 
+    VkCompareOp Common::ConvertDepthComparison(DepthComparison comp)
+    {
+        switch (comp)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified DepthComparison"); } break;
+            case DepthComparison::Equal: return VK_COMPARE_OP_EQUAL;
+            case DepthComparison::NotEqual: return VK_COMPARE_OP_NOT_EQUAL;
+            case DepthComparison::Less: return VK_COMPARE_OP_LESS;
+            case DepthComparison::LessOrEqual: return VK_COMPARE_OP_LESS_OR_EQUAL;
+            case DepthComparison::Greater: return VK_COMPARE_OP_GREATER;
+            case DepthComparison::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+            case DepthComparison::AlwaysTrue: return VK_COMPARE_OP_ALWAYS;
+            case DepthComparison::AlwaysFalse: return VK_COMPARE_OP_NEVER;
+            case DepthComparison::Auto: return Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS;        }
+
+        return VK_COMPARE_OP_MAX_ENUM;
+    }
+
     VkDescriptorType Common::ConvertShaderResourceType(ShaderResourceType type)
     {
         switch (type)

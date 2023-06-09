@@ -162,9 +162,9 @@ namespace Flourish::Vulkan
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencil.depthTestEnable = createInfo.DepthTest;
-        depthStencil.depthWriteEnable = createInfo.DepthWrite;
-        depthStencil.depthCompareOp = Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS;
+        depthStencil.depthTestEnable = createInfo.DepthConfig.DepthTest;
+        depthStencil.depthWriteEnable = createInfo.DepthConfig.DepthWrite;
+        depthStencil.depthCompareOp = Common::ConvertDepthComparison(createInfo.DepthConfig.CompareOperation);
         depthStencil.depthBoundsTestEnable = VK_FALSE;
         depthStencil.minDepthBounds = 0.0f;
         depthStencil.maxDepthBounds = 1.0f;

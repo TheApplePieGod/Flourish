@@ -23,6 +23,20 @@ namespace Flourish
         Clockwise, CounterClockwise
     };
 
+    enum class DepthComparison
+    {
+        None = 0,
+        Equal,
+        NotEqual,
+        Less,
+        LessOrEqual,
+        Greater,
+        GreaterOrEqual,
+        AlwaysTrue,
+        AlwaysFalse,
+        Auto
+    };
+
     enum class BlendFactor
     {
         Zero = 0,
@@ -50,6 +64,13 @@ namespace Flourish
         bool operator==(const AttachmentBlendState& other) const;
     };
 
+    struct DepthConfiguration
+    {
+        bool DepthTest = true;
+        bool DepthWrite = true;
+        DepthComparison CompareOperation = DepthComparison::Auto;
+    };
+
     struct GraphicsPipelineCreateInfo
     {
         std::shared_ptr<Shader> VertexShader;
@@ -62,8 +83,7 @@ namespace Flourish
         // One state is required per output attachment
         std::vector<AttachmentBlendState> BlendStates; 
 
-        bool DepthTest;
-        bool DepthWrite;
+        DepthConfiguration DepthConfig;
         CullMode CullMode;
         WindingOrder WindingOrder;
        
@@ -94,8 +114,7 @@ namespace Flourish
         inline VertexTopology GetVertexTopology() const { return m_Info.VertexTopology; }
         inline CullMode GetCullMode() const { return m_Info.CullMode; }
         inline WindingOrder GetWindingOrder() const { return m_Info.WindingOrder; }
-        inline bool IsDepthTestEnabled() const { return m_Info.DepthTest; }
-        inline bool IsDepthWriteEnabled() const { return m_Info.DepthWrite; }
+        inline const DepthConfiguration& GetDepthConfig() const { return m_Info.DepthConfig; }
         inline u32 GetVertexLayoutStride() const { return m_Info.VertexLayout.GetCalculatedStride(); }
         inline const auto& GetBlendStates() const { return m_Info.BlendStates; }
 
