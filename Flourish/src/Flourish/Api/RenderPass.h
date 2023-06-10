@@ -12,6 +12,13 @@ namespace Flourish
         Max = Sixtyfour
     };
 
+    enum class AttachmentInitialization
+    {
+        None = 0, // Do nothing. Attachment contents are undefined
+        Preserve, // Keep previously rendered data
+        Clear     // Clear to a value specified in the framebuffer
+    };
+
     enum class SubpassAttachmentType
     {
         None = 0,
@@ -33,11 +40,13 @@ namespace Flourish
     struct ColorAttachmentSpec
     {
         ColorFormat Format;
+        AttachmentInitialization Initialization = AttachmentInitialization::Clear;
     };
 
     struct DepthAttachmentSpec
     {
         ColorFormat Format;
+        AttachmentInitialization Initialization = AttachmentInitialization::Clear;
     };
 
     struct RenderPassCreateInfo

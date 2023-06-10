@@ -13,6 +13,7 @@ namespace Flourish::Vulkan
         static bool SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension);
         static VkFormat ConvertColorFormat(ColorFormat format);
         static ColorFormat RevertColorFormat(VkFormat format);
+        static VkAttachmentLoadOp ConvertAttachmentInitialization(AttachmentInitialization init);
         static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
         static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);
         static VkFormat ConvertBufferDataType(BufferDataType type);

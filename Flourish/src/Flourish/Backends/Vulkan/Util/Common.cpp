@@ -67,6 +67,20 @@ namespace Flourish::Vulkan
         return ColorFormat::None;
     }
 
+    VkAttachmentLoadOp Common::ConvertAttachmentInitialization(AttachmentInitialization init)
+    {
+        switch (init)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AttachmentInitialization"); } break;
+            case AttachmentInitialization::None: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            case AttachmentInitialization::Preserve: return VK_ATTACHMENT_LOAD_OP_LOAD;
+            case AttachmentInitialization::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
+
+        return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
+    }
+
     VkSampleCountFlagBits Common::ConvertMsaaSampleCount(MsaaSampleCount sampleCount)
     {
         switch (sampleCount)
