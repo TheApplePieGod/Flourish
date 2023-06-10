@@ -95,6 +95,8 @@ namespace Flourish::Vulkan
 
     void DescriptorBinder::BindDescriptorSet(const DescriptorSet* set, u32 setIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(setIndex < m_BoundSets.size(), "Set index out of range");
         FL_CRASH_ASSERT(m_BoundData->SetData[setIndex].Exists, "Set index does not exist in the shader");
         FL_CRASH_ASSERT(set->GetPipelineCompatability() & m_BoundData->Compatability, "Set is not compatible with this pipeline type");
@@ -111,6 +113,8 @@ namespace Flourish::Vulkan
 
     const DescriptorSet* DescriptorBinder::GetDescriptorSet(u32 setIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(setIndex < m_BoundSets.size(), "Set index out of range");
         FL_CRASH_ASSERT(m_BoundData->SetData[setIndex].Exists, "Set index does not exist in the shader");
 
@@ -119,6 +123,8 @@ namespace Flourish::Vulkan
 
     void DescriptorBinder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
     {
+        FL_PROFILE_FUNCTION();
+        
         FL_CRASH_ASSERT(setIndex < m_BoundSets.size(), "Set index out of range");
         FL_CRASH_ASSERT(m_BoundSets[setIndex], "Must bind set before calling UpdateDynamicOffset");
 
@@ -148,6 +154,8 @@ namespace Flourish::Vulkan
 
     void DescriptorBinder::BindPipelineData(const PipelineDescriptorData* data)
     {
+        FL_PROFILE_FUNCTION();
+
         if (!m_DynamicOffsets.empty())
             memset(m_DynamicOffsets.data(), 0, m_DynamicOffsets.size() * sizeof(u32));
         m_DynamicOffsets.resize(data->TotalDynamicOffsets);

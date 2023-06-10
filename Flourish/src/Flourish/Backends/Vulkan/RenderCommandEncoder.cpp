@@ -18,6 +18,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BeginEncoding(Framebuffer* framebuffer)
     {
+        FL_PROFILE_FUNCTION();
+
         m_Encoding = true;
         m_BoundFramebuffer = framebuffer;
 
@@ -52,6 +54,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::EndEncoding()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
         m_BoundFramebuffer = nullptr;
@@ -67,6 +71,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BindPipeline(const std::string_view pipelineName)
     {
+        FL_PROFILE_FUNCTION();
+
         if (m_BoundPipelineName == pipelineName) return;
         m_BoundPipelineName = pipelineName;
 
@@ -86,6 +92,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetViewport after encoding has ended");
 
         VkViewport viewport{};
@@ -101,6 +109,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::SetScissor(u32 x, u32 y, u32 width, u32 height)
     {
+        FL_PROFILE_FUNCTION();
+        
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetScissor after encoding has ended");
 
         VkRect2D scissor{};
@@ -112,6 +122,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::SetLineWidth(float width)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(width >= 0, "Width cannot be less than zero");
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetLineWidth after encoding has ended");
 
@@ -123,6 +135,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BindVertexBuffer(const Flourish::Buffer* _buffer)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindVertexBuffer after encoding has ended");
 
         VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
@@ -133,6 +147,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BindIndexBuffer(const Flourish::Buffer* _buffer)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindIndexBuffer after encoding has ended");
 
         VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
@@ -143,6 +159,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
         
         vkCmdDraw(m_CommandBuffer, vertexCount, instanceCount, vertexOffset, instanceOffset);
@@ -150,6 +168,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
     {
+        FL_PROFILE_FUNCTION();
+        
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed after encoding has ended");
 
         vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
@@ -157,6 +177,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::DrawIndexedIndirect(const Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexedIndirect after encoding has ended");
 
         VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
@@ -173,6 +195,8 @@ namespace Flourish::Vulkan
     
     void RenderCommandEncoder::StartNextSubpass()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode StartNextSubpass after encoding has ended");
 
         vkCmdNextSubpass(m_CommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
@@ -185,6 +209,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::ClearColorAttachment(u32 attachmentIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode ClearColorAttachment after encoding has ended");
         
         auto& color = m_BoundFramebuffer->GetColorAttachments()[attachmentIndex].ClearColor;
@@ -208,6 +234,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::ClearDepthAttachment()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode ClearDepthAttachment after encoding has ended");
         
         VkClearAttachment clear;
@@ -226,6 +254,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
 
         if (m_DescriptorBinder.DoesSetExist(setIndex))
@@ -239,6 +269,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before updating dynamic offsets");
 
         if (m_DescriptorBinder.DoesSetExist(setIndex))
@@ -252,6 +284,8 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::FlushDescriptorSet(u32 setIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a descriptor set");
 
         if (m_DescriptorBinder.DoesSetExist(setIndex))

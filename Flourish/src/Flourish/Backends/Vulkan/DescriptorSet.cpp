@@ -22,6 +22,8 @@ namespace Flourish::Vulkan
     )
         : Flourish::DescriptorSet(createInfo, compatability), m_ParentPool(parentPool)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(
             static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite) ||
             !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_MultiWrite)),
@@ -129,6 +131,8 @@ namespace Flourish::Vulkan
 
     void DescriptorSet::BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(elementCount + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset must be <= buffer allocated count");
         FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
 
@@ -156,6 +160,8 @@ namespace Flourish::Vulkan
     // TODO: ensure bound texture is not also being written to in framebuffer
     void DescriptorSet::BindTexture(u32 bindingIndex, const Flourish::Texture* texture, u32 arrayIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         ShaderResourceType texType =
             texture->GetUsageType() == TextureUsageType::ComputeTarget
                 ? ShaderResourceType::StorageTexture
@@ -185,6 +191,8 @@ namespace Flourish::Vulkan
     // TODO: ensure bound texture is not also being written to in framebuffer
     void DescriptorSet::BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         ShaderResourceType texType =
             texture->GetUsageType() == TextureUsageType::ComputeTarget
                 ? ShaderResourceType::StorageTexture
@@ -208,6 +216,8 @@ namespace Flourish::Vulkan
     // TODO: need to test this
     void DescriptorSet::BindSubpassInput(u32 bindingIndex, const Flourish::Framebuffer* framebuffer, SubpassAttachment attachment)
     {
+        FL_PROFILE_FUNCTION();
+        
         // This could be a tighter bound (i.e. also work with OnceDynamicData) if
         // we modified UpdateBinding slightly somehow
         if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
@@ -277,6 +287,8 @@ namespace Flourish::Vulkan
         u32 arrayIndex
     )
     {
+        FL_PROFILE_FUNCTION();
+
         if (m_LastFrameWrite != 0 && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
         {
             FL_ASSERT(false, "Cannot update descriptor set that has already been written and does not have PerFrame writability");
@@ -357,6 +369,8 @@ namespace Flourish::Vulkan
 
     void DescriptorSet::FlushBindings()
     {
+        FL_PROFILE_FUNCTION();
+
         if (m_LastFrameWrite != 0 && !(static_cast<u8>(m_Info.Writability) & static_cast<u8>(DescriptorSetWritability::_FrameWrite)))
         {
             FL_ASSERT(false, "Cannot flush descriptor set that has already been written and does not have PerFrame writability");
