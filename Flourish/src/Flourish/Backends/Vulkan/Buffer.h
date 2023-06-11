@@ -12,14 +12,16 @@ namespace Flourish::Vulkan
         ~Buffer() override;
 
         void SetBytes(const void* data, u32 byteCount, u32 byteOffset) override;
-        void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) override;
+        void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const override;
         void Flush(bool immediate) override;
 
         void FlushInternal(VkCommandBuffer buffer, bool execute = false);
 
         // TS
         VkBuffer GetBuffer() const;
+        VkBuffer GetBuffer(u32 frameIndex) const;
         VkBuffer GetStagingBuffer() const;
+        VkBuffer GetStagingBuffer(u32 frameIndex) const;
 
     public:
         // TS

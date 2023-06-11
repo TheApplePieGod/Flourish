@@ -3,21 +3,30 @@
 
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
+#include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
 {
     ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo& createInfo)
         : Flourish::ComputePipeline(createInfo)
     {
-        m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
+        auto shader = static_cast<Shader*>(createInfo.ComputeShader.get());
+        VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
-        VkPipelineShaderStageCreateInfo shaderStage = static_cast<Shader*>(createInfo.ComputeShader.get())->DefineShaderStage();
+        m_DescriptorData.Populate(&shader, 1);
+        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Compute;
 
-        VkDescriptorSetLayout layout[1] = { m_DescriptorSetLayout.GetLayout() };
+        u32 setCount = m_DescriptorData.SetData.size();
+        std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
+        for (u32 i = 0; i < setCount; i++)
+            if (m_DescriptorData.SetData[i].Exists)
+                layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = layout;
+        pipelineLayoutInfo.setLayoutCount = setCount;
+        pipelineLayoutInfo.pSetLayouts = layouts.data();
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
         if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
@@ -44,8 +53,6 @@ namespace Flourish::Vulkan
 
     ComputePipeline::~ComputePipeline()
     {
-        m_DescriptorSetLayout.Shutdown();
-
         auto pipeline = m_Pipeline;
         auto layout = m_PipelineLayout;
         Context::FinalizerQueue().Push([=]()
@@ -55,5 +62,14 @@ namespace Flourish::Vulkan
             if (layout)
                 vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Compute pipeline free");
+    }
+
+    std::shared_ptr<Flourish::ResourceSet> ComputePipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)
+    {
+        return m_DescriptorData.CreateResourceSet(
+            setIndex,
+            ResourceSetPipelineCompatabilityFlags::Compute,
+            createInfo
+        );
     }
 }

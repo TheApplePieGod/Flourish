@@ -6,12 +6,13 @@ namespace Flourish
 {
     class Texture;
     class Buffer;
+    class ResourceSet;
     class RenderCommandEncoder : public CommandEncoder
     {
     public:
         RenderCommandEncoder() = default;
 
-        // All shader resources must be bound before drawing
+        // All sets must be bound before drawing
         // TODO: pipeline ids?
         virtual void BindPipeline(std::string_view pipelineName) = 0;
         virtual void SetViewport(u32 x, u32 y, u32 width, u32 height) = 0;
@@ -26,11 +27,10 @@ namespace Flourish
         virtual void ClearColorAttachment(u32 attachmentIndex) = 0;
         virtual void ClearDepthAttachment() = 0;
         
-        // Buffer offset refers to the element starting point in the buffer and dynamicOffset refers to a dynamic element offset
-        virtual void BindPipelineBufferResource(u32 bindingIndex, const Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount) = 0;
-        virtual void BindPipelineTextureResource(u32 bindingIndex, const Texture* texture) = 0;
-        virtual void BindPipelineTextureLayerResource(u32 bindingIndex, const Texture* texture, u32 layerIndex, u32 mipLevel) = 0;
-        virtual void BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment) = 0;
-        virtual void FlushPipelineBindings() = 0;
+        // Bind -> Update -> Flush
+        // Offset in bytes
+        virtual void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) = 0;
+        virtual void BindResourceSet(const ResourceSet* set, u32 setIndex) = 0;
+        virtual void FlushResourceSet(u32 setIndex) = 0;
     };
 }

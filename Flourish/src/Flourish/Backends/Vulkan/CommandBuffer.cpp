@@ -4,7 +4,6 @@
 #include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Api/RenderCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Framebuffer.h"
-#include "Flourish/Backends/Vulkan/ComputeTarget.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
@@ -154,7 +153,7 @@ namespace Flourish::Vulkan
         return static_cast<Flourish::RenderCommandEncoder*>(&m_RenderCommandEncoder);
     }
 
-    Flourish::ComputeCommandEncoder* CommandBuffer::EncodeComputeCommands(Flourish::ComputeTarget* target)
+    Flourish::ComputeCommandEncoder* CommandBuffer::EncodeComputeCommands()
     {
         CheckFrameUpdate();
 
@@ -162,9 +161,7 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_EncoderSubmissions.size() < m_Info.MaxEncoders, "Cannot exceed maximum encoder count");
         m_Encoding = true;
 
-        m_ComputeCommandEncoder.BeginEncoding(
-            static_cast<ComputeTarget*>(target)
-        );
+        m_ComputeCommandEncoder.BeginEncoding();
 
         return static_cast<Flourish::ComputeCommandEncoder*>(&m_ComputeCommandEncoder);
     }

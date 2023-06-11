@@ -2,39 +2,23 @@
 
 namespace Flourish
 {
+    namespace ShaderTypeEnum
+    {
+        enum Value : u8
+        {
+            None = 0,
+            Vertex = 1 << 0,
+            Fragment = 1 << 1,
+            Compute = 1 << 2
+        };
+    }
+    typedef ShaderTypeEnum::Value ShaderTypeFlags;
+    typedef u8 ShaderType;
+
     enum class ShaderResourceType
     {
         None = 0,
         UniformBuffer, StorageBuffer, Texture, StorageTexture, SubpassInput
-    };
-
-    enum class ShaderResourceAccessType
-    {
-        None = 0,
-        Vertex, Fragment, Both, Compute
-    };
-
-    struct ReflectionDataElement
-    {
-        ReflectionDataElement() = default;
-        ReflectionDataElement(u32 uniqueId, ShaderResourceType resourceType, ShaderResourceAccessType accessType, u32 bindingIndex, u32 setIndex, u32 arrayCount)
-            : UniqueId(uniqueId), ResourceType(resourceType), AccessType(accessType), BindingIndex(bindingIndex), SetIndex(setIndex), ArrayCount(arrayCount)
-        {}
-
-        u32 UniqueId;
-        ShaderResourceType ResourceType;
-        ShaderResourceAccessType AccessType;
-        u32 BindingIndex;
-        u32 SetIndex;
-        u32 ArrayCount;
-    };
-
-    enum class ShaderType
-    {
-        None = 0,
-        Vertex,
-        Fragment,
-        Compute
     };
 
     struct ShaderCreateInfo
@@ -52,15 +36,11 @@ namespace Flourish
         {}
         virtual ~Shader() = default;
 
-        // TS
-        inline const auto& GetReflectionData() { return m_ReflectionData; }
-
     public:
         // TS
         static std::shared_ptr<Shader> Create(const ShaderCreateInfo& createInfo);
 
     protected:
         ShaderType m_Type;
-        std::vector<ReflectionDataElement> m_ReflectionData;
     };
 }

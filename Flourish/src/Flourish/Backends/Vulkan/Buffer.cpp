@@ -129,7 +129,7 @@ namespace Flourish::Vulkan
             memcpy((char*)bufferData.AllocationInfo.pMappedData + byteOffset, data, byteCount);
     }
 
-    void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset)
+    void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const
     {
         FL_CRASH_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to read buffer data that exceeds buffer size");
 
@@ -160,12 +160,26 @@ namespace Flourish::Vulkan
 
     VkBuffer Buffer::GetBuffer() const
     {
-        return m_BufferCount == 1 ? m_Buffers[0].Buffer : m_Buffers[Flourish::Context::FrameIndex()].Buffer;
+        if (m_BufferCount == 1) return m_Buffers[0].Buffer;
+        return m_Buffers[Flourish::Context::FrameIndex()].Buffer;
+    }
+
+    VkBuffer Buffer::GetBuffer(u32 frameIndex) const
+    {
+        if (m_BufferCount == 1) return m_Buffers[0].Buffer;
+        return m_Buffers[frameIndex].Buffer;
     }
 
     VkBuffer Buffer::GetStagingBuffer() const
     {
-        return m_BufferCount == 1 ? m_StagingBuffers[0].Buffer : m_StagingBuffers[Flourish::Context::FrameIndex()].Buffer;
+        if (m_BufferCount == 1) return m_StagingBuffers[0].Buffer;
+        return m_StagingBuffers[Flourish::Context::FrameIndex()].Buffer;
+    }
+
+    VkBuffer Buffer::GetStagingBuffer(u32 frameIndex) const
+    {
+        if (m_BufferCount == 1) return m_StagingBuffers[0].Buffer;
+        return m_StagingBuffers[frameIndex].Buffer;
     }
 
     void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute)

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Flourish/Api/Framebuffer.h"
-#include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
@@ -13,11 +12,9 @@ namespace Flourish::Vulkan
         Framebuffer(const FramebufferCreateInfo& createInfo);
         ~Framebuffer() override;
 
-        DescriptorSet* GetPipelineDescriptorSet(std::string_view name, const DescriptorSetLayout& layout);
-        VkImageView GetAttachmentImageView(SubpassAttachment attachment);
-
         // TS
         VkFramebuffer GetFramebuffer() const;
+        VkImageView GetAttachmentImageView(SubpassAttachment attachment) const;
         const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
 
     private:
@@ -40,6 +37,5 @@ namespace Flourish::Vulkan
         std::array<std::vector<ImageData>, Flourish::Context::MaxFrameBufferCount> m_Images;
         std::array<std::vector<VkImageView>, Flourish::Context::MaxFrameBufferCount> m_CachedImageViews;
         std::vector<VkClearValue> m_CachedClearValues;
-        std::unordered_map<std::string, std::shared_ptr<DescriptorSet>> m_PipelineDescriptorSets;
     };
 }

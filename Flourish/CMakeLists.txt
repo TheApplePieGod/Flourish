@@ -68,6 +68,20 @@ if (NOT FLOURISH_IMGUI_INCLUDE_DIR STREQUAL "OFF")
   message("Flourish compiling with ImGui support")
 endif()
 
+if (NOT FLOURISH_TRACY_INCLUDE_DIR STREQUAL "OFF")
+  target_include_directories(
+    FlourishCore
+    PUBLIC
+    "$<BUILD_INTERFACE:${FLOURISH_TRACY_INCLUDE_DIR}>"
+  )
+  target_compile_definitions(
+    FlourishCore
+    PUBLIC
+    FL_USE_TRACY
+  )
+  message("Flourish compiling with Tracy support")
+endif()
+
 # Link vulkan related libraries & copy if necessary
 if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)

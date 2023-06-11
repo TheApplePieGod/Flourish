@@ -8,7 +8,7 @@ namespace Flourish
     struct FramebufferColorAttachment
     {
         // Required
-        std::array<float, 4> ClearColor;
+        std::array<float, 4> ClearColor = { 0.f, 0.f, 0.f, 0.f };
 
         // Specify a texture to be used as a render target
         std::shared_ptr<Texture> Texture = nullptr;

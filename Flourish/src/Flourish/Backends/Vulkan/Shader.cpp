@@ -2,6 +2,8 @@
 #include "Shader.h"
 
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "shaderc/shaderc.hpp"
 #include "spirv_cross/spirv_glsl.hpp"
 
@@ -97,9 +99,9 @@ namespace Flourish::Vulkan
         {
             default:
             { FL_CRASH_ASSERT(false, "Can't compile unsupported shader type"); } break;
-            case ShaderType::Vertex: { shaderKind = shaderc_glsl_vertex_shader; } break;
-            case ShaderType::Fragment: { shaderKind = shaderc_glsl_fragment_shader; } break;
-            case ShaderType::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
+            case ShaderTypeFlags::Vertex: { shaderKind = shaderc_glsl_vertex_shader; } break;
+            case ShaderTypeFlags::Fragment: { shaderKind = shaderc_glsl_fragment_shader; } break;
+            case ShaderTypeFlags::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
         }
 
         shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
@@ -166,9 +168,9 @@ namespace Flourish::Vulkan
         VkShaderStageFlagBits stage;
         switch (m_Type)
         {
-            case ShaderType::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
-            case ShaderType::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
-            case ShaderType::Compute: { stage = VK_SHADER_STAGE_COMPUTE_BIT; } break;
+            case ShaderTypeFlags::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
+            case ShaderTypeFlags::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
+            case ShaderTypeFlags::Compute: { stage = VK_SHADER_STAGE_COMPUTE_BIT; } break;
         }
 
         VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -185,6 +187,8 @@ namespace Flourish::Vulkan
     {
         m_ReflectionData.clear();
 
+        u32 size = compiledData.size();
+
         // For some reason, compiler needs to be heap allocated because otherwise it causes
         // a crash on macos
         auto compiler = std::make_unique<spirv_cross::Compiler>(compiledData.data(), compiledData.size());
@@ -194,24 +198,26 @@ namespace Flourish::Vulkan
         memset(&resources.builtin_inputs, 0, sizeof(resources.builtin_inputs));
         memset(&resources.builtin_outputs, 0, sizeof(resources.builtin_outputs));
 
-        ShaderResourceAccessType accessType;
+        const char* typeString = "";
         switch (m_Type)
         {
-            case ShaderType::Vertex: { accessType = ShaderResourceAccessType::Vertex; } break;
-            case ShaderType::Fragment: { accessType = ShaderResourceAccessType::Fragment; } break;
-            case ShaderType::Compute: { accessType = ShaderResourceAccessType::Compute; } break;
+            case ShaderTypeFlags::Vertex: { typeString = "Vertex"; } break;
+            case ShaderTypeFlags::Fragment: { typeString = "Fragment"; } break;
+            case ShaderTypeFlags::Compute: { typeString = "Compute"; } break;
         }
 
-        const char* typeStrings[] = {
-            "None", "Vertex", "Fragment", "Compute"
-        };
-
-		FL_LOG_DEBUG("GLSL %s shader", typeStrings[static_cast<u16>(m_Type)]);
+		FL_LOG_DEBUG("GLSL %s shader", typeString);
 		FL_LOG_DEBUG("    %d uniform buffers", resources.uniform_buffers.size());
         FL_LOG_DEBUG("    %d storage buffers", resources.storage_buffers.size());
 		FL_LOG_DEBUG("    %d sampled images", resources.sampled_images.size());
         FL_LOG_DEBUG("    %d storage images", resources.storage_images.size());
         FL_LOG_DEBUG("    %d subpass inputs", resources.subpass_inputs.size());
+
+        u32 maxSets = Context::Devices().PhysicalDeviceProperties().limits.maxBoundDescriptorSets;
+
+        /*
+         * TODO: Clean this up
+         */
 
         if (resources.uniform_buffers.size() > 0)
 		    FL_LOG_DEBUG("  Uniform buffers:");
@@ -223,7 +229,13 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
-            m_ReflectionData.emplace_back(resource.id, ShaderResourceType::UniformBuffer, accessType, binding, set, 1);
+            m_ReflectionData.emplace_back(
+                ShaderResourceType::UniformBuffer,
+                m_Type,
+                binding,
+                set,
+                (u32)bufferSize, 1
+            );
 
 			FL_LOG_DEBUG("    %s", resource.name.c_str());
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
@@ -231,9 +243,9 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on uniform %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on uniform %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -248,7 +260,13 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
 			size_t memberCount = bufferType.member_types.size();
 
-            m_ReflectionData.emplace_back(resource.id, ShaderResourceType::StorageBuffer, accessType, binding, set, 1);
+            m_ReflectionData.emplace_back(
+                ShaderResourceType::StorageBuffer,
+                m_Type,
+                binding,
+                set,
+                (u32)bufferSize, 1
+            );
 
 			FL_LOG_DEBUG("    %s", resource.name.c_str());
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
@@ -256,9 +274,9 @@ namespace Flourish::Vulkan
 			FL_LOG_DEBUG("      Binding = %d", binding);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on storage %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on storage %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -270,17 +288,26 @@ namespace Flourish::Vulkan
             const auto& imageType = compiler->get_type(resource.type_id);
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
+            if (imageType.image.dim == spv::Dim::DimCube)
+                arrayCount *= 6;
             
-            m_ReflectionData.emplace_back(resource.id, ShaderResourceType::Texture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
+            m_ReflectionData.emplace_back(
+                ShaderResourceType::Texture,
+                m_Type,
+                binding,
+                set, 0,
+                arrayCount
+            );
 
 			FL_LOG_DEBUG("    Image (%s)", resource.name.c_str());
-            FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
+            FL_LOG_DEBUG("      ArrayCount = %d", arrayCount);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on sampler %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on sampler %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -292,17 +319,26 @@ namespace Flourish::Vulkan
             const auto& imageType = compiler->get_type(resource.type_id);
 			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
+            if (imageType.image.dim == spv::Dim::DimCube)
+                arrayCount *= 6;
             
-            m_ReflectionData.emplace_back(resource.id, ShaderResourceType::StorageTexture, accessType, binding, set, imageType.array.empty() ? 1 : imageType.array[0]);
+            m_ReflectionData.emplace_back(
+                ShaderResourceType::StorageTexture,
+                m_Type,
+                binding,
+                set, 0,
+                arrayCount
+            );
 
 			FL_LOG_DEBUG("    StorageImage (%s)", resource.name.c_str());
-            FL_LOG_DEBUG("      ArrayCount = %d", imageType.array[0]);
+            FL_LOG_DEBUG("      ArrayCount = %d", arrayCount);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on image %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on image %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}
@@ -316,16 +352,21 @@ namespace Flourish::Vulkan
             u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
             u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
             
-            m_ReflectionData.emplace_back(resource.id, ShaderResourceType::SubpassInput, accessType, binding, set, 1);
+            m_ReflectionData.emplace_back(
+                ShaderResourceType::SubpassInput,
+                m_Type,
+                binding,
+                set, 0, 1
+            );
 
 			FL_LOG_DEBUG("    Input (%s)", resource.name.c_str());
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
             FL_LOG_DEBUG("      AttachmentIndex = %d", attachmentIndex);
 
-            if (set != 0)
+            if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must only be 0 but is %d on subpass %s", set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on subpass %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}

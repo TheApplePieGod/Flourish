@@ -8,6 +8,14 @@
 	#endif
 #endif
 
+#ifdef FL_USE_TRACY
+    #define TRACY_ENABLE
+    #include "tracy/Tracy.hpp"
+    #define FL_PROFILE_FUNCTION() ZoneScoped
+#else
+    #define FL_PROFILE_FUNCTION()
+#endif
+
 #include <string>
 #include <vector>
 #include <array>

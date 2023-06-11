@@ -43,7 +43,7 @@ namespace Flourish::Vulkan
         void ClearSubmissions();
         Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
         Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
-        Flourish::ComputeCommandEncoder* EncodeComputeCommands(Flourish::ComputeTarget* target) override;
+        Flourish::ComputeCommandEncoder* EncodeComputeCommands() override;
         Flourish::TransferCommandEncoder* EncodeTransferCommands() override;
 
         inline CommandBufferSubmissionData& GetSubmissionData() { return m_SubmissionData; }

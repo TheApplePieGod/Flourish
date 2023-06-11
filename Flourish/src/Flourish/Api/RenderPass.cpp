@@ -46,6 +46,15 @@ namespace Flourish
         return m_Pipelines[nameStr];
     }
 
+    u32 RenderPass::GetColorAttachmentCount(u32 subpassIndex)
+    {
+        u32 count = 0;
+        for (auto& attachment : m_Info.Subpasses[subpassIndex].OutputAttachments)
+            if (attachment.Type == SubpassAttachmentType::Color)
+                count++;
+        return count;
+    }
+
     std::shared_ptr<RenderPass> RenderPass::Create(const RenderPassCreateInfo& createInfo)
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a RenderPass");

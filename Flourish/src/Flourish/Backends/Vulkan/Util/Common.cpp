@@ -67,6 +67,20 @@ namespace Flourish::Vulkan
         return ColorFormat::None;
     }
 
+    VkAttachmentLoadOp Common::ConvertAttachmentInitialization(AttachmentInitialization init)
+    {
+        switch (init)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AttachmentInitialization"); } break;
+            case AttachmentInitialization::None: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            case AttachmentInitialization::Preserve: return VK_ATTACHMENT_LOAD_OP_LOAD;
+            case AttachmentInitialization::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
+
+        return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
+    }
+
     VkSampleCountFlagBits Common::ConvertMsaaSampleCount(MsaaSampleCount sampleCount)
     {
         switch (sampleCount)
@@ -154,6 +168,25 @@ namespace Flourish::Vulkan
         return VK_FRONT_FACE_MAX_ENUM;
     }
 
+    VkCompareOp Common::ConvertDepthComparison(DepthComparison comp)
+    {
+        switch (comp)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified DepthComparison"); } break;
+            case DepthComparison::Equal: return VK_COMPARE_OP_EQUAL;
+            case DepthComparison::NotEqual: return VK_COMPARE_OP_NOT_EQUAL;
+            case DepthComparison::Less: return VK_COMPARE_OP_LESS;
+            case DepthComparison::LessOrEqual: return VK_COMPARE_OP_LESS_OR_EQUAL;
+            case DepthComparison::Greater: return VK_COMPARE_OP_GREATER;
+            case DepthComparison::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+            case DepthComparison::AlwaysTrue: return VK_COMPARE_OP_ALWAYS;
+            case DepthComparison::AlwaysFalse: return VK_COMPARE_OP_NEVER;
+            case DepthComparison::Auto: return Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS;        }
+
+        return VK_COMPARE_OP_MAX_ENUM;
+    }
+
     VkDescriptorType Common::ConvertShaderResourceType(ShaderResourceType type)
     {
         switch (type)
@@ -186,19 +219,13 @@ namespace Flourish::Vulkan
         return ShaderResourceType::None;
     }
 
-    VkShaderStageFlags Common::ConvertShaderResourceAccessType(ShaderResourceAccessType type)
+    VkShaderStageFlags Common::ConvertShaderAccessType(ShaderType type)
     {
-        switch (type)
-        {
-            default:
-            { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
-            case ShaderResourceAccessType::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
-            case ShaderResourceAccessType::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-            case ShaderResourceAccessType::Both: return (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-            case ShaderResourceAccessType::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-        }
-
-        return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+        VkShaderStageFlags result = 0;
+        result |= ((type & ShaderTypeFlags::Vertex) > 0) * VK_SHADER_STAGE_VERTEX_BIT;
+        result |= ((type & ShaderTypeFlags::Fragment) > 0) * VK_SHADER_STAGE_FRAGMENT_BIT;
+        result |= ((type & ShaderTypeFlags::Compute) > 0) * VK_SHADER_STAGE_COMPUTE_BIT;
+        return result;
     }
 
     VkBlendFactor Common::ConvertBlendFactor(BlendFactor factor)
