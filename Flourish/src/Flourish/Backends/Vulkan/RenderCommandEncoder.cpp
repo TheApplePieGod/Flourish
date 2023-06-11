@@ -8,7 +8,7 @@
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
-#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 
 namespace Flourish::Vulkan
 {
@@ -252,15 +252,15 @@ namespace Flourish::Vulkan
         vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
     }
 
-    void RenderCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex)
+    void RenderCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)
     {
         FL_PROFILE_FUNCTION();
 
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a resource set");
 
         if (m_DescriptorBinder.DoesSetExist(setIndex))
         {
-            m_DescriptorBinder.BindDescriptorSet(static_cast<const DescriptorSet*>(set), setIndex);
+            m_DescriptorBinder.BindResourceSet(static_cast<const ResourceSet*>(set), setIndex);
             return;
         }
 
@@ -282,16 +282,16 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(false, "Set index does not exist in shader");
     }
 
-    void RenderCommandEncoder::FlushDescriptorSet(u32 setIndex)
+    void RenderCommandEncoder::FlushResourceSet(u32 setIndex)
     {
         FL_PROFILE_FUNCTION();
 
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a descriptor set");
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a resource set");
 
         if (m_DescriptorBinder.DoesSetExist(setIndex))
         {
             // TODO: ensure bound
-            VkDescriptorSet sets[1] = { m_DescriptorBinder.GetDescriptorSet(setIndex)->GetSet() };
+            VkDescriptorSet sets[1] = { m_DescriptorBinder.GetResourceSet(setIndex)->GetSet() };
             vkCmdBindDescriptorSets(
                 m_CommandBuffer,
                 VK_PIPELINE_BIND_POINT_GRAPHICS,

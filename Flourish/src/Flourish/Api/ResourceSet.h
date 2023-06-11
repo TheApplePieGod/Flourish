@@ -4,7 +4,7 @@
 
 namespace Flourish
 {
-    namespace DescriptorSetPipelineCompatabilityEnum
+    namespace ResourceSetPipelineCompatabilityEnum
     {
         enum Value : u8
         {
@@ -13,10 +13,10 @@ namespace Flourish
             Compute = (1 << 1),
         };
     }
-    typedef DescriptorSetPipelineCompatabilityEnum::Value DescriptorSetPipelineCompatabilityFlags;
-    typedef u8 DescriptorSetPipelineCompatability;
+    typedef ResourceSetPipelineCompatabilityEnum::Value ResourceSetPipelineCompatabilityFlags;
+    typedef u8 ResourceSetPipelineCompatability;
 
-    enum class DescriptorSetWritability : u8
+    enum class ResourceSetWritability : u8
     {
         _DynamicData = (1 << 0),
         _FrameWrite = (1 << 1),
@@ -28,20 +28,20 @@ namespace Flourish
         MultiPerFrame = _DynamicData | _FrameWrite | _MultiWrite,
     };
 
-    struct DescriptorSetCreateInfo
+    struct ResourceSetCreateInfo
     {
-        DescriptorSetWritability Writability;
+        ResourceSetWritability Writability;
         bool StoreBindingReferences = false;
     };
 
     // TODO: Change name to resourcebindings or something more descriptive
-    class DescriptorSet
+    class ResourceSet
     {
     public:
-        DescriptorSet(const DescriptorSetCreateInfo& createInfo, DescriptorSetPipelineCompatability compatability)
+        ResourceSet(const ResourceSetCreateInfo& createInfo, ResourceSetPipelineCompatability compatability)
             : m_Info(createInfo), m_Compatability(compatability)
         {}
-        virtual ~DescriptorSet() = default;
+        virtual ~ResourceSet() = default;
 
         // Offset and elementcount in element size not bytes
         virtual void BindBuffer(u32 bindingIndex, const std::shared_ptr<Buffer>& buffer, u32 bufferOffset, u32 elementCount) = 0;
@@ -57,10 +57,10 @@ namespace Flourish
         virtual void FlushBindings() = 0;
 
         // TS
-        inline DescriptorSetPipelineCompatability GetPipelineCompatability() const { return m_Compatability; }
+        inline ResourceSetPipelineCompatability GetPipelineCompatability() const { return m_Compatability; }
 
     protected:
-        DescriptorSetCreateInfo m_Info;
-        DescriptorSetPipelineCompatability m_Compatability;
+        ResourceSetCreateInfo m_Info;
+        ResourceSetPipelineCompatability m_Compatability;
     };
 }

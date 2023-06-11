@@ -1,5 +1,5 @@
 #include "flpch.h"
-#include "DescriptorSet.h"
+#include "ResourceSet.h"
 
 namespace Flourish
 {

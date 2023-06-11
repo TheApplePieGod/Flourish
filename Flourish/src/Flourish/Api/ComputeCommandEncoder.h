@@ -7,7 +7,7 @@ namespace Flourish
     class Texture;
     class Buffer;
     class ComputePipeline;
-    class DescriptorSet;
+    class ResourceSet;
     class ComputeCommandEncoder : public CommandEncoder
     {
     public:
@@ -20,7 +20,7 @@ namespace Flourish
         // Bind -> Update -> Flush
         // Offset in bytes
         virtual void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) = 0;
-        virtual void BindDescriptorSet(const DescriptorSet* set, u32 setIndex) = 0;
-        virtual void FlushDescriptorSet(u32 setIndex) = 0;
+        virtual void BindResourceSet(const ResourceSet* set, u32 setIndex) = 0;
+        virtual void FlushResourceSet(u32 setIndex) = 0;
     };
 }

@@ -4,7 +4,7 @@
 #include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
-#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
 
 namespace Flourish::Vulkan
@@ -75,11 +75,11 @@ namespace Flourish::Vulkan
         );
     }
     
-    void ComputeCommandEncoder::BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex)
+    void ComputeCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)
     {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a descriptor set");
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a resource set");
 
-        m_DescriptorBinder.BindDescriptorSet(static_cast<const DescriptorSet*>(set), setIndex);
+        m_DescriptorBinder.BindResourceSet(static_cast<const ResourceSet*>(set), setIndex);
     }
 
     void ComputeCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
@@ -89,13 +89,13 @@ namespace Flourish::Vulkan
         m_DescriptorBinder.UpdateDynamicOffset(setIndex, bindingIndex, offset);
     }
 
-    void ComputeCommandEncoder::FlushDescriptorSet(u32 setIndex)
+    void ComputeCommandEncoder::FlushResourceSet(u32 setIndex)
     {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a descriptor set");
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a resource set");
 
         auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
 
-        VkDescriptorSet sets[1] = { m_DescriptorBinder.GetDescriptorSet(setIndex)->GetSet() };
+        VkDescriptorSet sets[1] = { m_DescriptorBinder.GetResourceSet(setIndex)->GetSet() };
         vkCmdBindDescriptorSets(
             m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_COMPUTE,

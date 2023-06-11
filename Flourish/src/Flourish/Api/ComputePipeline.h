@@ -9,8 +9,8 @@ namespace Flourish
         std::shared_ptr<Shader> ComputeShader;
     };
 
-    class DescriptorSet;
-    struct DescriptorSetCreateInfo;
+    class ResourceSet;
+    struct ResourceSetCreateInfo;
     class ComputePipeline
     {
     public:
@@ -23,7 +23,7 @@ namespace Flourish
         
         // TS
         // NOTE: Try to keep binding & set indices as low as possible
-        virtual std::shared_ptr<DescriptorSet> CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo) = 0;
+        virtual std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo) = 0;
 
         inline const Shader* GetComputeShader() const { return m_Info.ComputeShader.get(); }
         

@@ -1,20 +1,20 @@
 #pragma once
 
-#include "Flourish/Api/DescriptorSet.h"
+#include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
 {
-    class DescriptorSet : public Flourish::DescriptorSet 
+    class ResourceSet : public Flourish::ResourceSet 
     {
     public:
-        DescriptorSet(
-            const DescriptorSetCreateInfo& createInfo,
-            DescriptorSetPipelineCompatability compatability,
+        ResourceSet(
+            const ResourceSetCreateInfo& createInfo,
+            ResourceSetPipelineCompatability compatability,
             const std::shared_ptr<DescriptorPool>& parentPool
         );
-        ~DescriptorSet() override;
+        ~ResourceSet() override;
 
         void BindBuffer(u32 bindingIndex, const std::shared_ptr<Flourish::Buffer>& buffer, u32 bufferOffset, u32 elementCount) override;
         void BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 arrayIndex = 0) override;

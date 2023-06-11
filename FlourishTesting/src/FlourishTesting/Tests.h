@@ -7,7 +7,7 @@
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"
 #include "Flourish/Api/Framebuffer.h"
-#include "Flourish/Api/DescriptorSet.h"
+#include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Api/ComputePipeline.h"
 
 namespace FlourishTesting
@@ -64,11 +64,11 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::Buffer> m_QuadIndices;
         std::shared_ptr<Flourish::Buffer> m_ObjectData;
 
-        std::shared_ptr<Flourish::DescriptorSet> m_ObjectDescriptorSet;
-        std::shared_ptr<Flourish::DescriptorSet> m_ObjectDescriptorSetDynamic;
-        std::shared_ptr<Flourish::DescriptorSet> m_DogDescriptorSet;
-        std::shared_ptr<Flourish::DescriptorSet> m_CatDescriptorSet;
-        std::shared_ptr<Flourish::DescriptorSet> m_FrameDescriptorSet;
+        std::shared_ptr<Flourish::ResourceSet> m_ObjectDescriptorSet;
+        std::shared_ptr<Flourish::ResourceSet> m_ObjectDescriptorSetDynamic;
+        std::shared_ptr<Flourish::ResourceSet> m_DogDescriptorSet;
+        std::shared_ptr<Flourish::ResourceSet> m_CatDescriptorSet;
+        std::shared_ptr<Flourish::ResourceSet> m_FrameDescriptorSet;
         
         std::shared_ptr<Flourish::Texture> m_DogTexture;
         std::shared_ptr<Flourish::Texture> m_CatTexture;

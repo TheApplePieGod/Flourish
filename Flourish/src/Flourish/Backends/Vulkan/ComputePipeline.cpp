@@ -3,7 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/Context.h"
-#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
         VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
         m_DescriptorData.Populate(&shader, 1);
-        m_DescriptorData.Compatability = DescriptorSetPipelineCompatabilityFlags::Compute;
+        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Compute;
 
         u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
@@ -64,11 +64,11 @@ namespace Flourish::Vulkan
         }, "Compute pipeline free");
     }
 
-    std::shared_ptr<Flourish::DescriptorSet> ComputePipeline::CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo)
+    std::shared_ptr<Flourish::ResourceSet> ComputePipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)
     {
-        return m_DescriptorData.CreateDescriptorSet(
+        return m_DescriptorData.CreateResourceSet(
             setIndex,
-            DescriptorSetPipelineCompatabilityFlags::Compute,
+            ResourceSetPipelineCompatabilityFlags::Compute,
             createInfo
         );
     }

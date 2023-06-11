@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Flourish/Api/DescriptorSet.h"
+#include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan
 {
     class DescriptorPool;
-    class DescriptorSet;
+    class ResourceSet;
     class Shader;
     struct ReflectionDataElement;
     struct PipelineDescriptorData
@@ -22,15 +22,15 @@ namespace Flourish::Vulkan
 
         std::vector<SetData> SetData;
         u32 TotalDynamicOffsets = 0;
-        DescriptorSetPipelineCompatability Compatability;
+        ResourceSetPipelineCompatability Compatability;
 
         void Populate(Shader** shaders, u32 count);
 
         // TS
-        std::shared_ptr<DescriptorSet> CreateDescriptorSet(u32 setIndex, DescriptorSetPipelineCompatability compatability, const DescriptorSetCreateInfo& createInfo);
+        std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, ResourceSetPipelineCompatability compatability, const ResourceSetCreateInfo& createInfo);
     };
 
-    class DescriptorSet;
+    class ResourceSet;
     class DescriptorBinder
     {
     public:
@@ -42,8 +42,8 @@ namespace Flourish::Vulkan
         /*
          * Assumes pipeline data will always be set & valid
          */
-        void BindDescriptorSet(const DescriptorSet* set, u32 setIndex);
-        const DescriptorSet* GetDescriptorSet(u32 setIndex);
+        void BindResourceSet(const ResourceSet* set, u32 setIndex);
+        const ResourceSet* GetResourceSet(u32 setIndex);
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset);
         u32* GetDynamicOffsetData(u32 setIndex);
 
@@ -53,7 +53,7 @@ namespace Flourish::Vulkan
         inline u32 GetDynamicOffsetCount(u32 setIndex) const { return m_BoundData->SetData[setIndex].DynamicOffsetCount; }
 
     private:
-        std::vector<const DescriptorSet*> m_BoundSets;
+        std::vector<const ResourceSet*> m_BoundSets;
         std::vector<u32> m_DynamicOffsets;
         const PipelineDescriptorData* m_BoundData;
     };

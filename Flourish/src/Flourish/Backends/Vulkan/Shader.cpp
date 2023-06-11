@@ -3,7 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
-#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "shaderc/shaderc.hpp"
 #include "spirv_cross/spirv_glsl.hpp"
 

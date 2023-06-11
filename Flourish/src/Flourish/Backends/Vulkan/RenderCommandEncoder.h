@@ -34,9 +34,9 @@ namespace Flourish::Vulkan
 
         // TODO: flush should ensure all are bound
 
-        void BindDescriptorSet(const Flourish::DescriptorSet* set, u32 setIndex) override;
+        void BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex) override;
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) override;
-        void FlushDescriptorSet(u32 setIndex) override;
+        void FlushResourceSet(u32 setIndex) override;
         
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }

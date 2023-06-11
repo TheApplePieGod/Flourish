@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "DescriptorBinder.h"
 
-#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
@@ -57,7 +57,7 @@ namespace Flourish::Vulkan
             if (!set.Exists)
                 continue;
 
-            FL_ASSERT(!set.ReflectionData.empty(), "Cannot have an empty descriptor set");
+            FL_ASSERT(!set.ReflectionData.empty(), "Cannot have an empty resource set");
 
             std::sort(
                 set.ReflectionData.begin(),
@@ -76,7 +76,7 @@ namespace Flourish::Vulkan
         }
     }
 
-    std::shared_ptr<DescriptorSet> PipelineDescriptorData::CreateDescriptorSet(u32 setIndex, DescriptorSetPipelineCompatability compatability, const DescriptorSetCreateInfo& createInfo)
+    std::shared_ptr<ResourceSet> PipelineDescriptorData::CreateResourceSet(u32 setIndex, ResourceSetPipelineCompatability compatability, const ResourceSetCreateInfo& createInfo)
     {
         if (setIndex >= SetData.size() || !SetData[setIndex].Exists)
         {
@@ -85,7 +85,7 @@ namespace Flourish::Vulkan
         }
 
         auto& data = SetData[setIndex];
-        return std::make_shared<DescriptorSet>(createInfo, compatability, data.Pool);
+        return std::make_shared<ResourceSet>(createInfo, compatability, data.Pool);
     }
 
     void DescriptorBinder::Reset()
@@ -93,7 +93,7 @@ namespace Flourish::Vulkan
         m_BoundData = nullptr;
     }
 
-    void DescriptorBinder::BindDescriptorSet(const DescriptorSet* set, u32 setIndex)
+    void DescriptorBinder::BindResourceSet(const ResourceSet* set, u32 setIndex)
     {
         FL_PROFILE_FUNCTION();
 
@@ -104,14 +104,14 @@ namespace Flourish::Vulkan
         #ifdef FL_DEBUG
         FL_ASSERT(
             m_BoundData->SetData[setIndex].Pool->CheckCompatibility(set->GetParentPool()),
-            "Trying to bind incompatible descriptor set"
+            "Trying to bind incompatible resource set"
         );
         #endif
         
         m_BoundSets[setIndex] = set;
     }
 
-    const DescriptorSet* DescriptorBinder::GetDescriptorSet(u32 setIndex)
+    const ResourceSet* DescriptorBinder::GetResourceSet(u32 setIndex)
     {
         FL_PROFILE_FUNCTION();
 

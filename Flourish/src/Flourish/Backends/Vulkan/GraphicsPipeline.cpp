@@ -4,7 +4,7 @@
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Context.h"
-#include "Flourish/Backends/Vulkan/DescriptorSet.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
@@ -48,7 +48,7 @@ namespace Flourish::Vulkan
 
         std::array<Shader*, 2> shaders = { vertShader, fragShader };
         m_DescriptorData.Populate(shaders.data(), shaders.size());
-        m_DescriptorData.Compatability = DescriptorSetPipelineCompatabilityFlags::Graphics;
+        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Graphics;
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
         auto attributeDescriptions = GenerateVertexAttributeDescriptions(createInfo.VertexLayout.GetElements());
@@ -239,11 +239,11 @@ namespace Flourish::Vulkan
         }, "Graphics pipeline free");
     }
 
-    std::shared_ptr<Flourish::DescriptorSet> GraphicsPipeline::CreateDescriptorSet(u32 setIndex, const DescriptorSetCreateInfo& createInfo)
+    std::shared_ptr<Flourish::ResourceSet> GraphicsPipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)
     {
-        return m_DescriptorData.CreateDescriptorSet(
+        return m_DescriptorData.CreateResourceSet(
             setIndex,
-            DescriptorSetPipelineCompatabilityFlags::Graphics,
+            ResourceSetPipelineCompatabilityFlags::Graphics,
             createInfo
         );
     }
