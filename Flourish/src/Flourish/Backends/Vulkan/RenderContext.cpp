@@ -92,7 +92,12 @@ namespace Flourish::Vulkan
         
         if (!m_Swapchain.IsValid()) return;
 
-        Flourish::Context::PushFrameCommandBuffers(m_Dependencies.data(), m_Dependencies.size());
+        m_CommandBuffer.ClearDependencies();
+        for (auto& dep : m_Dependencies)
+            m_CommandBuffer.AddDependency(dep);
+
+        Flourish::CommandBuffer* buffer = &m_CommandBuffer;
+        Flourish::Context::PushFrameCommandBuffers(&buffer, 1);
         Flourish::Context::PushFrameRenderContext(this);
 
         return;

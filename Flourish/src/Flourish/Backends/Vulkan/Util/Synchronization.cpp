@@ -44,4 +44,16 @@ namespace Flourish::Vulkan
 
         return fence;
     }
+
+    VkEvent Synchronization::CreateEvent()
+    {
+        VkEventCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+        createInfo.flags = VK_EVENT_CREATE_DEVICE_ONLY_BIT;
+
+        VkEvent event;
+        vkCreateEvent(Context::Devices().Device(), &createInfo, NULL, &event);
+
+        return event;
+    }
 }

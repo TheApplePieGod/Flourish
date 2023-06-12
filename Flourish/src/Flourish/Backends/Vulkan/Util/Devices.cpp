@@ -14,8 +14,7 @@ namespace Flourish::Vulkan
 
         // Required physical device extensions
         std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME
         };
 
         // Get devices
@@ -74,8 +73,13 @@ namespace Flourish::Vulkan
         VkPhysicalDeviceFeatures deviceFeatures{};
         PopulateDeviceFeatures(deviceFeatures, initInfo);
 
+        VkPhysicalDeviceSynchronization2Features syncFeatures{};
+        syncFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+        syncFeatures.synchronization2 = true;
+
         VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
         timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        timelineFeatures.pNext = &syncFeatures;
         timelineFeatures.timelineSemaphore = true;
         
         // Create device
