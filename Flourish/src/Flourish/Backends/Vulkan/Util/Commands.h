@@ -59,6 +59,16 @@ namespace Flourish::Vulkan
         GPUWorkloadType WorkloadType;
     };
 
+    class Framebuffer;
+    struct CommandBufferEncoderSubmission
+    {
+        std::vector<VkCommandBuffer> Buffers;
+        CommandBufferAllocInfo AllocInfo;
+        std::unordered_set<u64> ReadResources;
+        std::unordered_set<u64> WriteResources;
+        Framebuffer* Framebuffer = nullptr;
+    };
+
     class Commands
     {
     public:

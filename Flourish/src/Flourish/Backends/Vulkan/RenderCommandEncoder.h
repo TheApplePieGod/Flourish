@@ -39,12 +39,15 @@ namespace Flourish::Vulkan
         void FlushResourceSet(u32 setIndex) override;
         
         // TS
-        inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
+        inline VkCommandBuffer GetCommandBuffer() const { return m_CurrentCommandBuffer; }
+
+    private:
+        void InitializeSubpass();
 
     private:
         bool m_FrameRestricted;
-        CommandBufferAllocInfo m_AllocInfo;
-        VkCommandBuffer m_CommandBuffer;
+        CommandBufferEncoderSubmission m_Submission;
+        VkCommandBuffer m_CurrentCommandBuffer;
         CommandBuffer* m_ParentBuffer;
         Framebuffer* m_BoundFramebuffer = nullptr;
         GraphicsPipeline* m_BoundPipeline = nullptr;

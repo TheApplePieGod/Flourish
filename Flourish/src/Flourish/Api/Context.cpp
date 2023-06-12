@@ -67,17 +67,18 @@ namespace Flourish
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    void Context::PushFrameCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    void Context::PushFrameCommandBuffers(CommandBuffer* const* buffers, u32 bufferCount)
     {
-        if (buffers.empty()) return;
+        if (bufferCount == 0 || !buffers) return;
         
         s_FrameSubmissions.Mutex.lock();
-        s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers.begin(), buffers.end());
+        s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers, buffers + bufferCount);
         s_FrameSubmissions.Mutex.unlock();
 
         switch (s_BackendType)
         {
-            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
+            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
+            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
         }
     }
 

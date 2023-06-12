@@ -34,14 +34,20 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
-        virtual void Present(const std::vector<std::vector<CommandBuffer*>>& dependencyBuffers) = 0;
+        virtual void Present() = 0;
         virtual void UpdateDimensions(u32 width, u32 height) = 0;
         virtual RenderPass* GetRenderPass() const = 0;
         virtual bool Validate() = 0;
         [[nodiscard]] virtual RenderCommandEncoder* EncodeRenderCommands() = 0;
 
+        inline void AddDependency(CommandBuffer* buffer) { m_Dependencies.push_back(buffer); }
+        inline void ClearDependencies() { m_Dependencies.clear(); }
+
     public:
         // TS
         static std::shared_ptr<RenderContext> Create(const RenderContextCreateInfo& createInfo);
+
+    protected:
+        std::vector<CommandBuffer*> m_Dependencies;
     };
 }

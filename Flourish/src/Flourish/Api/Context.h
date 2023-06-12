@@ -27,7 +27,7 @@ namespace Flourish
     class RenderContext;
     struct ContextCommandSubmissions
     {
-        std::vector<std::vector<CommandBuffer*>> Buffers;
+        std::vector<CommandBuffer*> Buffers;
         std::vector<RenderContext*> Contexts;
         std::mutex Mutex;
 
@@ -43,7 +43,7 @@ namespace Flourish
         static void EndFrame();
 
         // TS
-        static void PushFrameCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
+        static void PushFrameCommandBuffers(CommandBuffer* const* buffers, u32 bufferCount);
         static void PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);
         static void ExecuteCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
         static void PushFrameRenderContext(RenderContext* context);

@@ -80,7 +80,7 @@ namespace Flourish::Vulkan
         }, "Render context free");
     }
 
-    void RenderContext::Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers)
+    void RenderContext::Present()
     {
         FL_CRASH_ASSERT(m_LastEncodingFrame == Flourish::Context::FrameCount(), "Cannot present render context that has not been encoded");
         if (m_LastPresentFrame == Flourish::Context::FrameCount())
@@ -92,6 +92,12 @@ namespace Flourish::Vulkan
         
         if (!m_Swapchain.IsValid()) return;
 
+        Flourish::Context::PushFrameCommandBuffers(m_Dependencies.data(), m_Dependencies.size());
+        Flourish::Context::PushFrameRenderContext(this);
+
+        return;
+
+        /*
         // TODO: test this when it is empty
         if (!m_CommandBuffer.GetEncoderSubmissions().empty())
         {
@@ -141,6 +147,7 @@ namespace Flourish::Vulkan
         }
 
         Flourish::Context::PushFrameRenderContext(this);
+        */
     }
 
     void RenderContext::UpdateDimensions(u32 width, u32 height)

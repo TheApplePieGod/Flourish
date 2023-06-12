@@ -36,8 +36,8 @@ namespace FlourishTesting
 
             if (m_RenderContext->Validate())
             {
-                // RunSingleThreadedTest();
-                RunMultiThreadedTest();
+                RunSingleThreadedTest();
+                //RunMultiThreadedTest();
             }
 
             Flourish::Context::EndFrame();
@@ -48,6 +48,8 @@ namespace FlourishTesting
     {
         if (!m_DogTexture->IsReady()) return;
         if (!m_CatTexture->IsReady()) return;
+
+        m_RenderContext->ClearDependencies();
 
         u32 objectCount = 5;
 
@@ -70,6 +72,8 @@ namespace FlourishTesting
             }));
             
             parallelBuffers.push_back(m_CommandBuffers[i].get());
+            m_RenderContext->AddDependency(m_CommandBuffers[i].get());
+            m_CommandBuffers[objectCount + 1]->AddDependency(m_CommandBuffers[i].get());
         }
         
         {
@@ -84,6 +88,8 @@ namespace FlourishTesting
             }));
             
             parallelBuffers.push_back(m_CommandBuffers[objectCount].get());
+            m_RenderContext->AddDependency(m_CommandBuffers[objectCount].get());
+            m_CommandBuffers[objectCount + 1]->AddDependency(m_CommandBuffers[objectCount].get());
         }
         
         auto encoder = m_CommandBuffers[objectCount + 1]->EncodeRenderCommands(m_FrameTextureBuffers[objectCount].get());
@@ -116,12 +122,15 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        m_RenderContext->Present({{ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } }});
+        m_RenderContext->AddDependency(m_CommandBuffers[objectCount + 1].get());
+        m_RenderContext->Present();
     }
     
     void Tests::RunSingleThreadedTest()
     {
         if (!m_DogTexture->IsReady()) return;
+
+        m_RenderContext->ClearDependencies();
 
         u32 objectCount = 5;
         float scale = 0.25f;
@@ -137,25 +146,33 @@ namespace FlourishTesting
 
         auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_FrameTextureBuffers[0].get());
         encoder1->BindPipeline("object_image");
-        encoder1->BindResourceSet(m_DogDescriptorSet.get(), 0);
-        encoder1->FlushResourceSet(0);
-        encoder1->BindResourceSet(m_ObjectDescriptorSet.get(), 1);
-        encoder1->FlushResourceSet(1);
-        encoder1->BindVertexBuffer(m_QuadVertices.get()); 
-        encoder1->BindIndexBuffer(m_QuadIndices.get());
-        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount, 0);
+        encoder1->BindResourceSet(m_ObjectDescriptorSetDynamic.get(), 1);
+        for (u32 i = 0; i < objectCount; i++)
+        {
+            m_FrameDescriptorSet->BindTexture(0, m_DogTexture.get());
+            m_FrameDescriptorSet->FlushBindings();
+            encoder1->BindResourceSet(m_FrameDescriptorSet.get(), 0);
+            encoder1->FlushResourceSet(0);
+            encoder1->UpdateDynamicOffset(1, 0, i * m_ObjectData->GetStride());
+            encoder1->FlushResourceSet(1);
+            encoder1->BindVertexBuffer(m_QuadVertices.get()); 
+            encoder1->BindIndexBuffer(m_QuadIndices.get());
+            encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1, 0);
+        }
         encoder1->EndEncoding();
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
         m_FrameDescriptorSet->BindTexture(0, m_FrameTextures[0]);
         m_FrameDescriptorSet->FlushBindings();
+        frameEncoder->BindResourceSet(m_FrameDescriptorSet.get(), 0);
         frameEncoder->FlushResourceSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
 
-        m_RenderContext->Present({{ { m_CommandBuffers[0].get() } }});
+        m_RenderContext->AddDependency(m_CommandBuffers[0].get());
+        m_RenderContext->Present();
     }
 
     Tests::Tests()

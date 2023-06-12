@@ -40,7 +40,7 @@ namespace Flourish::Vulkan
     {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
         allocInfo.commandBufferCount = bufferCount;
 
         switch (workloadType)
@@ -229,7 +229,7 @@ namespace Flourish::Vulkan
 
     CommandBufferAllocInfo Commands::AllocateBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount, bool persistent)
     {
-        FL_ASSERT(persistent || !secondary, "Cannot allocate a secondary non-persistent buffer");
+        FL_ASSERT(persistent || secondary, "Cannot allocate a primary non-persistent buffer");
 
         if (persistent)
         {

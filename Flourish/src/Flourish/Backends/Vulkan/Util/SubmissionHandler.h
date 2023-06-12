@@ -24,6 +24,7 @@ namespace Flourish::Vulkan
 
         void WaitOnFrameSemaphores();
         void ProcessFrameSubmissions(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, bool submit);
+        void ProcessFrameSubmissions2(Flourish::CommandBuffer* const* buffers, u32 bufferCount, bool submit);
         
         // TS
         void ProcessPushSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);
@@ -33,6 +34,13 @@ namespace Flourish::Vulkan
         static void ProcessSubmission(
             CommandSubmissionData& submissionData,
             const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers,
+            const std::vector<Flourish::RenderContext*>* contexts,
+            std::vector<VkSemaphore>* finalSemaphores = nullptr,
+            std::vector<u64>* finalSemaphoreValues = nullptr
+        );
+        static void ProcessSubmission2(
+            CommandSubmissionData& submissionData,
+            const std::vector<Flourish::CommandBuffer*>& buffers,
             const std::vector<Flourish::RenderContext*>* contexts,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr

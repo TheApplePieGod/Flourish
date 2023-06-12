@@ -43,11 +43,12 @@ namespace Flourish::Vulkan
         }, "Command buffer free");
     }
     
-    void CommandBuffer::SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo)
+    void CommandBuffer::SubmitEncodedCommands(const CommandBufferEncoderSubmission& submission)
     {
-        m_EncoderSubmissions.emplace_back(buffer, allocInfo);
+        m_EncoderSubmissions.emplace_back(submission);
         m_Encoding = false;
         
+        /*
         VkSemaphore* syncSemaphore = &m_SubmissionData.SyncSemaphores[Flourish::Context::FrameIndex()];
         
         // Retrieve submission from the appropriate queue 
@@ -113,6 +114,7 @@ namespace Flourish::Vulkan
             m_SubmissionData.FirstSubmitInfo = encodedCommandSubmitInfo;
         
         m_SubmissionData.LastSubmitInfo = encodedCommandSubmitInfo;
+        */
     }
 
     void CommandBuffer::ClearSubmissions()

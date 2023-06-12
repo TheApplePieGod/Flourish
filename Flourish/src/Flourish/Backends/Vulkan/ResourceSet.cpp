@@ -145,6 +145,9 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
+        if (buffer->GetUsage() != BufferUsageType::Static)
+            AddBoundResource(reinterpret_cast<u64>(buffer));
+
         u32 stride = buffer->GetStride();
         UpdateBinding(
             bindingIndex, 
@@ -179,6 +182,9 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
+        if (texture->GetWritability() == TextureWritability::PerFrame)
+            AddBoundResource(reinterpret_cast<u64>(texture));
+
         UpdateBinding(
             bindingIndex, 
             texType, 
@@ -203,6 +209,9 @@ namespace Flourish::Vulkan
             m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
             "Attempting to bind a texture to a storage image binding that was not created as a compute target"
         );
+
+        if (texture->GetWritability() == TextureWritability::PerFrame)
+            AddBoundResource(reinterpret_cast<u64>(texture));
 
         UpdateBinding(
             bindingIndex, 
@@ -237,6 +246,13 @@ namespace Flourish::Vulkan
             attachment.Type == SubpassAttachmentType::Color,
             0, 0, 0
         );
+    }
+
+    void ResourceSet::AddBoundResource(u64 resourceId)
+    {
+        if (m_LastFrameWrite != 0 && m_LastFrameWrite != Flourish::Context::FrameCount())
+            m_BoundResources.clear();
+        m_BoundResources.insert(resourceId);
     }
 
     void ResourceSet::SwapNextAllocation()

@@ -23,28 +23,18 @@ namespace Flourish::Vulkan
         VkPipelineStageFlags FirstSubBufferWaitStage;
     };
 
-    struct CommandBufferEncoderSubmission
-    {
-        CommandBufferEncoderSubmission(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo)
-            : Buffer(buffer), AllocInfo(allocInfo)
-        {}
-
-        VkCommandBuffer Buffer;
-        CommandBufferAllocInfo AllocInfo;
-    };
-
     class CommandBuffer : public Flourish::CommandBuffer
     {
     public:
         CommandBuffer(const CommandBufferCreateInfo& createInfo, bool secondary = false);
         ~CommandBuffer() override;
 
-        void SubmitEncodedCommands(VkCommandBuffer buffer, const CommandBufferAllocInfo& allocInfo);
+        void SubmitEncodedCommands(const CommandBufferEncoderSubmission& submission);
         void ClearSubmissions();
-        Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
-        Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
-        Flourish::ComputeCommandEncoder* EncodeComputeCommands() override;
-        Flourish::TransferCommandEncoder* EncodeTransferCommands() override;
+        [[nodiscard]] Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
+        [[nodiscard]] Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
+        [[nodiscard]] Flourish::ComputeCommandEncoder* EncodeComputeCommands() override;
+        [[nodiscard]] Flourish::TransferCommandEncoder* EncodeTransferCommands() override;
 
         inline CommandBufferSubmissionData& GetSubmissionData() { return m_SubmissionData; }
         inline void SetLastSubmitFrame(u64 frame) { m_LastSubmitFrame = frame; }

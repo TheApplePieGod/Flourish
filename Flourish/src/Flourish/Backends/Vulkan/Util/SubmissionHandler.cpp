@@ -58,7 +58,41 @@ namespace Flourish::Vulkan
 
         if (!submit) return;
 
+        /*
         ProcessSubmission(
+            m_FrameSubmissionData,
+            Flourish::Context::FrameSubmissions().Buffers,
+            &Flourish::Context::FrameSubmissions().Contexts,
+            &m_FrameWaitSemaphores[Flourish::Context::FrameIndex()],
+            &m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()]
+        );
+        */
+    }
+
+    void SubmissionHandler::ProcessFrameSubmissions2(Flourish::CommandBuffer* const* buffers, u32 bufferCount, bool submit)
+    {
+        // TODO: add this check, might make more sense to do it in the final process?
+        /*
+        for (auto& list : buffers)
+        {
+            for (auto _buffer : list)
+            {
+                auto buffer = static_cast<CommandBuffer*>(_buffer);
+
+                FL_ASSERT(buffer->IsFrameRestricted(), "Cannot include a non frame restricted command buffer in PushFrameCommandBuffers");
+                FL_ASSERT(buffer->GetLastSubmitFrame() != Flourish::Context::FrameCount(), "Cannot push a command buffer twice in one frame");
+                
+                buffer->SetLastSubmitFrame(Flourish::Context::FrameCount());
+            }
+        }
+        */
+
+        if (!submit) return;
+
+        //if (Flourish::Context::FrameSubmissions().Buffers.empty())
+         //   return;
+
+        ProcessSubmission2(
             m_FrameSubmissionData,
             Flourish::Context::FrameSubmissions().Buffers,
             &Flourish::Context::FrameSubmissions().Contexts,
@@ -101,7 +135,7 @@ namespace Flourish::Vulkan
         Context::FinalizerQueue().PushAsync([callback, submissionsToFree]()
         {
             for (auto& submission : submissionsToFree)
-                Context::Commands().FreeBuffer(submission.AllocInfo, submission.Buffer);
+                Context::Commands().FreeBuffer(submission.AllocInfo, submission.Buffers[0]);
 
             if (callback)
                 callback();
@@ -139,6 +173,154 @@ namespace Flourish::Vulkan
         vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
+    void SubmissionHandler::ProcessSubmission2(
+        CommandSubmissionData& submissionData,
+        const std::vector<Flourish::CommandBuffer*>& buffers,
+        const std::vector<Flourish::RenderContext*>* contexts,
+        std::vector<VkSemaphore>* finalSemaphores,
+        std::vector<u64>* finalSemaphoreValues)
+    {
+        FL_PROFILE_FUNCTION();
+
+        std::vector<CommandBufferEncoderSubmission> allSubmissions;
+        std::queue<CommandBuffer*> processingBuffers;
+        std::unordered_set<u64> visitedBuffers;
+        for (auto buf : buffers)
+            processingBuffers.push(static_cast<CommandBuffer*>(buf));
+
+        while (!processingBuffers.empty())
+        {
+            auto buffer = processingBuffers.front();
+            processingBuffers.pop();
+
+            u64 bufId = reinterpret_cast<u64>(buffer);
+            if (visitedBuffers.find(bufId) != visitedBuffers.end())
+                continue;
+            visitedBuffers.insert(bufId);
+
+            for (auto dep : buffer->GetDependencies())
+                processingBuffers.push(static_cast<CommandBuffer*>(dep));
+
+            allSubmissions.insert(
+                allSubmissions.begin(),
+                buffer->GetEncoderSubmissions().begin(),
+                buffer->GetEncoderSubmissions().end()
+            );
+        }
+
+        VkCommandBuffer primaryBuf;
+        auto primaryAllocInfo = Context::Commands().AllocateBuffers(
+            GPUWorkloadType::Graphics,
+            false,
+            &primaryBuf, 1,
+            true
+        );   
+        
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        vkBeginCommandBuffer(primaryBuf, &beginInfo);
+
+        for (int i = allSubmissions.size() - 1; i >= 0; i--)
+        {
+            auto& submission = allSubmissions[i];
+
+            if (i != allSubmissions.size() - 1)
+            {
+
+            }
+
+            if (submission.Framebuffer)
+            {
+                VkRenderPassBeginInfo rpBeginInfo{};
+                rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+                rpBeginInfo.renderPass = static_cast<RenderPass*>(submission.Framebuffer->GetRenderPass())->GetRenderPass();
+                rpBeginInfo.framebuffer = submission.Framebuffer->GetFramebuffer();
+                rpBeginInfo.renderArea.offset = { 0, 0 };
+                rpBeginInfo.renderArea.extent = { submission.Framebuffer->GetWidth(), submission.Framebuffer->GetHeight() };
+                rpBeginInfo.clearValueCount = static_cast<u32>(submission.Framebuffer->GetClearValues().size());
+                rpBeginInfo.pClearValues = submission.Framebuffer->GetClearValues().data();
+                vkCmdBeginRenderPass(primaryBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+            }
+
+            for (u32 subpass = 0; subpass < submission.Buffers.size(); subpass++)
+            {
+                if (subpass != 0)
+                    vkCmdNextSubpass(primaryBuf, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+                vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[subpass]);
+            }
+
+            if (submission.Framebuffer)
+                vkCmdEndRenderPass(primaryBuf);
+        }
+
+        vkEndCommandBuffer(primaryBuf);
+
+        if (finalSemaphores && finalSemaphoreValues)
+        {
+            finalSemaphores->clear();
+            finalSemaphoreValues->clear();
+        }
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.pCommandBuffers = &primaryBuf;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pSignalSemaphores = 
+
+        Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(
+            Context::Queues().Queue(GPUWorkloadType::Graphics),
+            1, &submitInfo,
+            nullptr
+        ), "Submission handler 2 submit");
+        Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
+
+        Context::FinalizerQueue().Push([primaryAllocInfo, primaryBuf]()
+        {
+            Context::Commands().FreeBuffer(primaryAllocInfo, primaryBuf);
+        }, "Primarybuf finalizer");
+
+        if (contexts)
+        {
+            for (auto& _context : *contexts)
+            {
+                auto context = static_cast<RenderContext*>(_context);
+
+                VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
+                u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
+
+                auto& signalSemaphores = context->GetSubmissionData().SignalSemaphores[Flourish::Context::FrameIndex()];
+                auto& signalSemaphoreValues = context->GetSubmissionData().SignalSemaphoreValues[Flourish::Context::FrameIndex()];
+                VkPresentInfoKHR presentInfo{};
+                presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+                presentInfo.waitSemaphoreCount = 1;
+                presentInfo.pWaitSemaphores = &signalSemaphores[1];
+                presentInfo.swapchainCount = 1;
+                presentInfo.pSwapchains = swapchain;
+                presentInfo.pImageIndices = imageIndex;
+
+                // Add final semaphore to be waited on
+                if (finalSemaphores && finalSemaphoreValues)
+                {
+                    finalSemaphores->push_back(signalSemaphores[0]);
+                    finalSemaphoreValues->push_back(signalSemaphoreValues[0]);
+                }
+            
+                Context::Queues().LockPresentQueue(true);
+                auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+                Context::Queues().LockPresentQueue(false);
+                if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+                    context->Swapchain().Recreate();
+                else if (result != VK_SUCCESS)
+                {
+                    FL_LOG_CRITICAL("Failed to present with error %d", result);
+                    throw std::exception();
+                }
+            }
+        }
+    }
+
     void SubmissionHandler::ProcessSubmission(
         CommandSubmissionData& submissionData,
         const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers,
@@ -146,6 +328,8 @@ namespace Flourish::Vulkan
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
+        FL_PROFILE_FUNCTION();
+
         u32 completionSemaphoresAdded = 0;
         u32 completionSemaphoresStartIndex = 0;
         u32 completionSemaphoresWaitCount = 0;

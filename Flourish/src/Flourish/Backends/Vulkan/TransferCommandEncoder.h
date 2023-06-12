@@ -24,8 +24,8 @@ namespace Flourish::Vulkan
 
     private:
         bool m_FrameRestricted;
-        CommandBufferAllocInfo m_AllocInfo;
         VkCommandBuffer m_CommandBuffer;
+        CommandBufferEncoderSubmission m_Submission;
         CommandBuffer* m_ParentBuffer;
     };
 }

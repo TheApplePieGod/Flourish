@@ -17,12 +17,15 @@ namespace Flourish::Vulkan
     {
         m_Encoding = true;
 
-        m_AllocInfo = Context::Commands().AllocateBuffers(
+        m_Submission.Buffers.resize(1);
+        m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Compute,
-            false,
-            &m_CommandBuffer,
-            1, !m_FrameRestricted
-        );
+            true,
+            m_Submission.Buffers.data(),
+            m_Submission.Buffers.size(),
+            !m_FrameRestricted
+        );   
+        m_CommandBuffer = m_Submission.Buffers[0];
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -40,9 +43,8 @@ namespace Flourish::Vulkan
         m_Encoding = false;
         m_BoundPipeline = nullptr;
 
-        VkCommandBuffer buffer = m_CommandBuffer;
-        vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo);
+        vkEndCommandBuffer(m_CommandBuffer);
+        m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
     void ComputeCommandEncoder::BindPipeline(Flourish::ComputePipeline* pipeline)
