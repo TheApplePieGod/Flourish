@@ -52,12 +52,7 @@ namespace Flourish::Vulkan
         m_Swapchain.Initialize(createInfo, m_Surface);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-        {
-            m_SubmissionData.SignalSemaphores[frame] = {
-                Synchronization::CreateTimelineSemaphore(0),
-                Synchronization::CreateSemaphore()
-            };
-        }
+            m_SignalSemaphores[frame] = Synchronization::CreateSemaphore();
     }
 
     RenderContext::~RenderContext()
@@ -65,18 +60,13 @@ namespace Flourish::Vulkan
         m_Swapchain.Shutdown();
 
         auto surface = m_Surface;
-        auto semaphores = m_SubmissionData.SignalSemaphores;
+        auto semaphores = m_SignalSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
             if (surface)
                 vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-            {
-                if (semaphores[frame][0])
-                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
-                if (semaphores[frame][1])
-                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
-            }
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
         }, "Render context free");
     }
 
@@ -96,9 +86,17 @@ namespace Flourish::Vulkan
         for (auto& dep : m_Dependencies)
             m_CommandBuffer.AddDependency(dep);
 
+        // Add empty encoder for sync purposes
+        if (m_CommandBuffer.GetEncoderSubmissions().empty())
+            EncodeRenderCommands()->EndEncoding();
+
+        m_CommandBuffer.GetEncoderSubmissions().back().RenderContext = this;
+
         Flourish::CommandBuffer* buffer = &m_CommandBuffer;
         Flourish::Context::PushFrameCommandBuffers(&buffer, 1);
-        Flourish::Context::PushFrameRenderContext(this);
+        
+        //REMOVE
+        //Flourish::Context::PushFrameRenderContext(this);
 
         return;
 
@@ -184,4 +182,9 @@ namespace Flourish::Vulkan
 
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
+
+    VkSemaphore RenderContext::GetSignalSemaphore() const
+    {
+        return m_SignalSemaphores[Flourish::Context::FrameIndex()];
+    }
 }

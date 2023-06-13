@@ -38,6 +38,7 @@ namespace Flourish::Vulkan
         u64 CompletionSemaphoreValue;
     };
 
+    class RenderContext;
     struct SubmissionSyncInfo
     {
         bool HasSubmit = false;
@@ -50,8 +51,9 @@ namespace Flourish::Vulkan
         std::vector<VkSemaphore> WaitSemaphores;
         std::vector<u64> WaitSemaphoreValues;
         std::vector<VkPipelineStageFlags> WaitStageFlags;
-        VkSemaphore SignalSemaphore;
-        u64 SignalSemaphoreValue;
+        std::vector<RenderContext*> PresentingContexts;
+        std::array<VkSemaphore, 2> SignalSemaphores;
+        std::array<u64, 2> SignalSemaphoreValues;
         VkSubmitInfo SubmitInfo;
         VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
     };

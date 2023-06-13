@@ -36,8 +36,8 @@ namespace FlourishTesting
 
             if (m_RenderContext->Validate())
             {
-                RunSingleThreadedTest();
-                //RunMultiThreadedTest();
+                //RunSingleThreadedTest();
+                RunMultiThreadedTest();
             }
 
             Flourish::Context::EndFrame();

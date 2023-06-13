@@ -39,7 +39,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()].data();
         waitInfo.pValues = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()].data();
 
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     void SubmissionHandler::ProcessFrameSubmissions(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, bool submit)
@@ -171,7 +171,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = semaphores.data();
         waitInfo.pValues = values.data();
 
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     VkEvent SubmissionHandler::GetNextEvent(CommandSubmissionData& submissionData)
@@ -257,20 +257,35 @@ namespace Flourish::Vulkan
                     auto& timelineSubmitInfo = syncInfo[i].TimelineSubmitInfo;
                     timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
                     timelineSubmitInfo.signalSemaphoreValueCount = 1;
-                    timelineSubmitInfo.pSignalSemaphoreValues = &syncInfo[i].SignalSemaphoreValue;
-                    syncInfo[i].SignalSemaphoreValue = Flourish::Context::FrameCount();
+                    timelineSubmitInfo.pSignalSemaphoreValues = syncInfo[i].SignalSemaphoreValues.data();
+                    syncInfo[i].SignalSemaphoreValues[0] = Flourish::Context::FrameCount();
 
                     auto& submitInfo = syncInfo[i].SubmitInfo;
                     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
                     submitInfo.pNext = &timelineSubmitInfo;
                     submitInfo.commandBufferCount = 1;
                     submitInfo.signalSemaphoreCount = 1;
-                    submitInfo.pSignalSemaphores = &syncInfo[i].SignalSemaphore;
+                    submitInfo.pSignalSemaphores = syncInfo[i].SignalSemaphores.data();
 
                     syncInfo[i].HasSubmit = true;
-                    syncInfo[i].SignalSemaphore = GetNextSemaphore(submissionData);
+                    syncInfo[i].SignalSemaphores[0] = GetNextSemaphore(submissionData);
 
                     currentWorkloadIndex = i;
+                }
+
+                // If a RenderContext depends on a submission in this buffer, add
+                // it to be presented with this buffer
+                if (submission.RenderContext)
+                {
+                    auto& syncData = syncInfo[currentWorkloadIndex];
+                    syncData.PresentingContexts.emplace_back(submission.RenderContext);
+                    if (syncData.PresentingContexts.size() == 1)
+                    {
+                        // Also need to add a separate binary semaphore to wait on
+                        syncData.TimelineSubmitInfo.signalSemaphoreValueCount++;
+                        syncData.SubmitInfo.signalSemaphoreCount++;
+                        syncData.SignalSemaphores[1] = submission.RenderContext->GetSignalSemaphore();
+                    }
                 }
 
                 // TODO: we could potentially optimize this such that a wait does not occur
@@ -357,8 +372,8 @@ namespace Flourish::Vulkan
                             { waitFlags = VK_PIPELINE_STAGE_TRANSFER_BIT; } break;
                         }
 
-                        toSync.WaitSemaphores.emplace_back(fromSync.SignalSemaphore);
-                        toSync.WaitSemaphoreValues.emplace_back(fromSync.SignalSemaphoreValue);
+                        toSync.WaitSemaphores.emplace_back(fromSync.SignalSemaphores[0]);
+                        toSync.WaitSemaphoreValues.emplace_back(fromSync.SignalSemaphoreValues[0]);
                         toSync.WaitStageFlags.emplace_back(waitFlags);
                     }
                 }
@@ -392,8 +407,8 @@ namespace Flourish::Vulkan
 
                 if (info.WaitSemaphores.empty() && finalSemaphores && finalSemaphoreValues)
                 {
-                    finalSemaphores->emplace_back(info.SignalSemaphore);
-                    finalSemaphoreValues->emplace_back(info.SignalSemaphoreValue);
+                    finalSemaphores->emplace_back(info.SignalSemaphores[0]);
+                    finalSemaphoreValues->emplace_back(info.SignalSemaphoreValues[0]);
                 }
             }
         }
@@ -404,30 +419,17 @@ namespace Flourish::Vulkan
 
         if (!allSubmissions.empty())
         {
+            int nextSubmit = -1;
             VkCommandBuffer primaryBuf;
-            CommandBufferAllocInfo primaryAllocInfo = Context::Commands().AllocateBuffers(
-                GPUWorkloadType::Graphics,
-                false,
-                &primaryBuf, 1,
-                true
-            );   
-            
-            VkCommandBufferBeginInfo beginInfo{};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-            vkBeginCommandBuffer(primaryBuf, &beginInfo);
-
-            GPUWorkloadType lastWorkload = allSubmissions[0].AllocInfo.WorkloadType;
-            for (int i = allSubmissions.size() - 1; i >= 0; i--)
+            CommandBufferAllocInfo primaryAllocInfo;
+            for (int i = allSubmissions.size() - 1; i >= -1; i--)
             {
-                bool firstIndex = i == allSubmissions.size() - 1;
-                auto& submission = allSubmissions[i];
-                auto& syncData = syncInfo[i];
-
-                if (firstIndex || submission.AllocInfo.WorkloadType != lastWorkload)
+                if (i == -1 || syncInfo[i].HasSubmit)
                 {
-                    if (!firstIndex)
+                    if (nextSubmit != -1)
                     {
+                        auto& syncData = syncInfo[nextSubmit];
+
                         vkEndCommandBuffer(primaryBuf);
 
                         Context::FinalizerQueue().Push([primaryAllocInfo, primaryBuf]()
@@ -436,17 +438,47 @@ namespace Flourish::Vulkan
                         }, "Primarybuf finalizer");
 
                         syncData.SubmitInfo.pCommandBuffers = &primaryBuf;
-                        Context::Queues().LockQueue(submission.AllocInfo.WorkloadType, true);
+                        GPUWorkloadType workload = allSubmissions[nextSubmit].AllocInfo.WorkloadType;
+                        Context::Queues().LockQueue(workload, true);
                         FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                            Context::Queues().Queue(submission.AllocInfo.WorkloadType),
+                            Context::Queues().Queue(workload),
                             1, &syncData.SubmitInfo,
                             nullptr
                         ), "Submission handler 2 submit");
-                        Context::Queues().LockQueue(submission.AllocInfo.WorkloadType, false);
+                        Context::Queues().LockQueue(workload, false);
+
+                        for (RenderContext* context : syncData.PresentingContexts)
+                        {
+                            VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
+                            u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
+
+                            VkSemaphore waitSemaphores[2] = { context->GetSignalSemaphore(), context->GetImageAvailableSemaphore() };
+                            VkPresentInfoKHR presentInfo{};
+                            presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+                            presentInfo.waitSemaphoreCount = 2;
+                            presentInfo.pWaitSemaphores = waitSemaphores;
+                            presentInfo.swapchainCount = 1;
+                            presentInfo.pSwapchains = swapchain;
+                            presentInfo.pImageIndices = imageIndex;
+                            
+                            Context::Queues().LockPresentQueue(true);
+                            auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+                            Context::Queues().LockPresentQueue(false);
+                            if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+                                context->Swapchain().Recreate();
+                            else if (result != VK_SUCCESS)
+                            {
+                                FL_LOG_CRITICAL("Failed to present with error %d", result);
+                                throw std::exception();
+                            }
+                        }
                     }
 
+                    if (i == -1)
+                        break;
+
                     primaryAllocInfo = Context::Commands().AllocateBuffers(
-                        GPUWorkloadType::Graphics,
+                        allSubmissions[i].AllocInfo.WorkloadType,
                         false,
                         &primaryBuf, 1,
                         true
@@ -457,8 +489,11 @@ namespace Flourish::Vulkan
                     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
                     vkBeginCommandBuffer(primaryBuf, &beginInfo);
 
-                    lastWorkload = submission.AllocInfo.WorkloadType;
+                    nextSubmit = i;
                 }
+
+                auto& syncData = syncInfo[i];
+                auto& submission = allSubmissions[i];
 
                 if (!syncData.WaitEvents.empty())
                 {
@@ -503,47 +538,6 @@ namespace Flourish::Vulkan
                 }
             }
         }
-
-        if (contexts)
-        {
-            for (auto& _context : *contexts)
-            {
-                auto context = static_cast<RenderContext*>(_context);
-
-                VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
-                u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
-
-                auto& signalSemaphores = context->GetSubmissionData().SignalSemaphores[Flourish::Context::FrameIndex()];
-                auto& signalSemaphoreValues = context->GetSubmissionData().SignalSemaphoreValues[Flourish::Context::FrameIndex()];
-                VkPresentInfoKHR presentInfo{};
-                presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-                //presentInfo.waitSemaphoreCount = 1;
-                //presentInfo.pWaitSemaphores = &signalSemaphores[1];
-                presentInfo.swapchainCount = 1;
-                presentInfo.pSwapchains = swapchain;
-                presentInfo.pImageIndices = imageIndex;
-
-                // Add final semaphore to be waited on
-                /*
-                if (finalSemaphores && finalSemaphoreValues)
-                {
-                    finalSemaphores->push_back(signalSemaphores[0]);
-                    finalSemaphoreValues->push_back(signalSemaphoreValues[0]);
-                }
-                */
-            
-                Context::Queues().LockPresentQueue(true);
-                auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
-                Context::Queues().LockPresentQueue(false);
-                if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-                    context->Swapchain().Recreate();
-                else if (result != VK_SUCCESS)
-                {
-                    FL_LOG_CRITICAL("Failed to present with error %d", result);
-                    throw std::exception();
-                }
-            }
-        }
     }
 
     void SubmissionHandler::ProcessSubmission(
@@ -553,171 +547,5 @@ namespace Flourish::Vulkan
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
-        FL_PROFILE_FUNCTION();
-
-        u32 completionSemaphoresAdded = 0;
-        u32 completionSemaphoresStartIndex = 0;
-        u32 completionSemaphoresWaitCount = 0;
-
-        submissionData.GraphicsSubmitInfos.clear();
-        submissionData.ComputeSubmitInfos.clear();
-        submissionData.TransferSubmitInfos.clear();
-        submissionData.CompletionSemaphores.clear();
-        submissionData.CompletionSemaphoreValues.clear();
-        submissionData.CompletionWaitStages.clear();
-        if (finalSemaphores && finalSemaphoreValues)
-        {
-            finalSemaphores->clear();
-            finalSemaphoreValues->clear();
-        }
-        
-        // Each submission executes sub submissions sequentially
-        for (u32 submissionIndex = 0; submissionIndex < buffers.size(); submissionIndex++)
-        {
-            bool isLastSubmission = submissionIndex == buffers.size() - 1;
-
-            // Each buffer in this sub submission executes in parallel
-            auto& submission = buffers[submissionIndex];
-            for (auto _buffer : submission)
-            {
-                CommandBuffer* buffer = static_cast<CommandBuffer*>(_buffer);
-                if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
-
-                auto& subData = buffer->GetSubmissionData();
-                
-                // If this is not the first batch then we must wait on the previous batch to complete
-                if (completionSemaphoresWaitCount > 0)
-                {
-                    subData.FirstSubmitInfo->waitSemaphoreCount = completionSemaphoresWaitCount;
-                    subData.FirstSubmitInfo->pWaitSemaphores = submissionData.CompletionSemaphores.data() + completionSemaphoresStartIndex;
-                    subData.FirstSubmitInfo->pWaitDstStageMask = submissionData.CompletionWaitStages.data() + submissionData.CompletionWaitStages.size();
-                    submissionData.CompletionWaitStages.insert(submissionData.CompletionWaitStages.end(), completionSemaphoresWaitCount, subData.FirstSubBufferWaitStage);
-
-                    subData.TimelineSubmitInfos[0].waitSemaphoreValueCount = completionSemaphoresWaitCount;
-                    subData.TimelineSubmitInfos[0].pWaitSemaphoreValues = submissionData.CompletionSemaphoreValues.data() + completionSemaphoresStartIndex;
-                }
-                
-                // Add final sub buffer semaphore to completion list for later awaiting
-                submissionData.CompletionSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
-                submissionData.CompletionSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
-                completionSemaphoresAdded++;
-
-                // For each submission, add the final semaphores of the final sub submission to the final wait semaphores
-                // so we can keep track of what needs to be waited on to ensure all processing has been completed
-                if (isLastSubmission && finalSemaphores && finalSemaphoreValues)
-                {
-                    finalSemaphores->push_back(submissionData.CompletionSemaphores.back());
-                    finalSemaphoreValues->push_back(submissionData.CompletionSemaphoreValues.back());
-                }
-
-                // This is not the best thing, but we need to ensure that work gets submitted in order so that we don't get stuck
-                // in a GPU deadlock waiting on semaphores. This occurs when the device does not have three separate queues, so there
-                // might be room for optimization when the device has more than one or two queues.
-                for (u32 i = 0; i < subData.SubmitInfos.size(); i++)
-                {
-                    GPUWorkloadType workloadType = buffer->GetEncoderSubmissions()[i].AllocInfo.WorkloadType;
-                    Context::Queues().LockQueue(workloadType, true);
-                    FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                        Context::Queues().Queue(workloadType),
-                        1, &subData.SubmitInfos[i], nullptr
-                    ), "Submission handler initial workload submit");
-                    Context::Queues().LockQueue(workloadType, false);
-                }
-            }
-
-            // Move completion pointer so that next batch will wait on semaphores from last batch
-            completionSemaphoresStartIndex += completionSemaphoresWaitCount;
-            completionSemaphoresWaitCount = completionSemaphoresAdded;
-            completionSemaphoresAdded = 0;
-        }
-
-        // Loop over presenting contexts and add append graphics submissions before we submit
-        if (contexts)
-        {
-            for (auto& _context : *contexts)
-            {
-                auto context = static_cast<RenderContext*>(_context);
-
-                // Can only be graphics so we can safely just insert everything in submitinfos
-                submissionData.GraphicsSubmitInfos.insert(
-                    submissionData.GraphicsSubmitInfos.end(),
-                    context->CommandBuffer().GetSubmissionData().SubmitInfos.begin(),
-                    context->CommandBuffer().GetSubmissionData().SubmitInfos.end()
-                );
-            }
-        }
-
-        if (!submissionData.GraphicsSubmitInfos.empty())
-        {
-            Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
-            FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                Context::Queues().Queue(GPUWorkloadType::Graphics),
-                static_cast<u32>(submissionData.GraphicsSubmitInfos.size()),
-                submissionData.GraphicsSubmitInfos.data(),
-                nullptr
-            ), "Submission handler final graphics submit");
-            Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
-        }
-        if (!submissionData.ComputeSubmitInfos.empty())
-        {
-            Context::Queues().LockQueue(GPUWorkloadType::Compute, true);
-            FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                Context::Queues().Queue(GPUWorkloadType::Compute),
-                static_cast<u32>(submissionData.ComputeSubmitInfos.size()),
-                submissionData.ComputeSubmitInfos.data(),
-                nullptr
-            ), "Submission handler final compute submit");
-            Context::Queues().LockQueue(GPUWorkloadType::Compute, false);
-        }
-        if (!submissionData.TransferSubmitInfos.empty())
-        {
-            Context::Queues().LockQueue(GPUWorkloadType::Transfer, true);
-            FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                Context::Queues().Queue(GPUWorkloadType::Transfer),
-                static_cast<u32>(submissionData.TransferSubmitInfos.size()),
-                submissionData.TransferSubmitInfos.data(),
-                nullptr
-            ), "Submission handler final transfer submit");
-            Context::Queues().LockQueue(GPUWorkloadType::Transfer, false);
-        }
-
-        if (contexts)
-        {
-            for (auto& _context : *contexts)
-            {
-                auto context = static_cast<RenderContext*>(_context);
-
-                VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
-                u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
-
-                auto& signalSemaphores = context->GetSubmissionData().SignalSemaphores[Flourish::Context::FrameIndex()];
-                auto& signalSemaphoreValues = context->GetSubmissionData().SignalSemaphoreValues[Flourish::Context::FrameIndex()];
-                VkPresentInfoKHR presentInfo{};
-                presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-                presentInfo.waitSemaphoreCount = 1;
-                presentInfo.pWaitSemaphores = &signalSemaphores[1];
-                presentInfo.swapchainCount = 1;
-                presentInfo.pSwapchains = swapchain;
-                presentInfo.pImageIndices = imageIndex;
-
-                // Add final semaphore to be waited on
-                if (finalSemaphores && finalSemaphoreValues)
-                {
-                    finalSemaphores->push_back(signalSemaphores[0]);
-                    finalSemaphoreValues->push_back(signalSemaphoreValues[0]);
-                }
-            
-                Context::Queues().LockPresentQueue(true);
-                auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
-                Context::Queues().LockPresentQueue(false);
-                if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-                    context->Swapchain().Recreate();
-                else if (result != VK_SUCCESS)
-                {
-                    FL_LOG_CRITICAL("Failed to present with error %d", result);
-                    throw std::exception();
-                }
-            }
-        }
     }
 }

@@ -86,7 +86,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = &pushResult.SignalSemaphore;
         waitInfo.pValues = &pushResult.SignalValue;
 
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     VkQueue Queues::PresentQueue() const

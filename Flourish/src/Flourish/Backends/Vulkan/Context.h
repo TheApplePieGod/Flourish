@@ -26,7 +26,7 @@ namespace Flourish::Vulkan
         inline static VmaAllocator Allocator() { return s_Allocator; }
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
 
-        inline static constexpr u32 VulkanApiVersion = VK_API_VERSION_1_2;
+        inline static constexpr u32 VulkanApiVersion = VK_API_VERSION_1_3;
 
     private:
         static void Initialize(const ContextInitializeInfo& initInfo);

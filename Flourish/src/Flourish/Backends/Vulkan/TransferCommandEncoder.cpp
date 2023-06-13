@@ -26,9 +26,13 @@ namespace Flourish::Vulkan
         );   
         m_CommandBuffer = m_Submission.Buffers[0];
     
+        VkCommandBufferInheritanceInfo inheritanceInfo{};
+        inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+    
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.pInheritanceInfo = &inheritanceInfo;
 
         // TODO: check result?
         vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
