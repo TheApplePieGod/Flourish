@@ -23,8 +23,8 @@ namespace Flourish
         FeatureTable RequestedFeatures;
     };
 
-    class CommandBuffer;
     class RenderGraph;
+    class RenderContext;
     class Context
     {
     public:
@@ -35,6 +35,7 @@ namespace Flourish
 
         // TS
         static void PushFrameRenderGraph(RenderGraph* graph);
+        static void PushFrameRenderContext(RenderContext* context);
         static void PushRenderGraph(RenderGraph* graph, std::function<void()> callback = nullptr);
         static void ExecuteRenderGraph(RenderGraph* graph);
 
@@ -45,7 +46,8 @@ namespace Flourish
         inline static u32 FrameIndex() { return s_FrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
-        inline static const auto& FrameSubmissions() { return s_FrameSubmissions; }
+        inline static const auto& FrameGraphSubmissions() { return s_GraphSubmissions; }
+        inline static const auto& FrameContextSubmissions() { return s_ContextSubmissions; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
         
@@ -56,7 +58,8 @@ namespace Flourish
         inline static u64 s_FrameCount = 1;
         inline static u32 s_FrameIndex = 0;
         inline static Flourish::FeatureTable s_FeatureTable;
-        inline static std::vector<RenderGraph*> s_FrameSubmissions;
+        inline static std::vector<RenderGraph*> s_GraphSubmissions;
+        inline static std::vector<RenderContext*> s_ContextSubmissions;
         inline static std::mutex s_FrameMutex;
     };
 }

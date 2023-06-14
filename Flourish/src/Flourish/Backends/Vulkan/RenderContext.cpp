@@ -52,7 +52,10 @@ namespace Flourish::Vulkan
         m_Swapchain.Initialize(createInfo, m_Surface);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-            m_SignalSemaphores[frame] = Synchronization::CreateSemaphore();
+        {
+            m_SignalSemaphores[frame][0] = Synchronization::CreateTimelineSemaphore(0);
+            m_SignalSemaphores[frame][1] = Synchronization::CreateSemaphore();
+        }
     }
 
     RenderContext::~RenderContext()
@@ -66,7 +69,10 @@ namespace Flourish::Vulkan
             if (surface)
                 vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame], nullptr);
+            {
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
+            }
         }, "Render context free");
     }
 
@@ -95,18 +101,21 @@ namespace Flourish::Vulkan
         {
             m_LastEncodingFrame = Flourish::Context::FrameCount();
             m_Swapchain.UpdateActiveImage();
+            m_SignalValue++;
         }
+        else
+            throw std::exception();
 
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
 
-    VkSemaphore RenderContext::GetSignalSemaphore() const
+    VkSemaphore RenderContext::GetTimelineSignalSemaphore() const
     {
-        return m_SignalSemaphores[Flourish::Context::FrameIndex()];
+        return m_SignalSemaphores[Flourish::Context::FrameIndex()][0];
     }
 
-    VkSemaphore RenderContext::GetSignalSemaphore(u32 frameIndex) const
+    VkSemaphore RenderContext::GetBinarySignalSemaphore() const
     {
-        return m_SignalSemaphores[frameIndex];
+        return m_SignalSemaphores[Flourish::Context::FrameIndex()][1];
     }
 }

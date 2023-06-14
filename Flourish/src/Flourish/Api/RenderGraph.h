@@ -19,10 +19,10 @@ namespace Flourish
     class RenderGraph
     {
     public:
+        // TODO: use a union here?
         struct Node
         {
-            CommandBuffer* Buffer;
-            RenderContext* Context;
+            CommandBuffer* Buffer = nullptr;
             std::unordered_set<u64> Dependencies;
         };
 
@@ -33,8 +33,8 @@ namespace Flourish
         virtual ~RenderGraph() = default;
 
         void Clear();
+
         void AddCommandBuffer(CommandBuffer* buffer, CommandBuffer* parent = nullptr);
-        void AddRenderContext(RenderContext* context, CommandBuffer* parent = nullptr);
 
         virtual void Build() = 0;
 
@@ -45,6 +45,9 @@ namespace Flourish
 
     public:
         static std::shared_ptr<RenderGraph> Create(const RenderGraphCreateInfo& createInfo);
+
+    private:
+        void AddInternal(u64 id, u64 parentId, const Node& addData);
 
     protected:
         RenderGraphCreateInfo m_Info;

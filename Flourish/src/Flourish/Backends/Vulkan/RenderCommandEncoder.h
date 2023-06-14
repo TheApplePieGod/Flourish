@@ -49,7 +49,6 @@ namespace Flourish::Vulkan
         CommandBufferEncoderSubmission m_Submission;
         VkCommandBuffer m_CurrentCommandBuffer;
         CommandBuffer* m_ParentBuffer;
-        Framebuffer* m_BoundFramebuffer = nullptr;
         GraphicsPipeline* m_BoundPipeline = nullptr;
         std::string m_BoundPipelineName = "";
         DescriptorBinder m_DescriptorBinder;

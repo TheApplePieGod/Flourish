@@ -98,8 +98,6 @@ namespace Flourish::Vulkan
         {
             Node& node = m_Nodes[m_ExecuteData.SubmissionOrder[orderIndex]];
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
-            if (!buffer) // Must be a context submission
-                buffer = &static_cast<RenderContext*>(node.Context)->CommandBuffer();
             auto& submissions = buffer->GetEncoderSubmissions();
             for (int subIndex = submissions.size() - 1; subIndex >= 0; subIndex--)
             {
@@ -124,7 +122,7 @@ namespace Flourish::Vulkan
                         submitInfo.commandBufferCount = 1;
                         submitInfo.signalSemaphoreCount = 1;
 
-                        submitData.SignalSemaphores[i][0] = Synchronization::CreateTimelineSemaphore(0);
+                        submitData.SignalSemaphores[i] = Synchronization::CreateTimelineSemaphore(0);
                     }
 
                     currentWorkloadIndex = totalIndex;
@@ -195,7 +193,7 @@ namespace Flourish::Vulkan
                         toSubmit.TimelineSubmitInfo.waitSemaphoreValueCount++;
                         for (u32 i = 0; i < m_SyncObjectCount; i++)
                         {
-                            toSubmit.WaitSemaphores[i].emplace_back(fromSubmit.SignalSemaphores[i][0]);
+                            toSubmit.WaitSemaphores[i].emplace_back(fromSubmit.SignalSemaphores[i]);
                             toSubmit.SubmitInfos[i].waitSemaphoreCount++;
 
                             // Ensure pointers stay valid
@@ -223,24 +221,6 @@ namespace Flourish::Vulkan
 
                 totalIndex++;
             }
-            
-            // Add presentation
-            if (node.Context)
-            {
-                RenderContext* context = static_cast<RenderContext*>(node.Context);
-                auto& submitData = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
-                submitData.PresentingContexts.emplace_back(context);
-                if (submitData.PresentingContexts.size() == 1)
-                {
-                    // Also need to add a separate binary semaphore to wait on
-                    submitData.TimelineSubmitInfo.signalSemaphoreValueCount++;
-                    for (u32 i = 0; i < m_SyncObjectCount; i++)
-                    {
-                        submitData.SubmitInfos[i].signalSemaphoreCount++;
-                        submitData.SignalSemaphores[i][1] = context->GetSignalSemaphore(i);
-                    }
-                }
-            }
         }
 
         // Finalize submit info
@@ -248,13 +228,13 @@ namespace Flourish::Vulkan
         {
             // Need to update pointers here since SubmitData array keeps resizing
             info.TimelineSubmitInfo.pWaitSemaphoreValues = m_ExecuteData.WaitSemaphoreValues.data();
-            info.TimelineSubmitInfo.pSignalSemaphoreValues = info.SignalSemaphoreValues.data();
+            info.TimelineSubmitInfo.pSignalSemaphoreValues = &info.SignalSemaphoreValue;
             for (u32 i = 0; i < m_SyncObjectCount; i++)
             {
                 info.SubmitInfos[i].pNext = &info.TimelineSubmitInfo;
-                info.SubmitInfos[i].pSignalSemaphores = info.SignalSemaphores[i].data();
+                info.SubmitInfos[i].pSignalSemaphores = &info.SignalSemaphores[i];
                 if (info.WaitSemaphores[i].empty())
-                    m_ExecuteData.CompletionSemaphores[i].emplace_back(info.SignalSemaphores[i][0]);
+                    m_ExecuteData.CompletionSemaphores[i].emplace_back(info.SignalSemaphores[i]);
             }
         }
 
@@ -271,6 +251,6 @@ namespace Flourish::Vulkan
         for (u32 i = 0; i < m_ExecuteData.WaitSemaphoreValues.size(); i++)
             m_ExecuteData.WaitSemaphoreValues[i] = m_CurrentSemaphoreValue;
         for (u32 i = 0; i < m_ExecuteData.SubmitData.size(); i++)
-            m_ExecuteData.SubmitData[i].SignalSemaphoreValues[0] = m_CurrentSemaphoreValue;
+            m_ExecuteData.SubmitData[i].SignalSemaphoreValue = m_CurrentSemaphoreValue;
     }
 }

@@ -54,12 +54,122 @@ namespace Flourish::Vulkan
         }
         */
 
+        auto& frameSems = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()];
+        auto& frameVals = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()];
         ProcessSubmission(
-            Flourish::Context::FrameSubmissions().data(),
-            Flourish::Context::FrameSubmissions().size(),
-            &m_FrameWaitSemaphores[Flourish::Context::FrameIndex()],
-            &m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()]
+            Flourish::Context::FrameGraphSubmissions().data(),
+            Flourish::Context::FrameGraphSubmissions().size(),
+            Flourish::Context::FrameIndex(),
+            &frameSems,
+            &frameVals
         );
+
+        while (m_RenderContextWaitFlags.size() < frameSems.size())
+            m_RenderContextWaitFlags.emplace_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+
+        u32 frameSemsSize = frameSems.size();
+        for (Flourish::RenderContext* _context : Flourish::Context::FrameContextSubmissions())
+        {
+            auto context = static_cast<RenderContext*>(_context);
+            if (!context->Swapchain().IsValid())
+                continue;
+
+            auto& submissions = context->CommandBuffer().GetEncoderSubmissions();
+            if (submissions.empty())
+                throw std::exception();
+
+            VkCommandBuffer finalBuf;
+            auto allocInfo = Context::Commands().AllocateBuffers(
+                GPUWorkloadType::Graphics,
+                false,
+                &finalBuf, 1,
+                true
+            );   
+            
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            vkBeginCommandBuffer(finalBuf, &beginInfo);
+
+            // TODO: move to function
+            auto framebuffer = context->Swapchain().GetFramebuffer();
+            VkRenderPassBeginInfo rpBeginInfo{};
+            rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+            rpBeginInfo.renderPass = context->GetRenderPass()->GetRenderPass();
+            rpBeginInfo.framebuffer = framebuffer->GetFramebuffer();
+            rpBeginInfo.renderArea.offset = { 0, 0 };
+            rpBeginInfo.renderArea.extent = { framebuffer->GetWidth(), framebuffer->GetHeight() };
+            rpBeginInfo.clearValueCount = static_cast<u32>(framebuffer->GetClearValues().size());
+            rpBeginInfo.pClearValues = framebuffer->GetClearValues().data();
+            vkCmdBeginRenderPass(finalBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+            for (u32 subpass = 0; subpass < submissions[0].Buffers.size(); subpass++)
+            {
+                if (subpass != 0)
+                    vkCmdNextSubpass(finalBuf, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+                vkCmdExecuteCommands(finalBuf, 1, &submissions[0].Buffers[subpass]);
+            }
+            vkCmdEndRenderPass(finalBuf);
+            vkEndCommandBuffer(finalBuf);
+
+            Context::FinalizerQueue().Push([allocInfo, finalBuf]()
+            {
+                Context::Commands().FreeBuffer(allocInfo, finalBuf);
+            }, "Primarybuf finalizer");
+
+            u64 signalSemaphoreValues[2] = { context->GetSignalValue(), 0 };
+            VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
+            timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+            timelineSubmitInfo.signalSemaphoreValueCount = 2;
+            timelineSubmitInfo.pSignalSemaphoreValues = signalSemaphoreValues;
+            timelineSubmitInfo.waitSemaphoreValueCount = frameSemsSize;
+            timelineSubmitInfo.pWaitSemaphoreValues = frameVals.data();
+        
+            VkSemaphore signalSemaphores[2] = { context->GetTimelineSignalSemaphore(), context->GetBinarySignalSemaphore() };
+            VkSubmitInfo finalSubmitInfo{};
+            finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            finalSubmitInfo.pNext = &timelineSubmitInfo;
+            finalSubmitInfo.commandBufferCount = 1;
+            finalSubmitInfo.pCommandBuffers = &finalBuf;
+            finalSubmitInfo.signalSemaphoreCount = 2;
+            finalSubmitInfo.pSignalSemaphores = signalSemaphores;
+            finalSubmitInfo.waitSemaphoreCount = frameSemsSize;
+            finalSubmitInfo.pWaitSemaphores = frameSems.data();
+            finalSubmitInfo.pWaitDstStageMask = m_RenderContextWaitFlags.data();
+
+            Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
+            FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                Context::Queues().Queue(GPUWorkloadType::Graphics),
+                1, &finalSubmitInfo,
+                nullptr
+            ), "Submission handler 2 submit");
+            Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
+
+            VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
+            u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
+
+            VkSemaphore waitSemaphores[2] = { context->GetBinarySignalSemaphore(), context->GetImageAvailableSemaphore() };
+            VkPresentInfoKHR presentInfo{};
+            presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+            presentInfo.waitSemaphoreCount = 2;
+            presentInfo.pWaitSemaphores = waitSemaphores;
+            presentInfo.swapchainCount = 1;
+            presentInfo.pSwapchains = swapchain;
+            presentInfo.pImageIndices = imageIndex;
+            
+            Context::Queues().LockPresentQueue(true);
+            auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+            Context::Queues().LockPresentQueue(false);
+            if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+                context->Swapchain().Recreate();
+            else if (result != VK_SUCCESS)
+            {
+                FL_LOG_CRITICAL("Failed to present with error %d", result);
+                throw std::exception();
+            }
+
+            frameSems.emplace_back(context->GetTimelineSignalSemaphore());
+            frameVals.emplace_back(context->GetSignalValue());
+        }
     }
 
     void SubmissionHandler::ProcessPushSubmission(Flourish::RenderGraph* graph, std::function<void()> callback)
@@ -85,7 +195,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1,
+            &graph, 1, 0,
             &semaphores,
             &values
         );
@@ -111,7 +221,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1,
+            &graph, 1, 0,
             &semaphores,
             &values
         );
@@ -131,6 +241,7 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessSubmission(
         Flourish::RenderGraph* const* graphs,
         u32 graphCount,
+        u32 frameIndex,
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
@@ -144,7 +255,7 @@ namespace Flourish::Vulkan
 
             if (finalSemaphores && finalSemaphoreValues)
             {
-                auto& sems = executeData.CompletionSemaphores[Flourish::Context::FrameIndex()];
+                auto& sems = executeData.CompletionSemaphores[frameIndex];
                 auto& vals = executeData.WaitSemaphoreValues;
                 finalSemaphores->insert(finalSemaphores->end(), sems.begin(), sems.end());
                 finalSemaphoreValues->insert(finalSemaphoreValues->end(), vals.begin(), vals.begin() + sems.size());
@@ -161,8 +272,6 @@ namespace Flourish::Vulkan
             {
                 auto& node = graph->GetNode(executeData.SubmissionOrder[orderIndex == -1 ? 0 : orderIndex]);
                 CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
-                if (!buffer) // Must be a context submission
-                    buffer = &static_cast<RenderContext*>(node.Context)->CommandBuffer();
                 auto& submissions = buffer->GetEncoderSubmissions();
                 for (int subIndex = submissions.size() - 1; subIndex >= 0 || orderIndex == -1; subIndex--)
                 {
@@ -179,7 +288,7 @@ namespace Flourish::Vulkan
                                 Context::Commands().FreeBuffer(primaryAllocInfo, primaryBuf);
                             }, "Primarybuf finalizer");
 
-                            VkSubmitInfo submitInfo = submitData.SubmitInfos[Flourish::Context::FrameIndex()];
+                            VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
                             submitInfo.pCommandBuffers = &primaryBuf;
 
                             Context::Queues().LockQueue(submitData.Workload, true);
@@ -189,35 +298,6 @@ namespace Flourish::Vulkan
                                 nullptr
                             ), "Submission handler 2 submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
-
-                            for (RenderContext* context : submitData.PresentingContexts)
-                            {
-                                if (!context->Swapchain().IsValid())
-                                    continue;
-
-                                VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
-                                u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
-
-                                VkSemaphore waitSemaphores[2] = { context->GetSignalSemaphore(), context->GetImageAvailableSemaphore() };
-                                VkPresentInfoKHR presentInfo{};
-                                presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-                                presentInfo.waitSemaphoreCount = 2;
-                                presentInfo.pWaitSemaphores = waitSemaphores;
-                                presentInfo.swapchainCount = 1;
-                                presentInfo.pSwapchains = swapchain;
-                                presentInfo.pImageIndices = imageIndex;
-                                
-                                Context::Queues().LockPresentQueue(true);
-                                auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
-                                Context::Queues().LockPresentQueue(false);
-                                if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-                                    context->Swapchain().Recreate();
-                                else if (result != VK_SUCCESS)
-                                {
-                                    FL_LOG_CRITICAL("Failed to present with error %d", result);
-                                    throw std::exception();
-                                }
-                            }
                         }
 
                         if (orderIndex == -1)
@@ -246,7 +326,7 @@ namespace Flourish::Vulkan
                         auto& eventData = executeData.EventData[waitEventIndex];
                         vkCmdWaitEvents2(
                             primaryBuf, 1,
-                            &eventData.Events[Flourish::Context::FrameIndex()],
+                            &eventData.Events[frameIndex],
                             &eventData.DepInfo
                         );
                     }
@@ -279,7 +359,7 @@ namespace Flourish::Vulkan
                         auto& eventData = executeData.EventData[writeEventIndex];
                         vkCmdSetEvent2(
                             primaryBuf,
-                            eventData.Events[Flourish::Context::FrameIndex()],
+                            eventData.Events[frameIndex],
                             &eventData.DepInfo
                         );
                     }

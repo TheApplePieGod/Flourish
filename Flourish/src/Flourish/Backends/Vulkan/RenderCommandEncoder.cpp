@@ -39,22 +39,6 @@ namespace Flourish::Vulkan
         for (auto& attachment : framebuffer->GetDepthAttachments())
             if (attachment.Texture)
                 m_Submission.WriteResources.insert(reinterpret_cast<u64>(attachment.Texture.get()));
-
-        /*
-        VkRenderPassBeginInfo rpBeginInfo{};
-        rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rpBeginInfo.renderPass = static_cast<RenderPass*>(framebuffer->GetRenderPass())->GetRenderPass();
-        rpBeginInfo.framebuffer = framebuffer->GetFramebuffer();
-        rpBeginInfo.renderArea.offset = { 0, 0 };
-        rpBeginInfo.renderArea.extent = { framebuffer->GetWidth(), framebuffer->GetHeight() };
-        rpBeginInfo.clearValueCount = static_cast<u32>(framebuffer->GetClearValues().size());
-        rpBeginInfo.pClearValues = framebuffer->GetClearValues().data();
-        vkCmdBeginRenderPass(m_CommandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        */
-
-        SetViewport(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
-        SetScissor(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
-        SetLineWidth(1.f);
     }
 
     void RenderCommandEncoder::EndEncoding()
@@ -67,7 +51,6 @@ namespace Flourish::Vulkan
         m_BoundPipelineName.clear();
         m_SubpassIndex = 0;
 
-        //vkCmdEndRenderPass(m_CurrentCommandBuffer);
         vkEndCommandBuffer(m_CurrentCommandBuffer);
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
 
@@ -213,7 +196,6 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode StartNextSubpass after encoding has ended");
 
         vkEndCommandBuffer(m_CurrentCommandBuffer);
-        // vkCmdNextSubpass(m_CurrentCommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 
         // Pipeline must be reset between each subpass
         m_SubpassIndex++;
@@ -348,5 +330,9 @@ namespace Flourish::Vulkan
 
         // TODO: check result?
         vkBeginCommandBuffer(m_CurrentCommandBuffer, &beginInfo);
+
+        SetViewport(0, 0, m_Submission.Framebuffer->GetWidth(), m_Submission.Framebuffer->GetHeight());
+        SetScissor(0, 0, m_Submission.Framebuffer->GetWidth(), m_Submission.Framebuffer->GetHeight());
+        SetLineWidth(1.f);
     }
 }

@@ -13,44 +13,31 @@ namespace Flourish
 
     void RenderGraph::AddCommandBuffer(CommandBuffer* buffer, CommandBuffer* parent)
     {
-        u64 bufId = reinterpret_cast<u64>(buffer);
-        if (bufId == 0)
-            return;
-        auto found = m_Nodes.find(bufId);
-        if (found == m_Nodes.end())
-        {
-            m_Nodes.insert({ bufId, { buffer, nullptr } });
-            m_Leaves.insert(bufId);
-            found = m_Nodes.find(bufId);
-        }
-
-        u64 parentId = reinterpret_cast<u64>(parent);
-        if (parentId == 0 || m_Nodes.find(parentId) == m_Nodes.end())
-            return;
-
-        m_Leaves.erase(parentId);
-        found->second.Dependencies.insert(parentId);
+        AddInternal(
+            reinterpret_cast<u64>(buffer),
+            reinterpret_cast<u64>(parent),
+            { buffer }
+        );
     }
 
-    void RenderGraph::AddRenderContext(RenderContext* context, CommandBuffer* parent)
+    void RenderGraph::AddInternal(u64 id, u64 parentId, const Node& addData)
     {
-        u64 contextId = reinterpret_cast<u64>(context);
-        if (contextId == 0)
+        if (id == 0)
             return;
-        auto found = m_Nodes.find(contextId);
+        auto found = m_Nodes.find(id);
         if (found == m_Nodes.end())
         {
-            m_Nodes.insert({ contextId, { nullptr, context } });
-            m_Leaves.insert(contextId);
-            found = m_Nodes.find(contextId);
+            m_Nodes.insert({ id, addData });
+            m_Leaves.insert(id);
+            found = m_Nodes.find(id);
         }
 
-        u64 parentId = reinterpret_cast<u64>(parent);
         if (parentId == 0 || m_Nodes.find(parentId) == m_Nodes.end())
             return;
 
         m_Leaves.erase(parentId);
         found->second.Dependencies.insert(parentId);
+
     }
 
     std::shared_ptr<RenderGraph> RenderGraph::Create(const RenderGraphCreateInfo& createInfo)

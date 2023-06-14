@@ -18,22 +18,24 @@ namespace Flourish::Vulkan
         bool Validate() override;
 
         [[nodiscard]] Flourish::RenderCommandEncoder* EncodeRenderCommands() override; 
-        
+
         // TS
-        VkSemaphore GetSignalSemaphore() const;
-        VkSemaphore GetSignalSemaphore(u32 frameIndex) const;
+        VkSemaphore GetTimelineSignalSemaphore() const;
+        VkSemaphore GetBinarySignalSemaphore() const;
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }
         inline Vulkan::Swapchain& Swapchain() { return m_Swapchain; }
         inline Vulkan::CommandBuffer& CommandBuffer() { return m_CommandBuffer; }
         inline VkSemaphore GetImageAvailableSemaphore() const { return m_Swapchain.GetImageAvailableSemaphore(); }
+        inline u64 GetSignalValue() const { return m_SignalValue; }
 
     private:
         VkSurfaceKHR m_Surface = nullptr;
         Vulkan::Swapchain m_Swapchain;
         Vulkan::CommandBuffer m_CommandBuffer;
-        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> m_SignalSemaphores;
+        std::array<std::array<VkSemaphore, 2>, Flourish::Context::MaxFrameBufferCount> m_SignalSemaphores;
+        u64 m_SignalValue = 0;
         u64 m_LastEncodingFrame = 0;
         u64 m_LastPresentFrame = 0;
     };

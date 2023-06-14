@@ -20,14 +20,12 @@ namespace Flourish::Vulkan
         VkDependencyInfo DepInfo;
     };
 
-    class RenderContext;
     struct SubmissionSubmitInfo
     {
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> WaitSemaphores;
-        std::array<std::array<VkSemaphore, 2>, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
-        std::array<u64, 2> SignalSemaphoreValues;
+        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
+        u64 SignalSemaphoreValue;
         std::vector<VkPipelineStageFlags> WaitStageFlags;
-        std::vector<RenderContext*> PresentingContexts;
         std::array<VkSubmitInfo, Flourish::Context::MaxFrameBufferCount> SubmitInfos;
         VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
         GPUWorkloadType Workload;

@@ -125,13 +125,12 @@ namespace FlourishTesting
                 m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount + 1].get(), m_CommandBuffers[i].get());
             }
             m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount].get());
-            m_RenderGraph->AddRenderContext(m_RenderContext.get(), m_CommandBuffers[objectCount].get());
-            m_RenderGraph->AddRenderContext(m_RenderContext.get(), m_CommandBuffers[objectCount + 1].get());
 
             m_RenderGraph->Build();
         }
 
         Flourish::Context::PushFrameRenderGraph(m_RenderGraph.get());
+        Flourish::Context::PushFrameRenderContext(m_RenderContext.get());
     }
     
     void Tests::RunSingleThreadedTest()
@@ -180,12 +179,12 @@ namespace FlourishTesting
         if (!m_RenderGraph->IsBuild())
         {
             m_RenderGraph->AddCommandBuffer(m_CommandBuffers[0].get());
-            m_RenderGraph->AddRenderContext(m_RenderContext.get(), m_CommandBuffers[0].get());
 
             m_RenderGraph->Build();
         }
 
         Flourish::Context::PushFrameRenderGraph(m_RenderGraph.get());
+        Flourish::Context::PushFrameRenderContext(m_RenderContext.get());
     }
 
     Tests::Tests()

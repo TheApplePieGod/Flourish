@@ -57,7 +57,8 @@ namespace Flourish
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
-        s_FrameSubmissions.clear();
+        s_GraphSubmissions.clear();
+        s_ContextSubmissions.clear();
         s_FrameCount++;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
@@ -67,7 +68,7 @@ namespace Flourish
         if (!graph) return;
         
         s_FrameMutex.lock();
-        s_FrameSubmissions.emplace_back(graph);
+        s_GraphSubmissions.emplace_back(graph);
         s_FrameMutex.unlock();
 
         switch (s_BackendType)
@@ -75,6 +76,15 @@ namespace Flourish
             //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
             //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
         }
+    }
+
+    void Context::PushFrameRenderContext(RenderContext* context)
+    {
+        if (!context) return;
+        
+        s_FrameMutex.lock();
+        s_ContextSubmissions.emplace_back(context);
+        s_FrameMutex.unlock();
     }
 
     void Context::PushRenderGraph(RenderGraph* graph, std::function<void()> callback)
