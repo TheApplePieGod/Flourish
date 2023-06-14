@@ -55,6 +55,8 @@ namespace Flourish::Vulkan
 
     void RenderGraph::Build()
     {
+        FL_PROFILE_FUNCTION();
+
         m_ExecuteData.SubmissionOrder.clear();
         m_ExecuteData.SubmissionSyncs.clear();
         m_ExecuteData.EventData.clear();
@@ -99,11 +101,11 @@ namespace Flourish::Vulkan
             Node& node = m_Nodes[m_ExecuteData.SubmissionOrder[orderIndex]];
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
             auto& submissions = buffer->GetEncoderSubmissions();
-            for (int subIndex = submissions.size() - 1; subIndex >= 0; subIndex--)
+            for (u32 subIndex = 0; subIndex < submissions.size(); subIndex++)
             {
                 m_ExecuteData.SubmissionSyncs.emplace_back();
                 auto& submission = submissions[subIndex];
-                bool firstSub = orderIndex == m_ExecuteData.SubmissionOrder.size() - 1 && subIndex == submissions.size() - 1;
+                bool firstSub = orderIndex == m_ExecuteData.SubmissionOrder.size() - 1 && subIndex == 0;
                 bool workloadChange = !firstSub && submission.AllocInfo.WorkloadType != currentWorkloadType;
                 if (workloadChange || firstSub)
                 {
@@ -176,6 +178,8 @@ namespace Flourish::Vulkan
                         auto& fromSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex];
                         auto& toSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
 
+                        fromSubmit.IsCompletion = false;
+
                         // We want to wait on the stage of the current workload since we before the
                         // execution of the stage
                         VkPipelineStageFlags waitFlags;
@@ -233,7 +237,7 @@ namespace Flourish::Vulkan
             {
                 info.SubmitInfos[i].pNext = &info.TimelineSubmitInfo;
                 info.SubmitInfos[i].pSignalSemaphores = &info.SignalSemaphores[i];
-                if (info.WaitSemaphores[i].empty())
+                if (info.IsCompletion)
                     m_ExecuteData.CompletionSemaphores[i].emplace_back(info.SignalSemaphores[i]);
             }
         }

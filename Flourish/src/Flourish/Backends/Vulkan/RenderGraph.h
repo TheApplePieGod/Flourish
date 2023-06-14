@@ -29,6 +29,7 @@ namespace Flourish::Vulkan
         std::array<VkSubmitInfo, Flourish::Context::MaxFrameBufferCount> SubmitInfos;
         VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
         GPUWorkloadType Workload;
+        bool IsCompletion = true;
     };
 
     struct SubmissionSyncInfo

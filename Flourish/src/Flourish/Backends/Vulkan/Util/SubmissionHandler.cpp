@@ -39,6 +39,8 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::ProcessFrameSubmissions()
     {
+        FL_PROFILE_FUNCTION();
+
         /*
         for (auto& list : buffers)
         {
@@ -273,7 +275,7 @@ namespace Flourish::Vulkan
                 auto& node = graph->GetNode(executeData.SubmissionOrder[orderIndex == -1 ? 0 : orderIndex]);
                 CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
                 auto& submissions = buffer->GetEncoderSubmissions();
-                for (int subIndex = submissions.size() - 1; subIndex >= 0 || orderIndex == -1; subIndex--)
+                for (u32 subIndex = 0; subIndex < submissions.size() || orderIndex == -1; subIndex++)
                 {
                     if (orderIndex == -1 || executeData.SubmissionSyncs[totalIndex].SubmitDataIndex != -1)
                     {
