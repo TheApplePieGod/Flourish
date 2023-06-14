@@ -125,6 +125,7 @@ namespace FlourishTesting
                 m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount + 1].get(), m_CommandBuffers[i].get());
             }
             m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount].get());
+            m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount + 1].get(), m_CommandBuffers[objectCount].get());
 
             m_RenderGraph->Build();
         }

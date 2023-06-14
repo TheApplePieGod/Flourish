@@ -356,9 +356,9 @@ namespace Flourish::Vulkan
                     if (submission.Framebuffer)
                         vkCmdEndRenderPass(primaryBuf);
 
-                    for (u32 writeEventIndex : syncInfo.WriteEvents)
+                    if (syncInfo.WriteEvent != -1)
                     {
-                        auto& eventData = executeData.EventData[writeEventIndex];
+                        auto& eventData = executeData.EventData[syncInfo.WriteEvent];
                         vkCmdSetEvent2(
                             primaryBuf,
                             eventData.Events[frameIndex],

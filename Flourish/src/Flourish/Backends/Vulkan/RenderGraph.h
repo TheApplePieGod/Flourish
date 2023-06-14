@@ -35,8 +35,9 @@ namespace Flourish::Vulkan
     struct SubmissionSyncInfo
     {
         int SubmitDataIndex = -1;
-        std::vector<u32> WriteEvents;
-        std::vector<u32> WaitEvents;
+        int WriteEvent = -1;
+        std::vector<int> WaitEvents;
+        int LastWaitWriteIndex = -1;
     };
 
     struct GraphExecuteData

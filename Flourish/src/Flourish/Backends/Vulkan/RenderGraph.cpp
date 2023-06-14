@@ -146,24 +146,33 @@ namespace Flourish::Vulkan
 
                     if (resourceInfo.LastWriteWorkload == submission.AllocInfo.WorkloadType)
                     {
-                        u32 eventDataIndex = m_ExecuteData.EventData.size();
-                        m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
-
-                        switch (submission.AllocInfo.WorkloadType)
+                        // If the write occured before the previous event, we don't have to wait again
+                        // because the event existing implies a read that occured before this one
+                        auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
+                        if (resourceInfo.LastWriteIndex > currentSync.LastWaitWriteIndex)
                         {
-                            case GPUWorkloadType::Graphics:
-                            { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
-                            case GPUWorkloadType::Compute:
-                            { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER; } break;
-                            case GPUWorkloadType::Transfer:
-                            { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER; } break;
+                            u32 eventDataIndex = m_ExecuteData.EventData.size();
+                            m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
+
+                            switch (submission.AllocInfo.WorkloadType)
+                            {
+                                case GPUWorkloadType::Graphics:
+                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
+                                case GPUWorkloadType::Compute:
+                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER; } break;
+                                case GPUWorkloadType::Transfer:
+                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER; } break;
+                            }
+
+                            currentSync.WaitEvents.emplace_back(eventDataIndex);
+                            currentSync.LastWaitWriteIndex = resourceInfo.LastWriteIndex;
+
+                            // Write only on the last time we wrote which will sync all writes before
+                            // Should always only signal one event
+                            auto& lastWriteSync = m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteIndex];
+                            FL_ASSERT(lastWriteSync.WriteEvent == -1);
+                            lastWriteSync.WriteEvent = eventDataIndex;
                         }
-
-                        // If workload types are the same, we need to wait on the event
-                        m_ExecuteData.SubmissionSyncs[totalIndex].WaitEvents.emplace_back(eventDataIndex);
-
-                        // Write only on the last time we wrote which will sync all writes before
-                        m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteIndex].WriteEvents.emplace_back(eventDataIndex);
 
                         // Clear the event because nothing on this queue will have to wait
                         // for this event ever again
@@ -213,7 +222,7 @@ namespace Flourish::Vulkan
                 {
                     // We can lazy insert once we see a write because the resouce only
                     // matters after the first write
-                    auto resource = m_AllResources[write];
+                    auto& resource = m_AllResources[write];
                     if (resource.LastWriteIndex == -1)
                         for (u32 i = 0; i < m_SyncObjectCount; i++)
                             resource.WriteEvents[i] = Synchronization::CreateEvent();
