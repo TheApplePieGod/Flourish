@@ -7,15 +7,6 @@
 
 namespace Flourish::Vulkan
 {
-    struct RenderContextSubmissionData
-    {
-        std::vector<VkSemaphore> WaitSemaphores;
-        std::vector<u64> WaitSemaphoreValues;
-        std::vector<VkPipelineStageFlags> WaitStages;
-        std::array<std::array<VkSemaphore, 2>, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
-        std::array<std::array<u64, 2>, Flourish::Context::MaxFrameBufferCount> SignalSemaphoreValues;
-    };
-
     class RenderContext : public Flourish::RenderContext
     {
     public:

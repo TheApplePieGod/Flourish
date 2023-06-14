@@ -9,20 +9,6 @@
 
 namespace Flourish::Vulkan
 {
-    struct CommandBufferSubmissionData
-    {
-        std::vector<VkSubmitInfo> SubmitInfos;
-        std::vector<VkTimelineSemaphoreSubmitInfo> TimelineSubmitInfos;
-        std::vector<u64> SyncSemaphoreValues;
-        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SyncSemaphores;
-        VkPipelineStageFlags DrawWaitStages[1] = { VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT };
-        VkPipelineStageFlags TransferWaitStages[1] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
-        VkPipelineStageFlags ComputeWaitStages[1] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
-        VkSubmitInfo* FirstSubmitInfo;
-        VkSubmitInfo* LastSubmitInfo;
-        VkPipelineStageFlags FirstSubBufferWaitStage;
-    };
-
     class CommandBuffer : public Flourish::CommandBuffer
     {
     public:
@@ -30,18 +16,16 @@ namespace Flourish::Vulkan
         ~CommandBuffer() override;
 
         void SubmitEncodedCommands(const CommandBufferEncoderSubmission& submission);
-        void ClearSubmissions();
         [[nodiscard]] Flourish::GraphicsCommandEncoder* EncodeGraphicsCommands() override;
         [[nodiscard]] Flourish::RenderCommandEncoder* EncodeRenderCommands(Flourish::Framebuffer* framebuffer) override;
         [[nodiscard]] Flourish::ComputeCommandEncoder* EncodeComputeCommands() override;
         [[nodiscard]] Flourish::TransferCommandEncoder* EncodeTransferCommands() override;
 
-        inline CommandBufferSubmissionData& GetSubmissionData() { return m_SubmissionData; }
         inline void SetLastSubmitFrame(u64 frame) { m_LastSubmitFrame = frame; }
+        inline void ClearSubmissions() { m_EncoderSubmissions.clear(); }
 
         // TS
         inline const auto& GetEncoderSubmissions() { CheckFrameUpdate(); return m_EncoderSubmissions; }
-        inline u64 GetFinalSemaphoreValue() const { return m_SemaphoreBaseValue + m_EncoderSubmissions.size() + 1; }
         inline u64 GetLastSubmitFrame() const { return m_LastSubmitFrame; }
 
     private:
@@ -50,12 +34,10 @@ namespace Flourish::Vulkan
     private:
         u64 m_LastFrameEncoding = 0;
         u64 m_LastSubmitFrame = 0;
-        u64 m_SemaphoreBaseValue = 1;
         GraphicsCommandEncoder m_GraphicsCommandEncoder;
         RenderCommandEncoder m_RenderCommandEncoder;
         ComputeCommandEncoder m_ComputeCommandEncoder;
         TransferCommandEncoder m_TransferCommandEncoder;
         std::vector<CommandBufferEncoderSubmission> m_EncoderSubmissions;
-        CommandBufferSubmissionData m_SubmissionData;
     };
 }

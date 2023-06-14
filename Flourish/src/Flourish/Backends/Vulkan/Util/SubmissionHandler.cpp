@@ -12,22 +12,11 @@ namespace Flourish::Vulkan
     void SubmissionHandler::Initialize()
     {
         FL_LOG_TRACE("Vulkan submission handler initialization begin");
-        
-        // This will last for a very high number of submissions
-        m_FrameSubmissionData.CompletionSemaphores.reserve(500);
-        m_FrameSubmissionData.CompletionSemaphoreValues.reserve(500);
-        m_FrameSubmissionData.CompletionWaitStages.reserve(500);
-        m_PushSubmissionData.CompletionSemaphores.reserve(100);
-        m_PushSubmissionData.CompletionSemaphoreValues.reserve(100);
-        m_PushSubmissionData.CompletionWaitStages.reserve(100);
-        m_ExecuteSubmissionData.CompletionSemaphores.reserve(100);
-        m_ExecuteSubmissionData.CompletionSemaphoreValues.reserve(100);
-        m_ExecuteSubmissionData.CompletionWaitStages.reserve(100);
     }
     
     void SubmissionHandler::Shutdown()
     {
-        FL_LOG_TRACE("Vulkan submission handler shutdown begin");
+
     }
 
     void SubmissionHandler::WaitOnFrameSemaphores()
@@ -48,8 +37,9 @@ namespace Flourish::Vulkan
         vals.clear();
     }
 
-    void SubmissionHandler::ProcessFrameSubmissions(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, bool submit)
+    void SubmissionHandler::ProcessFrameSubmissions()
     {
+        /*
         for (auto& list : buffers)
         {
             for (auto _buffer : list)
@@ -62,55 +52,21 @@ namespace Flourish::Vulkan
                 buffer->SetLastSubmitFrame(Flourish::Context::FrameCount());
             }
         }
+        */
 
-        if (!submit) return;
-
-        /*
         ProcessSubmission(
-            m_FrameSubmissionData,
-            Flourish::Context::FrameSubmissions().Buffers,
-            &Flourish::Context::FrameSubmissions().Contexts,
-            &m_FrameWaitSemaphores[Flourish::Context::FrameIndex()],
-            &m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()]
-        );
-        */
-    }
-
-    void SubmissionHandler::ProcessFrameSubmissions2(Flourish::CommandBuffer* const* buffers, u32 bufferCount, bool submit)
-    {
-        // TODO: add this check, might make more sense to do it in the final process?
-        /*
-        for (auto& list : buffers)
-        {
-            for (auto _buffer : list)
-            {
-                auto buffer = static_cast<CommandBuffer*>(_buffer);
-
-                FL_ASSERT(buffer->IsFrameRestricted(), "Cannot include a non frame restricted command buffer in PushFrameCommandBuffers");
-                FL_ASSERT(buffer->GetLastSubmitFrame() != Flourish::Context::FrameCount(), "Cannot push a command buffer twice in one frame");
-                
-                buffer->SetLastSubmitFrame(Flourish::Context::FrameCount());
-            }
-        }
-        */
-
-        if (!submit) return;
-
-        //if (Flourish::Context::FrameSubmissions().Buffers.empty())
-         //   return;
-
-        ProcessSubmission2(
-            m_FrameSubmissionData,
-            Flourish::Context::FrameSubmissions(),
+            Flourish::Context::FrameSubmissions().data(),
+            Flourish::Context::FrameSubmissions().size(),
             &m_FrameWaitSemaphores[Flourish::Context::FrameIndex()],
             &m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()]
         );
     }
 
-    void SubmissionHandler::ProcessPushSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, std::function<void()> callback)
+    void SubmissionHandler::ProcessPushSubmission(Flourish::RenderGraph* graph, std::function<void()> callback)
     {
         std::vector<CommandBufferEncoderSubmission> submissionsToFree;
 
+        /*
         for (auto& list : buffers)
         {
             for (auto _buffer : list)
@@ -123,25 +79,21 @@ namespace Flourish::Vulkan
                     submissionsToFree.push_back(submission);
             }
         }
+        */
 
         std::vector<VkSemaphore> semaphores;
         std::vector<u64> values;
-        std::vector<u32> counts = { (u32)buffers.size() };
 
-        m_PushDataMutex.lock();
         ProcessSubmission(
-            m_PushSubmissionData,
-            buffers,
-            nullptr,
+            &graph, 1,
             &semaphores,
             &values
         );
-        m_PushDataMutex.unlock();
         
         Context::FinalizerQueue().PushAsync([callback, submissionsToFree]()
         {
             for (auto& submission : submissionsToFree)
-                Context::Commands().FreeBuffer(submission.AllocInfo, submission.Buffers[0]);
+                Context::Commands().FreeBuffers(submission.AllocInfo, submission.Buffers.data(), submission.Buffers.size());
 
             if (callback)
                 callback();
@@ -149,26 +101,20 @@ namespace Flourish::Vulkan
 
         // Clear when pushing to allow for immediate reencoding since we saved the buffers that need to
         // be freed
-        for (auto& list : buffers)
-            for (auto buffer : list)
-                static_cast<CommandBuffer*>(buffer)->ClearSubmissions();
+        for (auto& pair : graph->GetNodes())
+            static_cast<CommandBuffer*>(pair.second.Buffer)->ClearSubmissions();
     }
 
-    void SubmissionHandler::ProcessExecuteSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers)
+    void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
     {
         std::vector<VkSemaphore> semaphores;
         std::vector<u64> values;
-        std::vector<u32> counts = { (u32)buffers.size() };
 
-        m_ExecuteDataMutex.lock();
         ProcessSubmission(
-            m_ExecuteSubmissionData,
-            buffers,
-            nullptr,
+            &graph, 1,
             &semaphores,
             &values
         );
-        m_ExecuteDataMutex.unlock();
         
         VkSemaphoreWaitInfo waitInfo{};
         waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
@@ -177,19 +123,22 @@ namespace Flourish::Vulkan
         waitInfo.pValues = values.data();
 
         vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+
+        for (auto& pair : graph->GetNodes())
+            static_cast<CommandBuffer*>(pair.second.Buffer)->ClearSubmissions();
     }
 
-    void SubmissionHandler::ProcessSubmission2(
-        CommandSubmissionData& submissionData,
-        const std::vector<Flourish::RenderGraph*>& graphs,
+    void SubmissionHandler::ProcessSubmission(
+        Flourish::RenderGraph* const* graphs,
+        u32 graphCount,
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
         FL_PROFILE_FUNCTION();
 
-        for (auto _graph  : graphs)
+        for (u32 graphIdx = 0; graphIdx < graphCount; graphIdx++)
         {
-            auto graph = static_cast<RenderGraph*>(_graph);
+            auto graph = static_cast<RenderGraph*>(graphs[graphIdx]);
             graph->PrepareForSubmission();
             auto& executeData = graph->GetExecutionData();
 
@@ -339,14 +288,5 @@ namespace Flourish::Vulkan
                 }
             }
         }
-    }
-
-    void SubmissionHandler::ProcessSubmission(
-        CommandSubmissionData& submissionData,
-        const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers,
-        const std::vector<Flourish::RenderContext*>* contexts,
-        std::vector<VkSemaphore>* finalSemaphores,
-        std::vector<u64>* finalSemaphoreValues)
-    {
     }
 }

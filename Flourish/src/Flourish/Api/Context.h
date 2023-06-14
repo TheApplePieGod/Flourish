@@ -35,8 +35,8 @@ namespace Flourish
 
         // TS
         static void PushFrameRenderGraph(RenderGraph* graph);
-        static void PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);
-        static void ExecuteCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers);
+        static void PushRenderGraph(RenderGraph* graph, std::function<void()> callback = nullptr);
+        static void ExecuteRenderGraph(RenderGraph* graph);
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }
