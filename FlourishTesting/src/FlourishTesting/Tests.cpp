@@ -1,3 +1,4 @@
+#include "Flourish/Api/RenderGraph.h"
 #include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Api/Shader.h"
 #include "flpch.h"
@@ -49,8 +50,6 @@ namespace FlourishTesting
         if (!m_DogTexture->IsReady()) return;
         if (!m_CatTexture->IsReady()) return;
 
-        m_RenderContext->ClearDependencies();
-
         u32 objectCount = 5;
 
         std::vector<std::future<void>> jobs;
@@ -72,8 +71,6 @@ namespace FlourishTesting
             }));
             
             parallelBuffers.push_back(m_CommandBuffers[i].get());
-            m_RenderContext->AddDependency(m_CommandBuffers[i].get());
-            m_CommandBuffers[objectCount + 1]->AddDependency(m_CommandBuffers[i].get());
         }
         
         {
@@ -88,8 +85,6 @@ namespace FlourishTesting
             }));
             
             parallelBuffers.push_back(m_CommandBuffers[objectCount].get());
-            m_RenderContext->AddDependency(m_CommandBuffers[objectCount].get());
-            m_CommandBuffers[objectCount + 1]->AddDependency(m_CommandBuffers[objectCount].get());
         }
         
         auto encoder = m_CommandBuffers[objectCount + 1]->EncodeRenderCommands(m_FrameTextureBuffers[objectCount].get());
@@ -122,15 +117,26 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        m_RenderContext->AddDependency(m_CommandBuffers[objectCount + 1].get());
-        m_RenderContext->Present();
+        if (!m_RenderGraph->IsBuild())
+        {
+            for (u32 i = 0; i < objectCount; i++)
+            {
+                m_RenderGraph->AddCommandBuffer(m_CommandBuffers[i].get());
+                m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount + 1].get(), m_CommandBuffers[i].get());
+            }
+            m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount].get());
+            m_RenderGraph->AddRenderContext(m_RenderContext.get(), m_CommandBuffers[objectCount].get());
+            m_RenderGraph->AddRenderContext(m_RenderContext.get(), m_CommandBuffers[objectCount + 1].get());
+
+            m_RenderGraph->Build();
+        }
+
+        Flourish::Context::PushFrameRenderGraph(m_RenderGraph.get());
     }
     
     void Tests::RunSingleThreadedTest()
     {
         if (!m_DogTexture->IsReady()) return;
-
-        m_RenderContext->ClearDependencies();
 
         u32 objectCount = 5;
         float scale = 0.25f;
@@ -171,8 +177,15 @@ namespace FlourishTesting
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
 
-        m_RenderContext->AddDependency(m_CommandBuffers[0].get());
-        m_RenderContext->Present();
+        if (!m_RenderGraph->IsBuild())
+        {
+            m_RenderGraph->AddCommandBuffer(m_CommandBuffers[0].get());
+            m_RenderGraph->AddRenderContext(m_RenderContext.get(), m_CommandBuffers[0].get());
+
+            m_RenderGraph->Build();
+        }
+
+        Flourish::Context::PushFrameRenderGraph(m_RenderGraph.get());
     }
 
     Tests::Tests()
@@ -493,5 +506,9 @@ namespace FlourishTesting
         
         for (u32 i = 0; i < 10; i++)
             m_CommandBuffers.push_back(Flourish::CommandBuffer::Create(cmdCreateInfo));
+
+        Flourish::RenderGraphCreateInfo rgCreateInfo;
+        rgCreateInfo.Usage = Flourish::RenderGraphUsageType::PerFrame;
+        m_RenderGraph = Flourish::RenderGraph::Create(rgCreateInfo);
     }
 }

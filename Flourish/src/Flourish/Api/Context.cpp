@@ -5,11 +5,6 @@
 
 namespace Flourish
 {
-    void ContextCommandSubmissions::Clear()
-    {
-        Buffers.clear();
-        Contexts.clear();
-    }
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
@@ -62,23 +57,23 @@ namespace Flourish
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
-        s_FrameSubmissions.Clear();
+        s_FrameSubmissions.clear();
         s_FrameCount++;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    void Context::PushFrameCommandBuffers(CommandBuffer* const* buffers, u32 bufferCount)
+    void Context::PushFrameRenderGraph(RenderGraph* graph)
     {
-        if (bufferCount == 0 || !buffers) return;
+        if (!graph) return;
         
-        s_FrameSubmissions.Mutex.lock();
-        s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers, buffers + bufferCount);
-        s_FrameSubmissions.Mutex.unlock();
+        s_FrameMutex.lock();
+        s_FrameSubmissions.emplace_back(graph);
+        s_FrameMutex.unlock();
 
         switch (s_BackendType)
         {
             //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
-            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
+            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
         }
     }
 
@@ -106,12 +101,5 @@ namespace Flourish
         {
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(buffers); } break;
         }
-    }
-
-    void Context::PushFrameRenderContext(RenderContext* context)
-    {
-        s_FrameSubmissions.Mutex.lock();
-        s_FrameSubmissions.Contexts.push_back(context);
-        s_FrameSubmissions.Mutex.unlock();
     }
 }

@@ -9,6 +9,7 @@
 #include "Flourish/Api/Framebuffer.h"
 #include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Api/ComputePipeline.h"
+#include "Flourish/Api/RenderGraph.h"
 
 namespace FlourishTesting
 {
@@ -73,6 +74,8 @@ namespace FlourishTesting
         std::shared_ptr<Flourish::Texture> m_DogTexture;
         std::shared_ptr<Flourish::Texture> m_CatTexture;
         std::vector<std::shared_ptr<Flourish::Texture>> m_FrameTextures;
+
+        std::shared_ptr<Flourish::RenderGraph> m_RenderGraph;
         
         std::vector<std::shared_ptr<Flourish::CommandBuffer>> m_CommandBuffers;
     };

@@ -55,12 +55,14 @@ namespace Flourish::Vulkan
 
     void RenderGraph::Build()
     {
-        m_SubmissionOrder.clear();
+        m_ExecuteData.SubmissionOrder.clear();
+        m_ExecuteData.SubmissionSyncs.clear();
+        m_ExecuteData.EventData.clear();
+        m_ExecuteData.SubmitData.clear();
         m_AllResources.clear();
         m_VisitedNodes.clear();
-        m_SubmissionSyncs.clear();
-        m_EventData.clear();
-        m_SubmitData.clear();
+        for (u32 i = 0; i < m_SyncObjectCount; i++)
+            m_ExecuteData.CompletionSemaphores[i].clear();
 
         for (auto& id : m_Leaves)
             m_ProcessingNodes.emplace(id);
@@ -78,54 +80,55 @@ namespace Flourish::Vulkan
             auto& node = m_Nodes[nodeId];
             for (u64 depId : node.Dependencies)
                 m_ProcessingNodes.emplace(depId);
+
+            m_ExecuteData.SubmissionOrder.emplace_back(nodeId);
         }
 
-        if (m_SubmissionOrder.empty())
+        m_Built = true;
+        if (m_ExecuteData.SubmissionOrder.empty())
             return;
         
         // Good estimate
-        m_SubmissionSyncs.reserve(m_SubmissionOrder.size() * 5);
+        m_ExecuteData.SubmissionSyncs.reserve(m_ExecuteData.SubmissionOrder.size() * 5);
 
         u32 totalIndex = 0;
         int currentWorkloadIndex = -1;
         GPUWorkloadType currentWorkloadType;
-        for (int orderIndex = m_SubmissionOrder.size() - 1; orderIndex >= 0; orderIndex--)
+        for (int orderIndex = m_ExecuteData.SubmissionOrder.size() - 1; orderIndex >= 0; orderIndex--)
         {
-            Node& node = m_Nodes[m_SubmissionOrder[orderIndex]];
+            Node& node = m_Nodes[m_ExecuteData.SubmissionOrder[orderIndex]];
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
             if (!buffer) // Must be a context submission
                 buffer = &static_cast<RenderContext*>(node.Context)->CommandBuffer();
             auto& submissions = buffer->GetEncoderSubmissions();
             for (int subIndex = submissions.size() - 1; subIndex >= 0; subIndex--)
             {
-                m_SubmissionSyncs.emplace_back();
+                m_ExecuteData.SubmissionSyncs.emplace_back();
                 auto& submission = submissions[subIndex];
-                bool firstSub = orderIndex == m_SubmissionOrder.size() - 1 && subIndex == submissions.size() - 1;
+                bool firstSub = orderIndex == m_ExecuteData.SubmissionOrder.size() - 1 && subIndex == submissions.size() - 1;
                 bool workloadChange = !firstSub && submission.AllocInfo.WorkloadType != currentWorkloadType;
                 if (workloadChange || firstSub)
                 {
-                    m_SubmissionSyncs[totalIndex].SubmitDataIndex = m_SubmitData.size();
-                    auto& submitData = m_SubmitData.emplace_back();
+                    m_ExecuteData.SubmissionSyncs[totalIndex].SubmitDataIndex = m_ExecuteData.SubmitData.size();
+                    auto& submitData = m_ExecuteData.SubmitData.emplace_back();
+                    submitData.Workload = submission.AllocInfo.WorkloadType;
 
                     auto& timelineSubmitInfo = submitData.TimelineSubmitInfo;
                     timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
                     timelineSubmitInfo.signalSemaphoreValueCount = 1;
-                    timelineSubmitInfo.pSignalSemaphoreValues = submitData.SignalSemaphoreValues.data();
 
                     for (u32 i = 0; i < m_SyncObjectCount; i++)
                     {
                         auto& submitInfo = submitData.SubmitInfos[i];
                         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-                        submitInfo.pNext = &timelineSubmitInfo;
                         submitInfo.commandBufferCount = 1;
                         submitInfo.signalSemaphoreCount = 1;
-                        submitInfo.pSignalSemaphores = submitData.SignalSemaphores[i].data();
 
                         submitData.SignalSemaphores[i][0] = Synchronization::CreateTimelineSemaphore(0);
                     }
 
                     currentWorkloadIndex = totalIndex;
-                    currentWorkloadType = submission.AllocInfo.WorkloadType;
+                    currentWorkloadType = submitData.Workload;
                 }
 
                 // TODO: we could potentially optimize this such that a wait does not occur
@@ -143,24 +146,24 @@ namespace Flourish::Vulkan
 
                     if (resourceInfo.LastWriteWorkload == submission.AllocInfo.WorkloadType)
                     {
-                        u32 eventDataIndex = m_EventData.size();
-                        m_EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
+                        u32 eventDataIndex = m_ExecuteData.EventData.size();
+                        m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
 
                         switch (submission.AllocInfo.WorkloadType)
                         {
                             case GPUWorkloadType::Graphics:
-                            { m_EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
+                            { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
                             case GPUWorkloadType::Compute:
-                            { m_EventData.back().DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER; } break;
+                            { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER; } break;
                             case GPUWorkloadType::Transfer:
-                            { m_EventData.back().DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER; } break;
+                            { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER; } break;
                         }
 
                         // If workload types are the same, we need to wait on the event
-                        m_SubmissionSyncs[totalIndex].WaitEvents.emplace_back(eventDataIndex);
+                        m_ExecuteData.SubmissionSyncs[totalIndex].WaitEvents.emplace_back(eventDataIndex);
 
                         // Write only on the last time we wrote which will sync all writes before
-                        m_SubmissionSyncs[resourceInfo.LastWriteIndex].WriteEvents.emplace_back(eventDataIndex);
+                        m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteIndex].WriteEvents.emplace_back(eventDataIndex);
 
                         // Clear the event because nothing on this queue will have to wait
                         // for this event ever again
@@ -172,8 +175,8 @@ namespace Flourish::Vulkan
                         // on the one where the write occured
                         // This also implies that currentWorkloadIndex != lastWorkloadIndex != -1
 
-                        auto& fromSubmit = m_SubmitData[m_SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex];
-                        auto& toSubmit = m_SubmitData[m_SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
+                        auto& fromSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex];
+                        auto& toSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
 
                         // We want to wait on the stage of the current workload since we before the
                         // execution of the stage
@@ -199,8 +202,8 @@ namespace Flourish::Vulkan
                             toSubmit.SubmitInfos[i].pWaitSemaphores = toSubmit.WaitSemaphores[i].data();
                             toSubmit.SubmitInfos[i].pWaitDstStageMask = toSubmit.WaitStageFlags.data();
                         }
-                        if (toSubmit.WaitSemaphores[0].size() > m_WaitSemaphoreValues.size())
-                            m_WaitSemaphoreValues.emplace_back();
+                        if (toSubmit.WaitSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
+                            m_ExecuteData.WaitSemaphoreValues.emplace_back();
                     }
                 }
 
@@ -225,7 +228,7 @@ namespace Flourish::Vulkan
             if (node.Context)
             {
                 RenderContext* context = static_cast<RenderContext*>(node.Context);
-                auto& submitData = m_SubmitData[m_SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
+                auto& submitData = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
                 submitData.PresentingContexts.emplace_back(context);
                 if (submitData.PresentingContexts.size() == 1)
                 {
@@ -241,30 +244,33 @@ namespace Flourish::Vulkan
         }
 
         // Finalize submit info
-        for (auto& info : m_SubmitData)
+        for (auto& info : m_ExecuteData.SubmitData)
         {
-            info.TimelineSubmitInfo.pWaitSemaphoreValues = m_WaitSemaphoreValues.data();
-
+            // Need to update pointers here since SubmitData array keeps resizing
+            info.TimelineSubmitInfo.pWaitSemaphoreValues = m_ExecuteData.WaitSemaphoreValues.data();
+            info.TimelineSubmitInfo.pSignalSemaphoreValues = info.SignalSemaphoreValues.data();
             for (u32 i = 0; i < m_SyncObjectCount; i++)
+            {
+                info.SubmitInfos[i].pNext = &info.TimelineSubmitInfo;
+                info.SubmitInfos[i].pSignalSemaphores = info.SignalSemaphores[i].data();
                 if (info.WaitSemaphores[i].empty())
-                    m_CompletionSemaphores[i].emplace_back(info.SignalSemaphores[i][0]);
+                    m_ExecuteData.CompletionSemaphores[i].emplace_back(info.SignalSemaphores[i][0]);
+            }
         }
 
         // Need to make sure there is enough space here because completion will
         // wait on the same values
-        if (m_CompletionSemaphores[0].size() > m_WaitSemaphoreValues.size())
-            m_WaitSemaphoreValues.resize(m_CompletionSemaphores[0].size());
-
-        m_Built = true;
+        if (m_ExecuteData.CompletionSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
+            m_ExecuteData.WaitSemaphoreValues.resize(m_ExecuteData.CompletionSemaphores[0].size());
     }
 
     void RenderGraph::PrepareForSubmission()
     {
         m_CurrentSemaphoreValue++;
 
-        for (u32 i = 0; i < m_WaitSemaphoreValues.size(); i++)
-            m_WaitSemaphoreValues[i] = m_CurrentSemaphoreValue;
-        for (u32 i = 0; i < m_SubmitData.size(); i++)
-            m_SubmitData[i].SignalSemaphoreValues[0] = m_CurrentSemaphoreValue;
+        for (u32 i = 0; i < m_ExecuteData.WaitSemaphoreValues.size(); i++)
+            m_ExecuteData.WaitSemaphoreValues[i] = m_CurrentSemaphoreValue;
+        for (u32 i = 0; i < m_ExecuteData.SubmitData.size(); i++)
+            m_ExecuteData.SubmitData[i].SignalSemaphoreValues[0] = m_CurrentSemaphoreValue;
     }
 }

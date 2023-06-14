@@ -40,6 +40,7 @@ namespace Flourish
 
         // TS
         inline bool IsBuild() const { return m_Built; }
+        inline const Node& GetNode(u64 id) const { return m_Nodes.at(id); }
 
     public:
         static std::shared_ptr<RenderGraph> Create(const RenderGraphCreateInfo& createInfo);

@@ -30,6 +30,7 @@ namespace Flourish::Vulkan
         std::vector<RenderContext*> PresentingContexts;
         std::array<VkSubmitInfo, Flourish::Context::MaxFrameBufferCount> SubmitInfos;
         VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
+        GPUWorkloadType Workload;
     };
 
     struct SubmissionSyncInfo
@@ -37,6 +38,19 @@ namespace Flourish::Vulkan
         int SubmitDataIndex = -1;
         std::vector<u32> WriteEvents;
         std::vector<u32> WaitEvents;
+    };
+
+    struct GraphExecuteData
+    {
+        std::vector<u64> SubmissionOrder;
+        std::vector<SubmissionSyncInfo> SubmissionSyncs;
+        std::vector<SubmissionEventData> EventData;
+        std::vector<SubmissionSubmitInfo> SubmitData;
+        std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> CompletionSemaphores;
+
+        // Will be the same across all semaphores, so just needs to be
+        // set to the current frame count each submit
+        std::vector<u64> WaitSemaphoreValues;
     };
 
     class CommandBuffer;
@@ -50,16 +64,11 @@ namespace Flourish::Vulkan
 
         void PrepareForSubmission();
 
-    private:
-        std::vector<u64> m_SubmissionOrder;
-        std::vector<SubmissionSyncInfo> m_SubmissionSyncs;
-        std::vector<SubmissionEventData> m_EventData;
-        std::vector<SubmissionSubmitInfo> m_SubmitData;
-        std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_CompletionSemaphores;
+        // TS
+        inline const auto& GetExecutionData() const { return m_ExecuteData; }
 
-        // Will be the same across all semaphores, so just needs to be
-        // set to the current frame count each submit
-        std::vector<u64> m_WaitSemaphoreValues;
+    private:
+        GraphExecuteData m_ExecuteData;
         u64 m_CurrentSemaphoreValue = 0;
 
         // All resources that matter when syncing (aka writes)

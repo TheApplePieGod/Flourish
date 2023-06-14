@@ -20,12 +20,12 @@ namespace Flourish
         if (found == m_Nodes.end())
         {
             m_Nodes.insert({ bufId, { buffer, nullptr } });
-            if (!parent)
-                m_Leaves.insert(bufId);
+            m_Leaves.insert(bufId);
+            found = m_Nodes.find(bufId);
         }
 
         u64 parentId = reinterpret_cast<u64>(parent);
-        if (parentId == 0)
+        if (parentId == 0 || m_Nodes.find(parentId) == m_Nodes.end())
             return;
 
         m_Leaves.erase(parentId);
@@ -41,12 +41,12 @@ namespace Flourish
         if (found == m_Nodes.end())
         {
             m_Nodes.insert({ contextId, { nullptr, context } });
-            if (!parent)
-                m_Leaves.insert(contextId);
+            m_Leaves.insert(contextId);
+            found = m_Nodes.find(contextId);
         }
 
         u64 parentId = reinterpret_cast<u64>(parent);
-        if (parentId == 0)
+        if (parentId == 0 || m_Nodes.find(parentId) == m_Nodes.end())
             return;
 
         m_Leaves.erase(parentId);

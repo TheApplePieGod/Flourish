@@ -33,13 +33,9 @@ namespace Flourish
         [[nodiscard]] virtual ComputeCommandEncoder* EncodeComputeCommands() = 0;
         [[nodiscard]] virtual TransferCommandEncoder* EncodeTransferCommands() = 0;
 
-        inline void AddDependency(CommandBuffer* buffer) { m_Dependencies.push_back(buffer); }
-        inline void ClearDependencies() { m_Dependencies.clear(); }
-
         // TS
         inline bool IsEncoding() const { return m_Encoding; }
         inline bool IsFrameRestricted() const { return m_Info.FrameRestricted; }
-        inline const auto& GetDependencies() const { return m_Dependencies; }
 
     public:
         // TS
@@ -48,6 +44,5 @@ namespace Flourish
     protected:
         CommandBufferCreateInfo m_Info;
         bool m_Encoding = false;
-        std::vector<CommandBuffer*> m_Dependencies;
     };
 }

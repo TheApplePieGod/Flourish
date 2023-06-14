@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Flourish/Api/CommandBuffer.h"
+#include "Flourish/Api/RenderGraph.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
@@ -22,40 +22,6 @@ namespace Flourish::Vulkan
         VkPipelineStageFlags DrawWaitStages[1] = { VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT };
         VkPipelineStageFlags TransferWaitStages[1] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
         VkPipelineStageFlags ComputeWaitStages[1] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
-
-        std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> SemaphoreFreeList;
-        u32 SemaphorePtr = 0;
-        std::array<std::vector<VkEvent>, Flourish::Context::MaxFrameBufferCount> EventFreeList;
-        u32 EventPtr = 0;
-    };
-
-    struct ResourceSyncInfo
-    {
-        int LastWriteIndex = -1;
-        int LastWriteWorkloadIndex = -1;
-        VkEvent WriteEvent = nullptr;
-        VkSemaphore CompletionSemaphore = nullptr;
-        u64 CompletionSemaphoreValue;
-    };
-
-    class RenderContext;
-    struct SubmissionSyncInfo
-    {
-        bool HasSubmit = false;
-        std::vector<VkMemoryBarrier2> WriteMemoryBarriers;
-        std::vector<VkMemoryBarrier2> WaitMemoryBarriers;
-        std::vector<VkDependencyInfo> WriteDependencies;
-        std::vector<VkDependencyInfo> WaitDependencies;
-        std::vector<VkEvent> WriteEvents;
-        std::vector<VkEvent> WaitEvents;
-        std::vector<VkSemaphore> WaitSemaphores;
-        std::vector<u64> WaitSemaphoreValues;
-        std::vector<VkPipelineStageFlags> WaitStageFlags;
-        std::vector<RenderContext*> PresentingContexts;
-        std::array<VkSemaphore, 2> SignalSemaphores;
-        std::array<u64, 2> SignalSemaphoreValues;
-        VkSubmitInfo SubmitInfo;
-        VkTimelineSemaphoreSubmitInfo TimelineSubmitInfo;
     };
 
     class SubmissionHandler
@@ -82,15 +48,10 @@ namespace Flourish::Vulkan
         );
         static void ProcessSubmission2(
             CommandSubmissionData& submissionData,
-            const std::vector<Flourish::CommandBuffer*>& buffers,
-            const std::vector<Flourish::RenderContext*>* contexts,
+            const std::vector<Flourish::RenderGraph*>& graphs,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
         );
-        
-    private:
-        static VkEvent GetNextEvent(CommandSubmissionData& submissionData);
-        static VkSemaphore GetNextSemaphore(CommandSubmissionData& submissionData);
         
     private:
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
