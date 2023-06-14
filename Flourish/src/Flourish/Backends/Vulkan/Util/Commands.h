@@ -68,7 +68,6 @@ namespace Flourish::Vulkan
         std::unordered_set<u64> ReadResources;
         std::unordered_set<u64> WriteResources;
         Framebuffer* Framebuffer = nullptr;
-        RenderContext* RenderContext = nullptr;
     };
 
     class Commands

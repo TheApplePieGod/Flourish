@@ -31,6 +31,7 @@ namespace Flourish::Vulkan
         
         // TS
         VkSemaphore GetSignalSemaphore() const;
+        VkSemaphore GetSignalSemaphore(u32 frameIndex) const;
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }

@@ -187,4 +187,9 @@ namespace Flourish::Vulkan
     {
         return m_SignalSemaphores[Flourish::Context::FrameIndex()];
     }
+
+    VkSemaphore RenderContext::GetSignalSemaphore(u32 frameIndex) const
+    {
+        return m_SignalSemaphores[frameIndex];
+    }
 }

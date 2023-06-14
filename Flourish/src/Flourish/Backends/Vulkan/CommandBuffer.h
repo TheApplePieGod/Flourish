@@ -40,7 +40,7 @@ namespace Flourish::Vulkan
         inline void SetLastSubmitFrame(u64 frame) { m_LastSubmitFrame = frame; }
 
         // TS
-        inline auto& GetEncoderSubmissions() { CheckFrameUpdate(); return m_EncoderSubmissions; }
+        inline const auto& GetEncoderSubmissions() { CheckFrameUpdate(); return m_EncoderSubmissions; }
         inline u64 GetFinalSemaphoreValue() const { return m_SemaphoreBaseValue + m_EncoderSubmissions.size() + 1; }
         inline u64 GetLastSubmitFrame() const { return m_LastSubmitFrame; }
 
