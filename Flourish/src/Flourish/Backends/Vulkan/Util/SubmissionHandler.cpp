@@ -113,11 +113,6 @@ namespace Flourish::Vulkan
             if (callback)
                 callback();
         }, &semaphores,  &values, "Push submission finalizer");
-
-        // Clear when pushing to allow for immediate reencoding since we saved the buffers that need to
-        // be freed
-        for (auto& pair : graph->GetNodes())
-            static_cast<CommandBuffer*>(pair.second.Buffer)->ClearSubmissions();
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
@@ -138,9 +133,6 @@ namespace Flourish::Vulkan
         waitInfo.pValues = values.data();
 
         vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
-
-        for (auto& pair : graph->GetNodes())
-            static_cast<CommandBuffer*>(pair.second.Buffer)->ClearSubmissions();
     }
 
     void SubmissionHandler::ProcessSubmission(
@@ -224,11 +216,27 @@ namespace Flourish::Vulkan
                     for (u32 waitEventIndex : syncInfo.WaitEvents)
                     {
                         auto& eventData = executeData.EventData[waitEventIndex];
-                        vkCmdWaitEvents2(
-                            primaryBuf, 1,
-                            &eventData.Events[frameIndex],
-                            &eventData.DepInfo
-                        );
+                        #ifdef FL_PLATFORM_MACOS
+                            VkMemoryBarrier memBarrier{};
+                            memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                            memBarrier.srcAccessMask = eventData.DepInfo.pMemoryBarriers[0].srcAccessMask;
+                            memBarrier.dstAccessMask = eventData.DepInfo.pMemoryBarriers[0].dstAccessMask;
+
+                            vkCmdWaitEvents(
+                                primaryBuf, 1,
+                                &eventData.Events[frameIndex],
+                                eventData.DepInfo.pMemoryBarriers[0].srcStageMask,
+                                eventData.DepInfo.pMemoryBarriers[0].dstStageMask,
+                                1, &memBarrier,
+                                0, nullptr, 0, nullptr
+                            );
+                        #else
+                            vkCmdWaitEvents2KHR(
+                                primaryBuf, 1,
+                                &eventData.Events[frameIndex],
+                                &eventData.DepInfo
+                            );
+                        #endif
                     }
 
                     if (submission.Framebuffer)
@@ -246,15 +254,25 @@ namespace Flourish::Vulkan
                     if (syncInfo.WriteEvent != -1)
                     {
                         auto& eventData = executeData.EventData[syncInfo.WriteEvent];
-                        vkCmdSetEvent2(
-                            primaryBuf,
-                            eventData.Events[frameIndex],
-                            &eventData.DepInfo
-                        );
+                        #ifdef FL_PLATFORM_MACOS
+                            vkCmdSetEvent(
+                                primaryBuf,
+                                eventData.Events[frameIndex],
+                                eventData.DepInfo.pMemoryBarriers[0].srcStageMask
+                            );
+                        #else
+                            vkCmdSetEvent2KHR(
+                                primaryBuf,
+                                eventData.Events[frameIndex],
+                                &eventData.DepInfo
+                            );
+                        #endif
                     }
 
                     totalIndex++;
                 }
+
+                buffer->ClearSubmissions();
             }
         }
     }
