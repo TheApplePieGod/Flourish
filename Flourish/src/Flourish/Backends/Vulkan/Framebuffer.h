@@ -15,7 +15,10 @@ namespace Flourish::Vulkan
         // TS
         VkFramebuffer GetFramebuffer() const;
         VkImageView GetAttachmentImageView(SubpassAttachment attachment) const;
-        const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
+
+        // TS
+        inline const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
+        inline bool RendersToSwapchain() const { return m_RendersToSwapchain; }
 
     private:
         struct ImageData
@@ -33,6 +36,7 @@ namespace Flourish::Vulkan
 
     private:
         bool m_UseResolve;
+        bool m_RendersToSwapchain = false;
         std::array<VkFramebuffer, Flourish::Context::MaxFrameBufferCount> m_Framebuffers;
         std::array<std::vector<ImageData>, Flourish::Context::MaxFrameBufferCount> m_Images;
         std::array<std::vector<VkImageView>, Flourish::Context::MaxFrameBufferCount> m_CachedImageViews;

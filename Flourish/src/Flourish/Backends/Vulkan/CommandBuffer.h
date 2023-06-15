@@ -12,7 +12,7 @@ namespace Flourish::Vulkan
     class CommandBuffer : public Flourish::CommandBuffer
     {
     public:
-        CommandBuffer(const CommandBufferCreateInfo& createInfo, bool secondary = false);
+        CommandBuffer(const CommandBufferCreateInfo& createInfo);
         ~CommandBuffer() override;
 
         void SubmitEncodedCommands(const CommandBufferEncoderSubmission& submission);

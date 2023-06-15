@@ -7,7 +7,7 @@
 namespace Flourish::Vulkan
 {
     RenderPass::RenderPass(const RenderPassCreateInfo& createInfo, bool rendersToSwapchain)
-        : Flourish::RenderPass(createInfo)
+        : Flourish::RenderPass(createInfo), m_RendersToSwapchain(rendersToSwapchain)
     {
         std::vector<VkAttachmentDescription2> attachmentDescriptions = {};
 
@@ -71,7 +71,7 @@ namespace Flourish::Vulkan
             colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             colorAttachment.initialLayout = attachment.Initialization == AttachmentInitialization::Preserve ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
             colorAttachment.finalLayout = m_UseResolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            if (rendersToSwapchain)
+            if (m_RendersToSwapchain)
                 colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             attachmentDescriptions.emplace_back(colorAttachment);
 
@@ -86,7 +86,7 @@ namespace Flourish::Vulkan
                 colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
                 colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                colorAttachmentResolve.finalLayout = rendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                colorAttachmentResolve.finalLayout = m_RendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                 attachmentDescriptions.emplace_back(colorAttachmentResolve);
             }
         }
@@ -216,7 +216,7 @@ namespace Flourish::Vulkan
             dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
             dependencies[i].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
             dependencies[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            dependencies[i].dependencyFlags = rendersToSwapchain ? 0 : VK_DEPENDENCY_BY_REGION_BIT;
+            dependencies[i].dependencyFlags = m_RendersToSwapchain ? 0 : VK_DEPENDENCY_BY_REGION_BIT;
 
             if (i == 0)
             {

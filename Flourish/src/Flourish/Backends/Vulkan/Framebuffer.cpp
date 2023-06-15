@@ -36,6 +36,9 @@ namespace Flourish::Vulkan
 
     void Framebuffer::Create()
     {
+        RenderPass* renderPass = static_cast<RenderPass*>(m_Info.RenderPass.get());
+        m_RendersToSwapchain = renderPass->RendersToSwapchain();
+
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -55,7 +58,7 @@ namespace Flourish::Vulkan
         viewCreateInfo.AspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
 
         // MSAA textures need to be resolved
-        m_UseResolve = m_Info.RenderPass->GetSampleCount() != MsaaSampleCount::None;
+        m_UseResolve = renderPass->GetSampleCount() != MsaaSampleCount::None;
 
         for (u32 i = 0; i < m_Info.DepthAttachments.size(); i++)
         {
@@ -68,7 +71,7 @@ namespace Flourish::Vulkan
                 m_CachedClearValues.emplace_back(clearValue);
 
             imageInfo.format = Common::ConvertColorFormat(
-                m_Info.RenderPass->GetDepthAttachmentColorFormat(i)
+                renderPass->GetDepthAttachmentColorFormat(i)
             );
             viewCreateInfo.Format = imageInfo.format;
 
@@ -77,7 +80,7 @@ namespace Flourish::Vulkan
                 // Buffer texture before resolve
                 if (m_UseResolve)
                 {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
+                    imageInfo.samples = Common::ConvertMsaaSampleCount(renderPass->GetSampleCount());
                     PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT, frame);
                 }
 
@@ -122,7 +125,7 @@ namespace Flourish::Vulkan
                 m_CachedClearValues.emplace_back(clearValue);
 
             imageInfo.format = Common::ConvertColorFormat(
-                m_Info.RenderPass->GetColorAttachmentColorFormat(i)
+                renderPass->GetColorAttachmentColorFormat(i)
             );
             viewCreateInfo.Format = imageInfo.format;
 
@@ -131,7 +134,7 @@ namespace Flourish::Vulkan
                 // Buffer texture before resolve
                 if (m_UseResolve)
                 {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(m_Info.RenderPass->GetSampleCount());
+                    imageInfo.samples = Common::ConvertMsaaSampleCount(renderPass->GetSampleCount());
                     PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
                 }
 
@@ -160,7 +163,7 @@ namespace Flourish::Vulkan
         {
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = static_cast<RenderPass*>(m_Info.RenderPass.get())->GetRenderPass();
+            framebufferInfo.renderPass = renderPass->GetRenderPass();
             framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews[frame].size());
             framebufferInfo.pAttachments = m_CachedImageViews[frame].data();
             framebufferInfo.width = m_Info.Width;

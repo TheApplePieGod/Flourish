@@ -9,6 +9,7 @@ namespace Flourish
     {
         m_Leaves.clear();
         m_Nodes.clear();
+        m_Built = false;
     }
 
     void RenderGraph::AddCommandBuffer(CommandBuffer* buffer, CommandBuffer* parent)

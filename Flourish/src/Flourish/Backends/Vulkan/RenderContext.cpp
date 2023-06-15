@@ -12,7 +12,7 @@ namespace Flourish::Vulkan
 {
     RenderContext::RenderContext(const RenderContextCreateInfo& createInfo)
         : Flourish::RenderContext(createInfo),
-         m_CommandBuffer({}, false)
+         m_CommandBuffer({})
     {
         auto instance = Context::Instance();
 

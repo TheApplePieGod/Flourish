@@ -8,7 +8,7 @@
 
 namespace Flourish::Vulkan
 {
-    CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo, bool isPrimary)
+    CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo)
         : Flourish::CommandBuffer(createInfo)
     {
         m_GraphicsCommandEncoder = GraphicsCommandEncoder(this, m_Info.FrameRestricted);
