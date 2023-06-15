@@ -2,11 +2,11 @@
 
 namespace Flourish
 {
-    enum GPUWorkloadType
+    enum class GPUWorkloadType : u32
     {
         Graphics = 0,
-        Transfer,
-        Compute
+        Transfer = 1,
+        Compute = 2
     };
 
     struct CommandBufferCreateInfo

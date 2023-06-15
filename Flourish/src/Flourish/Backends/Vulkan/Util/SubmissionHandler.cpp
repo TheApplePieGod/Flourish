@@ -152,6 +152,10 @@ namespace Flourish::Vulkan
     {
         FL_PROFILE_FUNCTION();
 
+        VkCommandBufferBeginInfo cmdBeginInfo{};
+        cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
         for (u32 graphIdx = 0; graphIdx < graphCount; graphIdx++)
         {
             auto graph = static_cast<RenderGraph*>(graphs[graphIdx]);
@@ -172,7 +176,6 @@ namespace Flourish::Vulkan
             u32 totalIndex = 0;
             int nextSubmit = -1;
             VkCommandBuffer primaryBuf;
-            CommandBufferAllocInfo primaryAllocInfo;
             for (int orderIndex = executeData.SubmissionOrder.size() - 1; orderIndex >= -1; orderIndex--)
             {
                 auto& node = graph->GetNode(executeData.SubmissionOrder[orderIndex == -1 ? 0 : orderIndex]);
@@ -187,11 +190,6 @@ namespace Flourish::Vulkan
                             auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
 
                             vkEndCommandBuffer(primaryBuf);
-
-                            Context::FinalizerQueue().Push([primaryAllocInfo, primaryBuf]()
-                            {
-                                Context::Commands().FreeBuffer(primaryAllocInfo, primaryBuf);
-                            }, "Primarybuf finalizer");
 
                             VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
                             submitInfo.pCommandBuffers = &primaryBuf;
@@ -208,17 +206,14 @@ namespace Flourish::Vulkan
                         if (orderIndex == -1)
                             break;
 
-                        primaryAllocInfo = Context::Commands().AllocateBuffers(
+                        Context::Commands().AllocateBuffers(
                             submissions[subIndex].AllocInfo.WorkloadType,
                             false,
                             &primaryBuf, 1,
-                            true
+                            false
                         );   
                         
-                        VkCommandBufferBeginInfo beginInfo{};
-                        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-                        vkBeginCommandBuffer(primaryBuf, &beginInfo);
+                        vkBeginCommandBuffer(primaryBuf, &cmdBeginInfo);
 
                         nextSubmit = totalIndex;
                     }
@@ -277,12 +272,7 @@ namespace Flourish::Vulkan
             m_RenderContextWaitFlags.emplace_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 
         VkCommandBuffer finalBuf;
-        auto allocInfo = Context::Commands().AllocateBuffers(
-            GPUWorkloadType::Graphics,
-            false,
-            &finalBuf, 1,
-            true
-        );   
+        Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &finalBuf, 1, false);   
         
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -298,11 +288,6 @@ namespace Flourish::Vulkan
         );
 
         vkEndCommandBuffer(finalBuf);
-
-        Context::FinalizerQueue().Push([allocInfo, finalBuf]()
-        {
-            Context::Commands().FreeBuffer(allocInfo, finalBuf);
-        }, "Primarybuf finalizer");
 
         u64 signalSemaphoreValues[2] = { context->GetSignalValue(), 0 };
         VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};

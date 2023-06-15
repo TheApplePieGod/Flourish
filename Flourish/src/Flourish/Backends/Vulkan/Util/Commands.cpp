@@ -5,103 +5,34 @@
 
 namespace Flourish::Vulkan
 {
-    VkCommandPool CommandPools::GetPool(GPUWorkloadType workloadType)
-    {
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { return GraphicsPool; }
-            case GPUWorkloadType::Transfer:
-            { return TransferPool; }
-            case GPUWorkloadType::Compute:
-            { return ComputePool; }
-        }
-
-        FL_ASSERT(false, "Command pool for workload not supported");
-        return nullptr;
-    }
-
     void PersistentPools::PushBufferToFree(GPUWorkloadType workloadType, VkCommandBuffer buffer)
     {
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { GraphicsToFree.push_back(buffer); } return;
-            case GPUWorkloadType::Transfer:
-            { TransferToFree.push_back(buffer); } return;
-            case GPUWorkloadType::Compute:
-            { ComputeToFree.push_back(buffer); } return;
-        }
-
-        FL_ASSERT(false, "Command pool for workload not supported");
+        BuffersToFree[(u32)workloadType].emplace_back(buffer);
     }
 
-    void FramePools::GetBuffers(GPUWorkloadType workloadType, VkCommandBuffer* buffers, u32 bufferCount)
+    void FramePools::GetBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount)
     {
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+        allocInfo.level = secondary ? VK_COMMAND_BUFFER_LEVEL_SECONDARY : VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandBufferCount = bufferCount;
 
-        switch (workloadType)
+        auto& freeList = secondary ? SecondaryFreeList[(u32)workloadType] : PrimaryFreeList[(u32)workloadType];
+        if (freeList.FreePtr + bufferCount > freeList.Free.size())
         {
-            case GPUWorkloadType::Graphics:
-            {
-                if (FreeGraphicsPtr + bufferCount > FreeGraphics.size())
-                {
-                    FreeGraphics.resize(FreeGraphicsPtr + bufferCount);
+            freeList.Free.resize(freeList.FreePtr + bufferCount);
 
-                    allocInfo.commandPool = Pools.GraphicsPool;
-                    if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
-                        Context::Devices().Device(),
-                        &allocInfo, FreeGraphics.data() + FreeGraphicsPtr
-                    ), "Allocate frame command buffers"))
-                        throw std::exception();
-                }
-
-                memcpy(buffers, FreeGraphics.data() + FreeGraphicsPtr, bufferCount * sizeof(VkCommandBuffer));
-                
-                FreeGraphicsPtr += bufferCount;
-            } return;
-            case GPUWorkloadType::Transfer:
-            {
-                if (FreeTransferPtr + bufferCount > FreeTransfer.size())
-                {
-                    FreeTransfer.resize(FreeTransferPtr + bufferCount);
-
-                    allocInfo.commandPool = Pools.TransferPool;
-                    if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
-                        Context::Devices().Device(),
-                        &allocInfo, FreeTransfer.data() + FreeTransferPtr
-                    ), "Allocate frame command buffers"))
-                        throw std::exception();
-                }
-
-                memcpy(buffers, FreeTransfer.data() + FreeTransferPtr, bufferCount * sizeof(VkCommandBuffer));
-                
-                FreeTransferPtr += bufferCount;
-            } return;
-            case GPUWorkloadType::Compute:
-            {
-                if (FreeComputePtr + bufferCount > FreeCompute.size())
-                {
-                    FreeCompute.resize(FreeComputePtr + bufferCount);
-
-                    allocInfo.commandPool = Pools.ComputePool;
-                    if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
-                        Context::Devices().Device(),
-                        &allocInfo, FreeCompute.data() + FreeComputePtr
-                    ), "Allocate frame command buffers"))
-                        throw std::exception();
-                }
-
-                memcpy(buffers, FreeCompute.data() + FreeComputePtr, bufferCount * sizeof(VkCommandBuffer));
-                
-                FreeComputePtr += bufferCount;
-            } return;
+            allocInfo.commandPool = Pools[(u32)workloadType];
+            if (!FL_VK_CHECK_RESULT(vkAllocateCommandBuffers(
+                Context::Devices().Device(),
+                &allocInfo, freeList.Free.data() + freeList.FreePtr
+            ), "Allocate frame command buffers"))
+                throw std::exception();
         }
 
-        FL_ASSERT(false, "Command pool for workload not supported");
+        memcpy(buffers, freeList.Free.data() + freeList.FreePtr, bufferCount * sizeof(VkCommandBuffer));
+        
+        freeList.FreePtr += bufferCount;
     }
 
     ThreadCommandPools::~ThreadCommandPools()
@@ -143,13 +74,7 @@ namespace Flourish::Vulkan
     VkCommandPool Commands::GetPersistentPool(GPUWorkloadType workloadType)
     {
         CreatePersistentPoolsForThread();
-        return s_ThreadPools.PersistentPools->Pools.GetPool(workloadType);
-    }
-
-    VkCommandPool Commands::GetFramePool(GPUWorkloadType workloadType)
-    {
-        CreateFramePoolsForThread();
-        return s_ThreadPools.FramePools[Flourish::Context::FrameIndex()]->Pools.GetPool(workloadType);
+        return s_ThreadPools.PersistentPools->Pools[(u32)workloadType];
     }
 
     void Commands::CreatePersistentPoolsForThread()
@@ -229,8 +154,6 @@ namespace Flourish::Vulkan
 
     CommandBufferAllocInfo Commands::AllocateBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount, bool persistent)
     {
-        FL_ASSERT(persistent || secondary, "Cannot allocate a primary non-persistent buffer");
-
         if (persistent)
         {
             VkCommandBufferAllocateInfo allocInfo{};
@@ -252,7 +175,7 @@ namespace Flourish::Vulkan
         {
             CreateFramePoolsForThread();
             FreeFrameBuffers(s_ThreadPools.FramePools[Flourish::Context::FrameIndex()].get());
-            s_ThreadPools.FramePools[Flourish::Context::FrameIndex()]->GetBuffers(workloadType, buffers, bufferCount);
+            s_ThreadPools.FramePools[Flourish::Context::FrameIndex()]->GetBuffers(workloadType, secondary, buffers, bufferCount);
         }
 
         return { std::this_thread::get_id(), persistent ? s_ThreadPools.PersistentPools.get() : nullptr, workloadType };
@@ -272,7 +195,7 @@ namespace Flourish::Vulkan
         {
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                allocInfo.PersistentPools->Pools.GetPool(allocInfo.WorkloadType),
+                allocInfo.PersistentPools->Pools[(u32)allocInfo.WorkloadType],
                 bufferCount,
                 buffers
             );
@@ -284,7 +207,7 @@ namespace Flourish::Vulkan
             allocInfo.PersistentPools->Mutex.lock();
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                allocInfo.PersistentPools->Pools.GetPool(allocInfo.WorkloadType),
+                allocInfo.PersistentPools->Pools[(u32)allocInfo.WorkloadType],
                 bufferCount,
                 buffers
             );
@@ -312,84 +235,52 @@ namespace Flourish::Vulkan
 
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Graphics);
         if (allowReset)
             poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
-            device,
-            &poolInfo,
-            nullptr,
-            &pools->GraphicsPool
-        ), "Create command pool"))
-            throw std::exception();
-        
-        poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Compute);
+        for (u32 i = 0; i < pools->size(); i++)
+        {
+            poolInfo.queueFamilyIndex = Context::Queues().QueueIndex((Flourish::GPUWorkloadType)i);
 
-        if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
-            device,
-            &poolInfo,
-            nullptr,
-            &pools->ComputePool
-        ), "Create command pool"))
-            throw std::exception();
-
-        poolInfo.queueFamilyIndex = Context::Queues().QueueIndex(GPUWorkloadType::Transfer);
-
-        if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
-            device,
-            &poolInfo,
-            nullptr,
-            &pools->TransferPool
-        ), "Create command pool"))
-            throw std::exception();
+            if (!FL_VK_CHECK_RESULT(vkCreateCommandPool(
+                device,
+                &poolInfo,
+                nullptr,
+                &(*pools)[i]
+            ), "Create command pool"))
+                throw std::exception();
+        }
     }
 
     void Commands::DestroyPools(CommandPools* pools)
     {
         auto device = Context::Devices().Device();
 
-        vkDestroyCommandPool(device, pools->GraphicsPool, nullptr);
-        vkDestroyCommandPool(device, pools->ComputePool, nullptr);
-        vkDestroyCommandPool(device, pools->TransferPool, nullptr);
-        pools->GraphicsPool = nullptr;
-        pools->ComputePool = nullptr;
-        pools->TransferPool = nullptr;
+        for (auto& pool : *pools)
+        {
+            vkDestroyCommandPool(device, pool, nullptr);
+            pool = nullptr;
+        }
     }
 
     void Commands::FreeQueuedBuffers(PersistentPools* pools)
     {
         pools->Mutex.lock();
         
-        if (!pools->GraphicsToFree.empty())
+        for (u32 i = 0; i < pools->BuffersToFree.size(); i++)
         {
+            auto& toFree = pools->BuffersToFree[i];
+            if (toFree.empty())
+                continue;
+
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
-                pools->Pools.GraphicsPool,
-                pools->GraphicsToFree.size(),
-                pools->GraphicsToFree.data()
+                pools->Pools[i],
+                toFree.size(),
+                toFree.data()
             );
-            pools->GraphicsToFree.clear();
-        }
-        if (!pools->ComputeToFree.empty())
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                pools->Pools.ComputePool,
-                pools->ComputeToFree.size(),
-                pools->ComputeToFree.data()
-            );
-            pools->ComputeToFree.clear();
-        }
-        if (!pools->TransferToFree.empty())
-        {
-            vkFreeCommandBuffers(
-                Context::Devices().Device(),
-                pools->Pools.TransferPool,
-                pools->TransferToFree.size(),
-                pools->TransferToFree.data()
-            );
-            pools->TransferToFree.clear();
+
+            toFree.clear();
         }
 
         pools->Mutex.unlock();
@@ -402,12 +293,12 @@ namespace Flourish::Vulkan
         if (pools->LastAllocationFrame != Flourish::Context::FrameCount())
         {
             pools->LastAllocationFrame = Flourish::Context::FrameCount();
-            pools->FreeGraphicsPtr = 0;
-            pools->FreeComputePtr = 0;
-            pools->FreeTransferPtr = 0;
-            FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pools->Pools.GraphicsPool, 0), "Reset command pool");
-            FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pools->Pools.ComputePool, 0), "Reset command pool");
-            FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pools->Pools.TransferPool, 0), "Reset command pool");
+            for (auto& list : pools->PrimaryFreeList)
+                list.FreePtr = 0;
+            for (auto& list : pools->SecondaryFreeList)
+                list.FreePtr = 0;
+            for (auto pool : pools->Pools)
+                FL_VK_ENSURE_RESULT(vkResetCommandPool(device, pool, 0), "Reset command pool");
         }
     }
 }

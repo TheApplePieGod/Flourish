@@ -5,14 +5,7 @@
 
 namespace Flourish::Vulkan
 {
-    struct CommandPools
-    {
-        VkCommandPool GraphicsPool = nullptr;
-        VkCommandPool ComputePool = nullptr;
-        VkCommandPool TransferPool = nullptr;
-
-        VkCommandPool GetPool(GPUWorkloadType workloadType);
-    };
+    typedef std::array<VkCommandPool, 3> CommandPools;
 
     struct PersistentPools
     {
@@ -20,27 +13,27 @@ namespace Flourish::Vulkan
         
         std::mutex Mutex;
         bool InUse = true;
-        std::vector<VkCommandBuffer> GraphicsToFree;
-        std::vector<VkCommandBuffer> ComputeToFree;
-        std::vector<VkCommandBuffer> TransferToFree;
+        std::array<std::vector<VkCommandBuffer>, 3> BuffersToFree;
 
         void PushBufferToFree(GPUWorkloadType workloadType, VkCommandBuffer buffer);
+    };
+
+    struct PoolFreeList
+    {
+        std::vector<VkCommandBuffer> Free;
+        u32 FreePtr = 0;
     };
     
     struct FramePools
     {
         CommandPools Pools;
 
-        std::vector<VkCommandBuffer> FreeGraphics;
-        std::vector<VkCommandBuffer> FreeCompute;
-        std::vector<VkCommandBuffer> FreeTransfer;
-        u32 FreeGraphicsPtr = 0;
-        u32 FreeComputePtr = 0;
-        u32 FreeTransferPtr = 0;
+        std::array<PoolFreeList, 3> PrimaryFreeList;
+        std::array<PoolFreeList, 3> SecondaryFreeList;
 
         u64 LastAllocationFrame = 0;
 
-        void GetBuffers(GPUWorkloadType workloadType, VkCommandBuffer* buffers, u32 bufferCount);
+        void GetBuffers(GPUWorkloadType workloadType, bool secondary, VkCommandBuffer* buffers, u32 bufferCount);
     };
     
     struct ThreadCommandPools
@@ -78,7 +71,6 @@ namespace Flourish::Vulkan
 
         // TS
         VkCommandPool GetPersistentPool(GPUWorkloadType workloadType);
-        VkCommandPool GetFramePool(GPUWorkloadType workloadType);
         void CreatePersistentPoolsForThread();
         void CreateFramePoolsForThread();
         void DestroyPoolsForThread();
