@@ -24,6 +24,7 @@
 	#elif TARGET_OS_MAC == 1
 		#define FL_PLATFORM_MACOS
 		#define VK_USE_PLATFORM_MACOS_MVK
+        #define VK_ENABLE_BETA_EXTENSIONS
 	#else
 		#error "Unknown Apple platform!"
 	#endif

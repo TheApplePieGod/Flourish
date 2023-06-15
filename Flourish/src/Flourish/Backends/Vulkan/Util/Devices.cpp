@@ -85,7 +85,12 @@ namespace Flourish::Vulkan
         VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
         timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
         timelineFeatures.timelineSemaphore = true;
-        #if !defined(FL_PLATFORM_MACOS)
+        #if defined(FL_PLATFORM_MACOS)
+            VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilityFeatures{};
+            portabilityFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR;
+            portabilityFeatures.events = true;
+            timelineFeatures.pNext = &portabilityFeatures;
+        #else
             timelineFeatures.pNext = &syncFeatures;
         #endif
         
