@@ -131,10 +131,6 @@ namespace Flourish::Vulkan
                     currentWorkloadType = submitData.Workload;
                 }
 
-                // TODO: we could potentially optimize this such that a wait does not occur
-                // if we know we waited on a semaphore in between the write and read
-                // This also won't work if there are two queues writing to the same resource
-                // before it is being read
                 for (u64 read : submission.ReadResources)
                 {
                     auto resource = m_AllResources.find(read);

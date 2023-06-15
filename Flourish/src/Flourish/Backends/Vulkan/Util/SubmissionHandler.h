@@ -6,6 +6,8 @@
 
 namespace Flourish::Vulkan
 {
+    class Framebuffer;
+    class RenderContext;
     class SubmissionHandler
     {
     public:
@@ -26,6 +28,17 @@ namespace Flourish::Vulkan
             u32 frameIndex,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
+        );
+
+    private:
+        void PresentContext(RenderContext* context, u32 waitSemaphoreCount);
+
+    private:
+        static void ExecuteRenderPassCommands(
+            VkCommandBuffer primary,
+            Framebuffer* framebuffer,
+            const VkCommandBuffer* subpasses,
+            u32 subpassCount
         );
         
     private:
