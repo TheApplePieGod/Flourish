@@ -145,8 +145,12 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
+        // Have to assume write
         if (buffer->GetUsage() != BufferUsageType::Static)
-            AddBoundResource(reinterpret_cast<u64>(buffer));
+        {
+            AddBoundResource(reinterpret_cast<u64>(buffer), true);
+            AddBoundResource(reinterpret_cast<u64>(buffer), false);
+        }
 
         u32 stride = buffer->GetStride();
         UpdateBinding(
@@ -183,7 +187,11 @@ namespace Flourish::Vulkan
         }
 
         if (texture->GetWritability() == TextureWritability::PerFrame)
-            AddBoundResource(reinterpret_cast<u64>(texture));
+        {
+            AddBoundResource(reinterpret_cast<u64>(texture), true);
+            if (texType == ShaderResourceType::StorageTexture)
+                AddBoundResource(reinterpret_cast<u64>(texture), false);
+        }
 
         UpdateBinding(
             bindingIndex, 
@@ -211,7 +219,11 @@ namespace Flourish::Vulkan
         );
 
         if (texture->GetWritability() == TextureWritability::PerFrame)
-            AddBoundResource(reinterpret_cast<u64>(texture));
+        {
+            AddBoundResource(reinterpret_cast<u64>(texture), true);
+            if (texType == ShaderResourceType::StorageTexture)
+                AddBoundResource(reinterpret_cast<u64>(texture), false);
+        }
 
         UpdateBinding(
             bindingIndex, 
@@ -248,11 +260,17 @@ namespace Flourish::Vulkan
         );
     }
 
-    void ResourceSet::AddBoundResource(u64 resourceId)
+    void ResourceSet::AddBoundResource(u64 resourceId, bool read)
     {
         if (m_LastFrameWrite != 0 && m_LastFrameWrite != Flourish::Context::FrameCount())
-            m_BoundResources.clear();
-        m_BoundResources.insert(resourceId);
+        {
+            m_ReadResources.clear();
+            m_WriteResources.clear();
+        }
+        if (read)
+            m_ReadResources.insert(resourceId);
+        else
+            m_WriteResources.insert(resourceId);
     }
 
     void ResourceSet::SwapNextAllocation()

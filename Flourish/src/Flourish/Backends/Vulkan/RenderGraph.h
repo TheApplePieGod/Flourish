@@ -11,6 +11,7 @@ namespace Flourish::Vulkan
         int LastWriteIndex = -1;
         int LastWriteWorkloadIndex = -1;
         GPUWorkloadType LastWriteWorkload;
+        std::array<bool, 3> WorkloadsWaited{};
         std::array<VkEvent, Flourish::Context::MaxFrameBufferCount> WriteEvents{};
     };
 

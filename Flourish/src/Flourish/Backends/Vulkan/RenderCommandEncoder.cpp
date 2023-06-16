@@ -302,8 +302,12 @@ namespace Flourish::Vulkan
             );
 
             m_Submission.ReadResources.insert(
-                set->GetBoundResources().begin(),
-                set->GetBoundResources().end()
+                set->GetReadResources().begin(),
+                set->GetReadResources().end()
+            );
+            m_Submission.WriteResources.insert(
+                set->GetWriteResources().begin(),
+                set->GetWriteResources().end()
             );
 
             return;

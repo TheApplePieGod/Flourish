@@ -101,7 +101,8 @@ namespace Flourish::Vulkan
 
         auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
 
-        VkDescriptorSet sets[1] = { m_DescriptorBinder.GetResourceSet(setIndex)->GetSet() };
+        auto set = m_DescriptorBinder.GetResourceSet(setIndex);
+        VkDescriptorSet sets[1] = { set->GetSet() };
         vkCmdBindDescriptorSets(
             m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -110,6 +111,15 @@ namespace Flourish::Vulkan
             sets,
             m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
             m_DescriptorBinder.GetDynamicOffsetData(setIndex)
+        );
+
+        m_Submission.ReadResources.insert(
+            set->GetReadResources().begin(),
+            set->GetReadResources().end()
+        );
+        m_Submission.WriteResources.insert(
+            set->GetWriteResources().begin(),
+            set->GetWriteResources().end()
         );
     }
 }

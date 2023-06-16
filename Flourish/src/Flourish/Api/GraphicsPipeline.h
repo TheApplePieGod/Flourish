@@ -56,8 +56,8 @@ namespace Flourish
         bool BlendEnable;
         BlendFactor SrcColorBlendFactor = BlendFactor::SrcAlpha;
         BlendFactor DstColorBlendFactor = BlendFactor::OneMinusSrcAlpha;
-        BlendFactor SrcAlphaBlendFactor = BlendFactor::One;
-        BlendFactor DstAlphaBlendFactor = BlendFactor::Zero;
+        BlendFactor SrcAlphaBlendFactor = BlendFactor::SrcAlpha;
+        BlendFactor DstAlphaBlendFactor = BlendFactor::OneMinusSrcAlpha;
         BlendOperation ColorBlendOperation = BlendOperation::Add;
         BlendOperation AlphaBlendOperation = BlendOperation::Add;
         

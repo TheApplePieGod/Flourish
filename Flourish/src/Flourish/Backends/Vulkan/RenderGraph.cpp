@@ -139,6 +139,10 @@ namespace Flourish::Vulkan
                     auto& resourceInfo = resource->second;
                     if (resourceInfo.LastWriteIndex == -1)
                         continue;
+                    if (resourceInfo.WorkloadsWaited[(u32)submission.AllocInfo.WorkloadType])
+                        continue;
+
+                    resourceInfo.WorkloadsWaited[(u32)submission.AllocInfo.WorkloadType] = true;
 
                     if (resourceInfo.LastWriteWorkload == submission.AllocInfo.WorkloadType)
                     {
@@ -169,10 +173,6 @@ namespace Flourish::Vulkan
                             FL_ASSERT(lastWriteSync.WriteEvent == -1);
                             lastWriteSync.WriteEvent = eventDataIndex;
                         }
-
-                        // Clear the event because nothing on this queue will have to wait
-                        // for this event ever again
-                        resourceInfo.LastWriteIndex = -1;
                     }
                     else
                     {
@@ -226,17 +226,17 @@ namespace Flourish::Vulkan
                     resource.LastWriteIndex = totalIndex;
                     resource.LastWriteWorkloadIndex = currentWorkloadIndex;
                     resource.LastWriteWorkload = currentWorkloadType;
+                    resource.WorkloadsWaited = {};
                 }
 
                 totalIndex++;
             }
         }
 
-        // Finalize submit info
+        // Add completion semaphores
         for (auto& info : m_ExecuteData.SubmitData)
         {
             // Need to update pointers here since SubmitData array keeps resizing
-            info.TimelineSubmitInfo.pWaitSemaphoreValues = m_ExecuteData.WaitSemaphoreValues.data();
             info.TimelineSubmitInfo.pSignalSemaphoreValues = &info.SignalSemaphoreValue;
             for (u32 i = 0; i < m_SyncObjectCount; i++)
             {
@@ -251,6 +251,10 @@ namespace Flourish::Vulkan
         // wait on the same values
         if (m_ExecuteData.CompletionSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
             m_ExecuteData.WaitSemaphoreValues.resize(m_ExecuteData.CompletionSemaphores[0].size());
+
+        // Finalize submit info
+        for (auto& info : m_ExecuteData.SubmitData)
+            info.TimelineSubmitInfo.pWaitSemaphoreValues = m_ExecuteData.WaitSemaphoreValues.data();
     }
 
     void RenderGraph::PrepareForSubmission()
