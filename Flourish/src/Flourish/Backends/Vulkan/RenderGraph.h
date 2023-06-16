@@ -38,7 +38,6 @@ namespace Flourish::Vulkan
         int SubmitDataIndex = -1;
         int WriteEvent = -1;
         std::vector<int> WaitEvents;
-        int LastWaitWriteIndex = -1;
     };
 
     struct GraphExecuteData
@@ -71,6 +70,7 @@ namespace Flourish::Vulkan
     private:
         GraphExecuteData m_ExecuteData;
         u64 m_CurrentSemaphoreValue = 0;
+        std::array<int, 3> m_LastWaitWrites;
 
         // All resources that matter when syncing (aka writes)
         std::unordered_map<u64, ResourceSyncInfo> m_AllResources;

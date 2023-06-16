@@ -57,6 +57,7 @@ namespace Flourish::Vulkan
     {
         FL_PROFILE_FUNCTION();
 
+        m_LastWaitWrites = { -1, -1, -1 };
         m_ExecuteData.SubmissionOrder.clear();
         m_ExecuteData.SubmissionSyncs.clear();
         m_ExecuteData.EventData.clear();
@@ -144,12 +145,13 @@ namespace Flourish::Vulkan
 
                     resourceInfo.WorkloadsWaited[(u32)submission.AllocInfo.WorkloadType] = true;
 
+                    auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
+                    auto& workloadSync = m_ExecuteData.SubmissionSyncs[currentWorkloadIndex];
                     if (resourceInfo.LastWriteWorkload == submission.AllocInfo.WorkloadType)
                     {
                         // If the write occured before the previous event, we don't have to wait again
                         // because the event existing implies a read that occured before this one
-                        auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
-                        if (resourceInfo.LastWriteIndex > currentSync.LastWaitWriteIndex)
+                        if (resourceInfo.LastWriteIndex > m_LastWaitWrites[(u32)submission.AllocInfo.WorkloadType])
                         {
                             u32 eventDataIndex = m_ExecuteData.EventData.size();
                             m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
@@ -165,7 +167,7 @@ namespace Flourish::Vulkan
                             }
 
                             currentSync.WaitEvents.emplace_back(eventDataIndex);
-                            currentSync.LastWaitWriteIndex = resourceInfo.LastWriteIndex;
+                            m_LastWaitWrites[(u32)submission.AllocInfo.WorkloadType] = resourceInfo.LastWriteIndex;
 
                             // Write only on the last time we wrote which will sync all writes before
                             // Should always only signal one event
@@ -181,7 +183,7 @@ namespace Flourish::Vulkan
                         // This also implies that currentWorkloadIndex != lastWorkloadIndex != -1
 
                         auto& fromSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex];
-                        auto& toSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[currentWorkloadIndex].SubmitDataIndex];
+                        auto& toSubmit = m_ExecuteData.SubmitData[workloadSync.SubmitDataIndex];
 
                         fromSubmit.IsCompletion = false;
 
