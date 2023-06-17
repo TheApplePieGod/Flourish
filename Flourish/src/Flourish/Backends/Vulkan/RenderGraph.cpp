@@ -81,7 +81,7 @@ namespace Flourish::Vulkan
             m_VisitedNodes.emplace(nodeId);
 
             auto& node = m_Nodes[nodeId];
-            for (u64 depId : node.Dependencies)
+            for (u64 depId : node.ExecutionDependencies)
                 m_ProcessingNodes.emplace(depId);
 
             m_ExecuteData.SubmissionOrder.emplace_back(nodeId);
@@ -99,20 +99,19 @@ namespace Flourish::Vulkan
         GPUWorkloadType currentWorkloadType;
         for (int orderIndex = m_ExecuteData.SubmissionOrder.size() - 1; orderIndex >= 0; orderIndex--)
         {
-            Node& node = m_Nodes[m_ExecuteData.SubmissionOrder[orderIndex]];
+            RenderGraphNode& node = m_Nodes[m_ExecuteData.SubmissionOrder[orderIndex]];
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
-            auto& submissions = buffer->GetEncoderSubmissions();
-            for (u32 subIndex = 0; subIndex < submissions.size(); subIndex++)
+            for (u32 subIndex = 0; subIndex < node.EncoderNodes.size(); subIndex++)
             {
                 m_ExecuteData.SubmissionSyncs.emplace_back();
-                auto& submission = submissions[subIndex];
+                auto& submission = node.EncoderNodes[subIndex];
                 bool firstSub = orderIndex == m_ExecuteData.SubmissionOrder.size() - 1 && subIndex == 0;
-                bool workloadChange = !firstSub && submission.AllocInfo.WorkloadType != currentWorkloadType;
+                bool workloadChange = !firstSub && submission.WorkloadType != currentWorkloadType;
                 if (workloadChange || firstSub)
                 {
                     m_ExecuteData.SubmissionSyncs[totalIndex].SubmitDataIndex = m_ExecuteData.SubmitData.size();
                     auto& submitData = m_ExecuteData.SubmitData.emplace_back();
-                    submitData.Workload = submission.AllocInfo.WorkloadType;
+                    submitData.Workload = submission.WorkloadType;
 
                     auto& timelineSubmitInfo = submitData.TimelineSubmitInfo;
                     timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
@@ -140,23 +139,23 @@ namespace Flourish::Vulkan
                     auto& resourceInfo = resource->second;
                     if (resourceInfo.LastWriteIndex == -1)
                         continue;
-                    if (resourceInfo.WorkloadsWaited[(u32)submission.AllocInfo.WorkloadType])
+                    if (resourceInfo.WorkloadsWaited[(u32)submission.WorkloadType])
                         continue;
 
-                    resourceInfo.WorkloadsWaited[(u32)submission.AllocInfo.WorkloadType] = true;
+                    resourceInfo.WorkloadsWaited[(u32)submission.WorkloadType] = true;
 
                     auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
                     auto& workloadSync = m_ExecuteData.SubmissionSyncs[currentWorkloadIndex];
-                    if (resourceInfo.LastWriteWorkload == submission.AllocInfo.WorkloadType)
+                    if (resourceInfo.LastWriteWorkload == submission.WorkloadType)
                     {
                         // If the write occured before the previous event, we don't have to wait again
                         // because the event existing implies a read that occured before this one
-                        if (resourceInfo.LastWriteIndex > m_LastWaitWrites[(u32)submission.AllocInfo.WorkloadType])
+                        if (resourceInfo.LastWriteIndex > m_LastWaitWrites[(u32)submission.WorkloadType])
                         {
                             u32 eventDataIndex = m_ExecuteData.EventData.size();
                             m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
 
-                            switch (submission.AllocInfo.WorkloadType)
+                            switch (submission.WorkloadType)
                             {
                                 case GPUWorkloadType::Graphics:
                                 { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
@@ -167,7 +166,7 @@ namespace Flourish::Vulkan
                             }
 
                             currentSync.WaitEvents.emplace_back(eventDataIndex);
-                            m_LastWaitWrites[(u32)submission.AllocInfo.WorkloadType] = resourceInfo.LastWriteIndex;
+                            m_LastWaitWrites[(u32)submission.WorkloadType] = resourceInfo.LastWriteIndex;
 
                             // Write only on the last time we wrote which will sync all writes before
                             // Should always only signal one event
@@ -190,7 +189,7 @@ namespace Flourish::Vulkan
                         // We want to wait on the stage of the current workload since we before the
                         // execution of the stage
                         VkPipelineStageFlags waitFlags;
-                        switch (submission.AllocInfo.WorkloadType)
+                        switch (submission.WorkloadType)
                         {
                             case GPUWorkloadType::Graphics:
                             { waitFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT; } break;
@@ -259,6 +258,7 @@ namespace Flourish::Vulkan
             info.TimelineSubmitInfo.pWaitSemaphoreValues = m_ExecuteData.WaitSemaphoreValues.data();
     }
 
+    // TODO: think about removing this state
     void RenderGraph::PrepareForSubmission()
     {
         m_CurrentSemaphoreValue++;

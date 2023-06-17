@@ -24,7 +24,6 @@ namespace Flourish::Vulkan
         VkBuffer GetStagingBuffer(u32 frameIndex) const;
 
     public:
-        // TS
         static void CopyBufferToBuffer(
             VkBuffer src,
             VkBuffer dst,

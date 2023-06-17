@@ -22,9 +22,7 @@ namespace Flourish
     class CommandBuffer
     {
     public:
-        CommandBuffer(const CommandBufferCreateInfo& createInfo)
-            : m_Info(createInfo)
-        {}
+        CommandBuffer(const CommandBufferCreateInfo& createInfo);
         virtual ~CommandBuffer() = default;
         
         [[nodiscard]] virtual GraphicsCommandEncoder* EncodeGraphicsCommands() = 0;
@@ -33,6 +31,7 @@ namespace Flourish
         [[nodiscard]] virtual TransferCommandEncoder* EncodeTransferCommands() = 0;
 
         // TS
+        inline u64 GetId() const { return m_Id; }
         inline bool IsEncoding() const { return m_Encoding; }
         inline bool IsFrameRestricted() const { return m_Info.FrameRestricted; }
 
@@ -43,5 +42,6 @@ namespace Flourish
     protected:
         CommandBufferCreateInfo m_Info;
         bool m_Encoding = false;
+        u64 m_Id;
     };
 }

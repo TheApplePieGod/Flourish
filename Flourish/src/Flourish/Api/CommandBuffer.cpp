@@ -6,6 +6,12 @@
 
 namespace Flourish
 {
+    CommandBuffer::CommandBuffer(const CommandBufferCreateInfo& createInfo)
+            : m_Info(createInfo)
+    {
+        m_Id = Context::GetNextId();
+    }
+
     std::shared_ptr<CommandBuffer> CommandBuffer::Create(const CommandBufferCreateInfo& createInfo)
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a CommandBuffer");

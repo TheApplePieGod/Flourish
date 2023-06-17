@@ -170,9 +170,14 @@ namespace Flourish::Vulkan
             VkCommandBuffer primaryBuf;
             for (int orderIndex = executeData.SubmissionOrder.size() - 1; orderIndex >= -1; orderIndex--)
             {
-                auto& node = graph->GetNode(executeData.SubmissionOrder[orderIndex == -1 ? 0 : orderIndex]);
+                const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[orderIndex == -1 ? 0 : orderIndex]);
                 CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
                 auto& submissions = buffer->GetEncoderSubmissions();
+                FL_ASSERT(
+                    orderIndex == -1 || submissions.size() == node.EncoderNodes.size(),
+                    "Command buffer submission count (%d) differs from specified size in render graph (%d)",
+                    submissions.size(), node.EncoderNodes.size()
+                );
                 for (u32 subIndex = 0; subIndex < submissions.size() || orderIndex == -1; subIndex++)
                 {
                     if (orderIndex == -1 || executeData.SubmissionSyncs[totalIndex].SubmitDataIndex != -1)
@@ -212,6 +217,11 @@ namespace Flourish::Vulkan
 
                     auto& syncInfo = executeData.SubmissionSyncs[totalIndex];
                     auto& submission = submissions[subIndex];
+
+                    FL_ASSERT(
+                        submission.AllocInfo.WorkloadType == node.EncoderNodes[subIndex].WorkloadType,
+                        "Command buffer submission type is different than specified in the graph"
+                    );
 
                     for (u32 waitEventIndex : syncInfo.WaitEvents)
                     {

@@ -31,8 +31,6 @@ namespace Flourish::Vulkan
         
         // TS
         inline const DescriptorPool* GetParentPool() const { return m_ParentPool.get(); }
-        inline const auto& GetReadResources() const { return m_ReadResources; }
-        inline const auto& GetWriteResources() const { return m_WriteResources; }
 
     private:
         struct StoredReferences
@@ -59,7 +57,6 @@ namespace Flourish::Vulkan
         };
 
     private:
-        void AddBoundResource(u64 resourceId, bool read);
         void SwapNextAllocation();
         void ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
         void UpdateBinding(
@@ -78,8 +75,6 @@ namespace Flourish::Vulkan
 
         std::vector<CachedData> m_CachedData;
         std::vector<StoredReferences> m_StoredReferences;
-        std::unordered_set<u64> m_ReadResources;
-        std::unordered_set<u64> m_WriteResources;
         std::shared_ptr<DescriptorPool> m_ParentPool;
         std::array<DescriptorSetAllocation, Flourish::Context::MaxFrameBufferCount> m_Allocations;
         std::array<SetList, Flourish::Context::MaxFrameBufferCount> m_SetLists;

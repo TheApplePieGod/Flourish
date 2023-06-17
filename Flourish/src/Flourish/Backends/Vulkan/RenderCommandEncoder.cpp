@@ -32,13 +32,6 @@ namespace Flourish::Vulkan
         );   
 
         InitializeSubpass();
-
-        for (auto& attachment : framebuffer->GetColorAttachments())
-            if (attachment.Texture)
-                m_Submission.WriteResources.insert(reinterpret_cast<u64>(attachment.Texture.get()));
-        for (auto& attachment : framebuffer->GetDepthAttachments())
-            if (attachment.Texture)
-                m_Submission.WriteResources.insert(reinterpret_cast<u64>(attachment.Texture.get()));
     }
 
     void RenderCommandEncoder::EndEncoding()
@@ -54,8 +47,6 @@ namespace Flourish::Vulkan
         vkEndCommandBuffer(m_CurrentCommandBuffer);
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
 
-        m_Submission.ReadResources.clear();
-        m_Submission.WriteResources.clear();
         m_Submission.Framebuffer = nullptr;
     }
 
@@ -133,8 +124,6 @@ namespace Flourish::Vulkan
 
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(m_CurrentCommandBuffer, 0, 1, &buffer, offsets);
-
-        m_Submission.ReadResources.insert(reinterpret_cast<u64>(_buffer));
     }
 
     void RenderCommandEncoder::BindIndexBuffer(const Flourish::Buffer* _buffer)
@@ -147,8 +136,6 @@ namespace Flourish::Vulkan
         
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindIndexBuffer(m_CurrentCommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
-
-        m_Submission.ReadResources.insert(reinterpret_cast<u64>(_buffer));
     }
 
     void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
@@ -185,8 +172,6 @@ namespace Flourish::Vulkan
             drawCount,
             stride
         );
-
-        m_Submission.ReadResources.insert(reinterpret_cast<u64>(_buffer));
     }
     
     void RenderCommandEncoder::StartNextSubpass()
@@ -255,14 +240,9 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a resource set");
+        FL_CRASH_ASSERT(m_DescriptorBinder.DoesSetExist(setIndex), "Set index does not exist in shader");
 
-        if (m_DescriptorBinder.DoesSetExist(setIndex))
-        {
-            m_DescriptorBinder.BindResourceSet(static_cast<const ResourceSet*>(set), setIndex);
-            return;
-        }
-
-        FL_CRASH_ASSERT(false, "Set index does not exist in shader");
+        m_DescriptorBinder.BindResourceSet(static_cast<const ResourceSet*>(set), setIndex);
     }
 
     void RenderCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
@@ -285,35 +265,20 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a resource set");
+        FL_CRASH_ASSERT(m_DescriptorBinder.DoesSetExist(setIndex), "Set index does not exist in shader");
 
-        if (m_DescriptorBinder.DoesSetExist(setIndex))
-        {
-            // TODO: ensure bound
-            auto set = m_DescriptorBinder.GetResourceSet(setIndex);
-            VkDescriptorSet sets[1] = { set->GetSet() };
-            vkCmdBindDescriptorSets(
-                m_CurrentCommandBuffer,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                m_BoundPipeline->GetLayout(),
-                setIndex, 1,
-                sets,
-                m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
-                m_DescriptorBinder.GetDynamicOffsetData(setIndex)
-            );
-
-            m_Submission.ReadResources.insert(
-                set->GetReadResources().begin(),
-                set->GetReadResources().end()
-            );
-            m_Submission.WriteResources.insert(
-                set->GetWriteResources().begin(),
-                set->GetWriteResources().end()
-            );
-
-            return;
-        }
-
-        FL_CRASH_ASSERT(false, "Set index does not exist in shader");
+        // TODO: ensure bound
+        auto set = m_DescriptorBinder.GetResourceSet(setIndex);
+        VkDescriptorSet sets[1] = { set->GetSet() };
+        vkCmdBindDescriptorSets(
+            m_CurrentCommandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            m_BoundPipeline->GetLayout(),
+            setIndex, 1,
+            sets,
+            m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
+            m_DescriptorBinder.GetDynamicOffsetData(setIndex)
+        );
     }
 
     void RenderCommandEncoder::InitializeSubpass()

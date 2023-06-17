@@ -119,13 +119,32 @@ namespace FlourishTesting
 
         if (!m_RenderGraph->IsBuild())
         {
+            // Objects
             for (u32 i = 0; i < objectCount; i++)
             {
-                m_RenderGraph->AddCommandBuffer(m_CommandBuffers[i].get());
-                m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount + 1].get(), m_CommandBuffers[i].get());
+                m_RenderGraph->ConstructNewNode(m_CommandBuffers[i].get())
+                    .AddEncoderNode(Flourish::GPUWorkloadType::Graphics)
+                    .EncoderAddTextureWrite(m_FrameTextures[i].get())
+                    .AddToGraph();
             }
-            m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount].get());
-            m_RenderGraph->AddCommandBuffer(m_CommandBuffers[objectCount + 1].get(), m_CommandBuffers[objectCount].get());
+
+            // Compute
+            m_RenderGraph->ConstructNewNode(m_CommandBuffers[objectCount].get())
+                .AddEncoderNode(Flourish::GPUWorkloadType::Compute)
+                .EncoderAddBufferWrite(m_ObjectData.get())
+                .AddToGraph();
+
+            // Final copy
+            auto builder = m_RenderGraph->ConstructNewNode(m_CommandBuffers[objectCount + 1].get());
+            builder.AddEncoderNode(Flourish::GPUWorkloadType::Graphics);
+            for (u32 i = 0; i < objectCount; i++)
+            {
+                builder.AddExecutionDependency(m_CommandBuffers[i].get());
+                builder.EncoderAddTextureRead(m_FrameTextures[i].get());
+            }
+            builder.AddExecutionDependency(m_CommandBuffers[objectCount].get());
+            builder.EncoderAddBufferRead(m_ObjectData.get());
+            builder.AddToGraph();
 
             m_RenderGraph->Build();
         }
@@ -179,7 +198,9 @@ namespace FlourishTesting
 
         if (!m_RenderGraph->IsBuild())
         {
-            m_RenderGraph->AddCommandBuffer(m_CommandBuffers[0].get());
+            m_RenderGraph->ConstructNewNode(m_CommandBuffers[0].get())
+                .AddEncoderNode(Flourish::GPUWorkloadType::Graphics)
+                .AddToGraph();
 
             m_RenderGraph->Build();
         }

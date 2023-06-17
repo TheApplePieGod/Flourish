@@ -5,6 +5,60 @@
 
 namespace Flourish
 {
+    RenderGraphNodeBuilder::RenderGraphNodeBuilder(RenderGraph* graph, CommandBuffer* buffer)
+        : m_Graph(graph)
+    {
+        m_Node.Buffer = buffer;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::AddExecutionDependency(CommandBuffer* buffer)
+    {
+        m_Node.ExecutionDependencies.insert(buffer->GetId());
+        return *this;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::AddEncoderNode(GPUWorkloadType workloadType)
+    {
+        m_Node.EncoderNodes.emplace_back();
+        m_Node.EncoderNodes.back().WorkloadType = workloadType;
+        return *this;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddBufferRead(Buffer* buffer)
+    {
+        FL_ASSERT(!m_Node.EncoderNodes.empty(), "Must call AddEncoderNode first");
+        m_Node.EncoderNodes.back().ReadResources.insert(buffer->GetId());
+        return *this;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddBufferWrite(Buffer* buffer)
+    {
+        m_Node.EncoderNodes.back().WriteResources.insert(buffer->GetId());
+        return *this;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddTextureRead(Texture* texture)
+    {
+        m_Node.EncoderNodes.back().ReadResources.insert(texture->GetId());
+        return *this;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddTextureWrite(Texture* texture)
+    {
+        m_Node.EncoderNodes.back().WriteResources.insert(texture->GetId());
+        return *this;
+    }
+
+    void RenderGraphNodeBuilder::AddToGraph()
+    {
+        m_Graph->AddInternal(m_Node);
+    }
+
+    RenderGraphNodeBuilder RenderGraph::ConstructNewNode(CommandBuffer *buffer)
+    {
+        return RenderGraphNodeBuilder(this, buffer);
+    }
+
     void RenderGraph::Clear()
     {
         m_Leaves.clear();
@@ -12,33 +66,33 @@ namespace Flourish
         m_Built = false;
     }
 
-    void RenderGraph::AddCommandBuffer(CommandBuffer* buffer, CommandBuffer* parent)
+    void RenderGraph::AddInternal(const RenderGraphNode& addData)
     {
-        AddInternal(
-            reinterpret_cast<u64>(buffer),
-            reinterpret_cast<u64>(parent),
-            { buffer }
-        );
-    }
-
-    void RenderGraph::AddInternal(u64 id, u64 parentId, const Node& addData)
-    {
-        if (id == 0)
+        if (!addData.Buffer)
+        {
+            FL_LOG_WARN("Adding a node to rendergraph with null commandbuffer");
             return;
+        }
+        u64 id = addData.Buffer->GetId();
         auto found = m_Nodes.find(id);
         if (found == m_Nodes.end())
         {
             m_Nodes.insert({ id, addData });
             m_Leaves.insert(id);
-            found = m_Nodes.find(id);
+        }
+        else
+        {
+            FL_LOG_WARN("Adding a node to rendergraph that was already added");
+            return;
         }
 
-        if (parentId == 0 || m_Nodes.find(parentId) == m_Nodes.end())
-            return;
+        for (u64 parentId : addData.ExecutionDependencies)
+        {
+            if (parentId == 0 || m_Nodes.find(parentId) == m_Nodes.end())
+                return;
 
-        m_Leaves.erase(parentId);
-        found->second.Dependencies.insert(parentId);
-
+            m_Leaves.erase(parentId);
+        }
     }
 
     std::shared_ptr<RenderGraph> RenderGraph::Create(const RenderGraphCreateInfo& createInfo)

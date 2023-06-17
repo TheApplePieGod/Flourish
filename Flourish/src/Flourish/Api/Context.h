@@ -48,6 +48,7 @@ namespace Flourish
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
         inline static const auto& FrameGraphSubmissions() { return s_GraphSubmissions; }
         inline static const auto& FrameContextSubmissions() { return s_ContextSubmissions; }
+        inline static u64 GetNextId() { return s_IdCounter++; }
 
         inline static constexpr u32 MaxFrameBufferCount = 3;
         
@@ -61,5 +62,6 @@ namespace Flourish
         inline static std::vector<RenderGraph*> s_GraphSubmissions;
         inline static std::vector<RenderContext*> s_ContextSubmissions;
         inline static std::mutex s_FrameMutex;
+        inline static std::atomic<u64> s_IdCounter = { 1 };
     };
 }

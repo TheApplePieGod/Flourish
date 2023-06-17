@@ -112,14 +112,5 @@ namespace Flourish::Vulkan
             m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
             m_DescriptorBinder.GetDynamicOffsetData(setIndex)
         );
-
-        m_Submission.ReadResources.insert(
-            set->GetReadResources().begin(),
-            set->GetReadResources().end()
-        );
-        m_Submission.WriteResources.insert(
-            set->GetWriteResources().begin(),
-            set->GetWriteResources().end()
-        );
     }
 }

@@ -158,6 +158,7 @@ namespace Flourish
         virtual void Flush(bool immediate = false) = 0;
 
         // TS
+        inline u64 GetId() const { return m_Id; }
         inline BufferType GetType() const { return m_Info.Type; }
         inline BufferUsageType GetUsage() const { return m_Info.Usage; }
         inline const BufferLayout& GetLayout() const { return m_Info.Layout; }
@@ -171,5 +172,6 @@ namespace Flourish
 
     protected:
         BufferCreateInfo m_Info;
+        u64 m_Id;
     };
 }

@@ -145,13 +145,6 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
-        // Have to assume write
-        if (buffer->GetUsage() != BufferUsageType::Static)
-        {
-            AddBoundResource(reinterpret_cast<u64>(buffer), true);
-            AddBoundResource(reinterpret_cast<u64>(buffer), false);
-        }
-
         u32 stride = buffer->GetStride();
         UpdateBinding(
             bindingIndex, 
@@ -186,13 +179,6 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
-        if (texture->GetWritability() == TextureWritability::PerFrame)
-        {
-            AddBoundResource(reinterpret_cast<u64>(texture), true);
-            if (texType == ShaderResourceType::StorageTexture)
-                AddBoundResource(reinterpret_cast<u64>(texture), false);
-        }
-
         UpdateBinding(
             bindingIndex, 
             texType, 
@@ -217,13 +203,6 @@ namespace Flourish::Vulkan
             m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
             "Attempting to bind a texture to a storage image binding that was not created as a compute target"
         );
-
-        if (texture->GetWritability() == TextureWritability::PerFrame)
-        {
-            AddBoundResource(reinterpret_cast<u64>(texture), true);
-            if (texType == ShaderResourceType::StorageTexture)
-                AddBoundResource(reinterpret_cast<u64>(texture), false);
-        }
 
         UpdateBinding(
             bindingIndex, 
@@ -258,19 +237,6 @@ namespace Flourish::Vulkan
             attachment.Type == SubpassAttachmentType::Color,
             0, 0, 0
         );
-    }
-
-    void ResourceSet::AddBoundResource(u64 resourceId, bool read)
-    {
-        if (m_LastFrameWrite != 0 && m_LastFrameWrite != Flourish::Context::FrameCount())
-        {
-            m_ReadResources.clear();
-            m_WriteResources.clear();
-        }
-        if (read)
-            m_ReadResources.insert(resourceId);
-        else
-            m_WriteResources.insert(resourceId);
     }
 
     void ResourceSet::SwapNextAllocation()
