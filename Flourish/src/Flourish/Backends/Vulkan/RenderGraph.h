@@ -82,6 +82,7 @@ namespace Flourish::Vulkan
         // Graph traversal data
         std::queue<u64> m_ProcessingNodes;
         std::unordered_set<u64> m_VisitedNodes;
+        std::vector<u64> m_TemporarySubmissionOrder;
 
         u32 m_SyncObjectCount = 1;
     };

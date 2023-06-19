@@ -12,6 +12,7 @@ namespace Flourish
     struct CommandBufferCreateInfo
     {
         bool FrameRestricted = true;
+        std::string DebugName;
     };
 
     class Framebuffer;
@@ -34,6 +35,7 @@ namespace Flourish
         inline u64 GetId() const { return m_Id; }
         inline bool IsEncoding() const { return m_Encoding; }
         inline bool IsFrameRestricted() const { return m_Info.FrameRestricted; }
+        inline std::string_view GetDebugName() const { return m_Info.DebugName; }
 
     public:
         // TS

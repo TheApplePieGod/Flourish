@@ -167,19 +167,20 @@ namespace Flourish::Vulkan
             u32 totalIndex = 0;
             int nextSubmit = -1;
             VkCommandBuffer primaryBuf;
-            for (int orderIndex = executeData.SubmissionOrder.size() - 1; orderIndex >= -1; orderIndex--)
+            for (u32 orderIndex = 0; orderIndex <= executeData.SubmissionOrder.size(); orderIndex++)
             {
-                const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[orderIndex == -1 ? 0 : orderIndex]);
+                bool finalIteration = orderIndex == executeData.SubmissionOrder.size();
+                const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[finalIteration ? 0 : orderIndex]);
                 CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
                 auto& submissions = buffer->GetEncoderSubmissions();
                 FL_ASSERT(
-                    orderIndex == -1 || submissions.size() == node.EncoderNodes.size(),
+                    finalIteration || submissions.size() == node.EncoderNodes.size(),
                     "Command buffer submission count (%d) differs from specified size in render graph (%d)",
                     submissions.size(), node.EncoderNodes.size()
                 );
-                for (u32 subIndex = 0; subIndex < submissions.size() || orderIndex == -1; subIndex++)
+                for (u32 subIndex = 0; subIndex < submissions.size() || finalIteration; subIndex++)
                 {
-                    if (orderIndex == -1 || executeData.SubmissionSyncs[totalIndex].SubmitDataIndex != -1)
+                    if (finalIteration || executeData.SubmissionSyncs[totalIndex].SubmitDataIndex != -1)
                     {
                         if (nextSubmit != -1)
                         {
@@ -199,7 +200,7 @@ namespace Flourish::Vulkan
                             Context::Queues().LockQueue(submitData.Workload, false);
                         }
 
-                        if (orderIndex == -1)
+                        if (finalIteration)
                             break;
 
                         Context::Commands().AllocateBuffers(

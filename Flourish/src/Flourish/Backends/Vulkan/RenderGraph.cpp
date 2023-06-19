@@ -70,6 +70,7 @@ namespace Flourish::Vulkan
         m_ExecuteData.SubmissionSyncs.clear();
         m_ExecuteData.EventData.clear();
         m_ExecuteData.SubmitData.clear();
+        m_TemporarySubmissionOrder.clear();
         m_AllResources.clear();
         m_VisitedNodes.clear();
         for (u32 i = 0; i < m_SyncObjectCount; i++)
@@ -78,21 +79,29 @@ namespace Flourish::Vulkan
         for (auto& id : m_Leaves)
             m_ProcessingNodes.emplace(id);
 
+        // Produce initial bfs ordering
         u32 totalSubmissions = 0;
         while (!m_ProcessingNodes.empty())
         {
             u64 nodeId = m_ProcessingNodes.front();
             m_ProcessingNodes.pop();
 
-            if (m_VisitedNodes.find(nodeId) != m_VisitedNodes.end())
-                continue;
-            m_VisitedNodes.emplace(nodeId);
-
             auto& node = m_Nodes[nodeId];
             for (u64 depId : node.ExecutionDependencies)
                 m_ProcessingNodes.emplace(depId);
 
-            m_ExecuteData.SubmissionOrder.emplace_back(nodeId);
+            m_TemporarySubmissionOrder.emplace_back(nodeId);
+        }
+
+        // Traverse the ordering backwards removing duplicates to produce
+        // final topo order
+        for (int i = m_TemporarySubmissionOrder.size() - 1; i >= 0; i--)
+        {
+            u64 id = m_TemporarySubmissionOrder[i];
+            if (m_VisitedNodes.find(id) != m_VisitedNodes.end())
+                continue;
+            m_VisitedNodes.emplace(id);
+            m_ExecuteData.SubmissionOrder.emplace_back(id);
         }
 
         m_Built = true;
@@ -108,7 +117,7 @@ namespace Flourish::Vulkan
         u32 totalIndex = 0;
         int currentWorkloadIndex = -1;
         GPUWorkloadType currentWorkloadType;
-        for (int orderIndex = m_ExecuteData.SubmissionOrder.size() - 1; orderIndex >= 0; orderIndex--)
+        for (u32 orderIndex = 0; orderIndex < m_ExecuteData.SubmissionOrder.size(); orderIndex++)
         {
             RenderGraphNode& node = m_Nodes[m_ExecuteData.SubmissionOrder[orderIndex]];
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
@@ -116,7 +125,7 @@ namespace Flourish::Vulkan
             {
                 m_ExecuteData.SubmissionSyncs.emplace_back();
                 auto& submission = node.EncoderNodes[subIndex];
-                bool firstSub = orderIndex == m_ExecuteData.SubmissionOrder.size() - 1 && subIndex == 0;
+                bool firstSub = orderIndex == 0 && subIndex == 0;
                 bool workloadChange = !firstSub && submission.WorkloadType != currentWorkloadType;
                 if (workloadChange || firstSub)
                 {
