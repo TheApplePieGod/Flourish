@@ -3,6 +3,7 @@
 
 #include "Flourish/Backends/Vulkan/RenderContext.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
@@ -49,8 +50,15 @@ namespace Flourish::Vulkan
 
     RenderGraph::~RenderGraph()
     {
-        // TODO: cleanup semaphores & events
-        // Also rebuilding should reuse semaphores
+        auto semaphores = m_AllSemaphores;
+        auto events = m_AllEvents;
+        Context::FinalizerQueue().Push([=]()
+        {
+            for (VkSemaphore sem : semaphores)
+                vkDestroySemaphore(Context::Devices().Device(), sem, nullptr);
+            for (VkEvent event : events)
+                vkDestroyEvent(Context::Devices().Device(), event, nullptr);
+        }, "RenderGraph free");
     }
 
     void RenderGraph::Build()
@@ -88,12 +96,15 @@ namespace Flourish::Vulkan
         }
 
         m_Built = true;
+        m_LastBuildFrame = Flourish::Context::FrameCount();
         if (m_ExecuteData.SubmissionOrder.empty())
             return;
         
         // Good estimate
         m_ExecuteData.SubmissionSyncs.reserve(m_ExecuteData.SubmissionOrder.size() * 5);
 
+        u32 semaphoreIndex = 0;
+        u32 eventIndex = 0;
         u32 totalIndex = 0;
         int currentWorkloadIndex = -1;
         GPUWorkloadType currentWorkloadType;
@@ -124,7 +135,9 @@ namespace Flourish::Vulkan
                         submitInfo.commandBufferCount = 1;
                         submitInfo.signalSemaphoreCount = 1;
 
-                        submitData.SignalSemaphores[i] = Synchronization::CreateTimelineSemaphore(0);
+                        if (semaphoreIndex >= m_AllSemaphores.size())
+                            m_AllSemaphores.emplace_back(Synchronization::CreateTimelineSemaphore(m_CurrentSemaphoreValue));
+                        submitData.SignalSemaphores[i] = m_AllSemaphores[semaphoreIndex++];
                     }
 
                     currentWorkloadIndex = totalIndex;
@@ -221,8 +234,14 @@ namespace Flourish::Vulkan
                     // matters after the first write
                     auto& resource = m_AllResources[write];
                     if (resource.LastWriteIndex == -1)
+                    {
                         for (u32 i = 0; i < m_SyncObjectCount; i++)
-                            resource.WriteEvents[i] = Synchronization::CreateEvent();
+                        {
+                            if (eventIndex >= m_AllEvents.size())
+                                m_AllEvents.emplace_back(Synchronization::CreateEvent());
+                            resource.WriteEvents[i] = m_AllEvents[eventIndex++];
+                        }
+                    }
 
                     resource.LastWriteIndex = totalIndex;
                     resource.LastWriteWorkloadIndex = currentWorkloadIndex;
@@ -261,6 +280,26 @@ namespace Flourish::Vulkan
     // TODO: think about removing this state
     void RenderGraph::PrepareForSubmission()
     {
+        if (m_LastSubmissionFrame != 0 && m_Info.Usage == RenderGraphUsageType::Once)
+        {
+            FL_LOG_ERROR("Cannot submit RenderGraph more than once that has usage type Once");
+            throw std::exception();
+        }
+
+        if (m_LastSubmissionFrame == Flourish::Context::FrameCount())
+        {
+            FL_LOG_ERROR("Cannot submit RenderGraph multiple times per frame");
+            throw std::exception();
+        }
+
+        if (m_Info.Usage == RenderGraphUsageType::BuildPerFrame && m_LastBuildFrame != Flourish::Context::FrameCount())
+        {
+            FL_LOG_ERROR("RenderGraph with usage BuildPerFrame was not built this frame");
+            throw std::exception();
+        }
+
+        m_LastSubmissionFrame = Flourish::Context::FrameCount();
+
         m_CurrentSemaphoreValue++;
 
         for (u32 i = 0; i < m_ExecuteData.WaitSemaphoreValues.size(); i++)

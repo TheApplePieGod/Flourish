@@ -70,7 +70,11 @@ namespace Flourish::Vulkan
     private:
         GraphExecuteData m_ExecuteData;
         u64 m_CurrentSemaphoreValue = 0;
+        u64 m_LastSubmissionFrame = 0;
+        u64 m_LastBuildFrame = 0;
         std::array<int, 3> m_LastWaitWrites;
+        std::vector<VkSemaphore> m_AllSemaphores;
+        std::vector<VkEvent> m_AllEvents;
 
         // All resources that matter when syncing (aka writes)
         std::unordered_map<u64, ResourceSyncInfo> m_AllResources;

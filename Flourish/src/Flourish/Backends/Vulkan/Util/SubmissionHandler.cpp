@@ -61,7 +61,6 @@ namespace Flourish::Vulkan
         ProcessSubmission(
             Flourish::Context::FrameGraphSubmissions().data(),
             Flourish::Context::FrameGraphSubmissions().size(),
-            Flourish::Context::FrameIndex(),
             &frameSems,
             &frameVals
         );
@@ -100,7 +99,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1, 0,
+            &graph, 1,
             &semaphores,
             &values
         );
@@ -121,7 +120,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1, 0,
+            &graph, 1,
             &semaphores,
             &values
         );
@@ -138,7 +137,6 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessSubmission(
         Flourish::RenderGraph* const* graphs,
         u32 graphCount,
-        u32 frameIndex,
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
@@ -153,6 +151,7 @@ namespace Flourish::Vulkan
             auto graph = static_cast<RenderGraph*>(graphs[graphIdx]);
             graph->PrepareForSubmission();
             auto& executeData = graph->GetExecutionData();
+            u32 frameIndex = graph->GetUsage() == RenderGraphUsageType::PerFrame ? Flourish::Context::FrameIndex() : 0;
 
             if (finalSemaphores && finalSemaphoreValues)
             {
