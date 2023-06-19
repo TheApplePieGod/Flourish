@@ -33,20 +33,28 @@ namespace Flourish
     class Buffer;
     class Texture;
     class RenderGraph;
+    class Framebuffer;
     class RenderGraphNodeBuilder
     {
     public:
+        RenderGraphNodeBuilder();
         RenderGraphNodeBuilder(RenderGraph* graph, CommandBuffer* buffer);
 
-        RenderGraphNodeBuilder& AddExecutionDependency(CommandBuffer* buffer);
+        RenderGraphNodeBuilder& SetCommandBuffer(CommandBuffer* buffer);
+        RenderGraphNodeBuilder& AddExecutionDependency(const CommandBuffer* buffer);
 
         RenderGraphNodeBuilder& AddEncoderNode(GPUWorkloadType workloadType);
-        RenderGraphNodeBuilder& EncoderAddBufferRead(Buffer* buffer);
-        RenderGraphNodeBuilder& EncoderAddBufferWrite(Buffer* buffer);
-        RenderGraphNodeBuilder& EncoderAddTextureRead(Texture* texture);
-        RenderGraphNodeBuilder& EncoderAddTextureWrite(Texture* texture);
+        RenderGraphNodeBuilder& EncoderAddBufferRead(const Buffer* buffer);
+        RenderGraphNodeBuilder& EncoderAddBufferWrite(const Buffer* buffer);
+        RenderGraphNodeBuilder& EncoderAddTextureRead(const Texture* texture);
+        RenderGraphNodeBuilder& EncoderAddTextureWrite(const Texture* texture);
 
-        void AddToGraph();
+        RenderGraphNodeBuilder& EncoderAddFramebuffer(const Framebuffer* framebuffer);
+
+        void AddToGraph() const;
+        void AddToGraph(RenderGraph* graph) const;
+
+        inline const RenderGraphNode& GetNodeData() const { return m_Node; }
 
     private:
         RenderGraphNode m_Node;
@@ -61,8 +69,9 @@ namespace Flourish
         {}
         virtual ~RenderGraph() = default;
 
-        RenderGraphNodeBuilder ConstructNewNode(CommandBuffer* buffer);
         void Clear();
+        RenderGraphNodeBuilder ConstructNewNode(CommandBuffer* buffer);
+        void AddExecutionDependency(const CommandBuffer* buffer, const CommandBuffer* dependsOn);
 
         virtual void Build() = 0;
 

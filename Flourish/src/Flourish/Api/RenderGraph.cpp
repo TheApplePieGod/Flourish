@@ -2,16 +2,26 @@
 #include "RenderGraph.h"
 
 #include "Flourish/Backends/Vulkan/RenderGraph.h"
+#include "Flourish/Backends/Vulkan/Framebuffer.h"
 
 namespace Flourish
 {
+    RenderGraphNodeBuilder::RenderGraphNodeBuilder()
+    {}
+
     RenderGraphNodeBuilder::RenderGraphNodeBuilder(RenderGraph* graph, CommandBuffer* buffer)
         : m_Graph(graph)
     {
         m_Node.Buffer = buffer;
     }
 
-    RenderGraphNodeBuilder& RenderGraphNodeBuilder::AddExecutionDependency(CommandBuffer* buffer)
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::SetCommandBuffer(CommandBuffer* buffer)
+    {
+        m_Node.Buffer = buffer;
+        return *this;
+    }
+
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::AddExecutionDependency(const CommandBuffer* buffer)
     {
         m_Node.ExecutionDependencies.insert(buffer->GetId());
         return *this;
@@ -24,39 +34,102 @@ namespace Flourish
         return *this;
     }
 
-    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddBufferRead(Buffer* buffer)
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddBufferRead(const Buffer* buffer)
     {
         FL_ASSERT(!m_Node.EncoderNodes.empty(), "Must call AddEncoderNode first");
         m_Node.EncoderNodes.back().ReadResources.insert(buffer->GetId());
         return *this;
     }
 
-    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddBufferWrite(Buffer* buffer)
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddBufferWrite(const Buffer* buffer)
     {
         m_Node.EncoderNodes.back().WriteResources.insert(buffer->GetId());
         return *this;
     }
 
-    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddTextureRead(Texture* texture)
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddTextureRead(const Texture* texture)
     {
         m_Node.EncoderNodes.back().ReadResources.insert(texture->GetId());
         return *this;
     }
 
-    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddTextureWrite(Texture* texture)
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddTextureWrite(const Texture* texture)
     {
         m_Node.EncoderNodes.back().WriteResources.insert(texture->GetId());
         return *this;
     }
 
-    void RenderGraphNodeBuilder::AddToGraph()
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::EncoderAddFramebuffer(const Framebuffer* framebuffer)
     {
+        RenderPass* pass = framebuffer->GetRenderPass();
+
+        for (u32 i = 0; i < framebuffer->GetColorAttachments().size(); i++)
+        {
+            auto& tex = framebuffer->GetColorAttachments()[i].Texture;
+            if (!tex)
+                continue;
+            if (pass->GetColorAttachment(i).Initialization == Flourish::AttachmentInitialization::Preserve)
+                EncoderAddTextureRead(tex.get());
+            EncoderAddTextureWrite(tex.get());
+        }
+
+        for (u32 i = 0; i < framebuffer->GetDepthAttachments().size(); i++)
+        {
+            auto& tex = framebuffer->GetDepthAttachments()[i].Texture;
+            if (!tex)
+                continue;
+            if (pass->GetDepthAttachment(i).Initialization == Flourish::AttachmentInitialization::Preserve)
+                EncoderAddTextureRead(tex.get());
+            EncoderAddTextureWrite(tex.get());
+        }
+
+        return *this;
+    }
+
+    void RenderGraphNodeBuilder::AddToGraph() const
+    {
+        FL_ASSERT(m_Graph, "m_Graph is null, call AddToGraph(graph)");
         m_Graph->AddInternal(m_Node);
+    }
+
+    void RenderGraphNodeBuilder::AddToGraph(RenderGraph* graph) const
+    {
+        graph->AddInternal(m_Node);
     }
 
     RenderGraphNodeBuilder RenderGraph::ConstructNewNode(CommandBuffer *buffer)
     {
         return RenderGraphNodeBuilder(this, buffer);
+    }
+
+    void RenderGraph::AddExecutionDependency(const CommandBuffer* buffer, const CommandBuffer* dependsOn)
+    {
+        if (!buffer)
+        {
+            FL_LOG_WARN("AddExecutionDependency buffer is null");
+            return;
+        }
+        if (!dependsOn)
+        {
+            FL_LOG_WARN("AddExecutionDependency dependsOn is null");
+            return;
+        }
+
+        auto found = m_Nodes.find(buffer->GetId());
+        if (found == m_Nodes.end())
+        {
+            FL_LOG_WARN("AddExecutionDependency buffer is not in graph");
+            return;
+        }
+
+        if (m_Nodes.find(dependsOn->GetId()) == m_Nodes.end())
+        {
+            FL_LOG_WARN("AddExecutionDependency dependsOn is not in graph");
+            return;
+        }
+
+        m_Leaves.erase(dependsOn->GetId());
+        found->second.ExecutionDependencies.insert(dependsOn->GetId());
     }
 
     void RenderGraph::Clear()

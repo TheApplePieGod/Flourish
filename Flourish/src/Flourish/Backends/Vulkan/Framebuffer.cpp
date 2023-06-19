@@ -71,7 +71,7 @@ namespace Flourish::Vulkan
                 m_CachedClearValues.emplace_back(clearValue);
 
             imageInfo.format = Common::ConvertColorFormat(
-                renderPass->GetDepthAttachmentColorFormat(i)
+                renderPass->GetDepthAttachment(i).Format
             );
             viewCreateInfo.Format = imageInfo.format;
 
@@ -125,7 +125,7 @@ namespace Flourish::Vulkan
                 m_CachedClearValues.emplace_back(clearValue);
 
             imageInfo.format = Common::ConvertColorFormat(
-                renderPass->GetColorAttachmentColorFormat(i)
+                renderPass->GetColorAttachment(i).Format
             );
             viewCreateInfo.Format = imageInfo.format;
 
