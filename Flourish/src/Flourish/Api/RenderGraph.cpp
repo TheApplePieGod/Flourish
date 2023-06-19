@@ -15,6 +15,12 @@ namespace Flourish
         m_Node.Buffer = buffer;
     }
 
+    RenderGraphNodeBuilder& RenderGraphNodeBuilder::Reset()
+    {
+        m_Node = RenderGraphNode();
+        return *this;
+    }
+
     RenderGraphNodeBuilder& RenderGraphNodeBuilder::SetCommandBuffer(CommandBuffer* buffer)
     {
         m_Node.Buffer = buffer;

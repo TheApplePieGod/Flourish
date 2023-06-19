@@ -249,17 +249,21 @@ namespace Flourish::Vulkan
                         #endif
                     }
 
-                    if (submission.Framebuffer)
+                    // Indicates do nothing
+                    if (!submission.Buffers.empty())
                     {
-                        ExecuteRenderPassCommands(
-                            primaryBuf,
-                            submission.Framebuffer,
-                            submission.Buffers.data(),
-                            submission.Buffers.size()
-                        );
+                        if (submission.Framebuffer)
+                        {
+                            ExecuteRenderPassCommands(
+                                primaryBuf,
+                                submission.Framebuffer,
+                                submission.Buffers.data(),
+                                submission.Buffers.size()
+                            );
+                        }
+                        else
+                            vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
                     }
-                    else
-                        vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
 
                     if (syncInfo.WriteEvent != -1)
                     {

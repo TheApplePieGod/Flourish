@@ -40,11 +40,13 @@ namespace Flourish::Vulkan
         
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CurrentCommandBuffer; }
+        inline void MarkManuallyRecorded() { m_AnyCommandRecorded = true; }
 
     private:
         void InitializeSubpass();
 
     private:
+        bool m_AnyCommandRecorded = false;
         bool m_FrameRestricted;
         CommandBufferEncoderSubmission m_Submission;
         VkCommandBuffer m_CurrentCommandBuffer;

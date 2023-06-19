@@ -15,6 +15,7 @@ namespace Flourish::Vulkan
     void TransferCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
+        m_AnyCommandRecorded = false;
 
         m_Submission.Buffers.resize(1);
         m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
@@ -44,6 +45,10 @@ namespace Flourish::Vulkan
         m_Encoding = false;
 
         vkEndCommandBuffer(m_CommandBuffer);
+
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
@@ -54,6 +59,7 @@ namespace Flourish::Vulkan
         Buffer* buffer = static_cast<Buffer*>(_buffer);
 
         buffer->FlushInternal(m_CommandBuffer);
+        m_AnyCommandRecorded = true;
     }
 
     void TransferCommandEncoder::CopyTextureToBuffer(Flourish::Texture* _texture, Flourish::Buffer* _buffer, u32 layerIndex, u32 mipLevel)
@@ -99,6 +105,7 @@ namespace Flourish::Vulkan
             0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             m_CommandBuffer
         );
+        m_AnyCommandRecorded = true;
     }
 
     void TransferCommandEncoder::CopyBufferToTexture(Flourish::Texture* _texture, Flourish::Buffer* _buffer, u32 layerIndex, u32 mipLevel)
@@ -143,5 +150,6 @@ namespace Flourish::Vulkan
             0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             m_CommandBuffer
         );
+        m_AnyCommandRecorded = true;
     }
 }

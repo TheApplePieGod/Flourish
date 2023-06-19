@@ -16,6 +16,7 @@ namespace Flourish::Vulkan
     void ComputeCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
+        m_AnyCommandRecorded = false;
 
         m_Submission.Buffers.resize(1);
         m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
@@ -48,6 +49,10 @@ namespace Flourish::Vulkan
         m_BoundPipeline = nullptr;
 
         vkEndCommandBuffer(m_CommandBuffer);
+
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
@@ -66,6 +71,7 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Dispatch after encoding has ended");
 
         vkCmdDispatch(m_CommandBuffer, x, y, z);
+        m_AnyCommandRecorded = true;
     }
 
     void ComputeCommandEncoder::DispatchIndirect(Flourish::Buffer* _buffer, u32 commandOffset)
@@ -79,6 +85,7 @@ namespace Flourish::Vulkan
             buffer,
             commandOffset * sizeof(VkDispatchIndirectCommand)
         );
+        m_AnyCommandRecorded = true;
     }
     
     void ComputeCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)

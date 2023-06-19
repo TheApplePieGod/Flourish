@@ -21,6 +21,7 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         m_Encoding = true;
+        m_AnyCommandRecorded = false;
         m_Submission.Framebuffer = framebuffer;
         m_Submission.Buffers.resize(framebuffer->GetRenderPass()->GetSubpasses().size());
         m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
@@ -45,6 +46,11 @@ namespace Flourish::Vulkan
         m_SubpassIndex = 0;
 
         vkEndCommandBuffer(m_CurrentCommandBuffer);
+
+        // Indicate that we should do nothing here
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
 
         m_Submission.Framebuffer = nullptr;
@@ -145,6 +151,7 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
         
         vkCmdDraw(m_CurrentCommandBuffer, vertexCount, instanceCount, vertexOffset, instanceOffset);
+        m_AnyCommandRecorded = true;
     }
 
     void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
@@ -154,6 +161,7 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed after encoding has ended");
 
         vkCmdDrawIndexed(m_CurrentCommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
+        m_AnyCommandRecorded = true;
     }
 
     void RenderCommandEncoder::DrawIndexedIndirect(const Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
@@ -172,6 +180,7 @@ namespace Flourish::Vulkan
             drawCount,
             stride
         );
+        m_AnyCommandRecorded = true;
     }
     
     void RenderCommandEncoder::StartNextSubpass()
@@ -213,6 +222,7 @@ namespace Flourish::Vulkan
         clearRect.rect.offset.x = 0;
         clearRect.rect.offset.y = 0;
         vkCmdClearAttachments(m_CurrentCommandBuffer, 1, &clear, 1, &clearRect);        
+        m_AnyCommandRecorded = true;
     }
 
     void RenderCommandEncoder::ClearDepthAttachment()
@@ -228,11 +238,12 @@ namespace Flourish::Vulkan
         VkClearRect clearRect;
         clearRect.baseArrayLayer = 0;
         clearRect.layerCount = 1;
-        clearRect.rect.extent.height = m_Submission.Framebuffer->GetWidth();
-        clearRect.rect.extent.width = m_Submission.Framebuffer->GetHeight();
+        clearRect.rect.extent.width = m_Submission.Framebuffer->GetWidth();
+        clearRect.rect.extent.height = m_Submission.Framebuffer->GetHeight();
         clearRect.rect.offset.x = 0;
         clearRect.rect.offset.y = 0;
         vkCmdClearAttachments(m_CurrentCommandBuffer, 1, &clear, 1, &clearRect);        
+        m_AnyCommandRecorded = true;
     }
 
     void RenderCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)

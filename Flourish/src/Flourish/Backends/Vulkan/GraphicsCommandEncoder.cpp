@@ -14,6 +14,7 @@ namespace Flourish::Vulkan
     void GraphicsCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
+        m_AnyCommandRecorded = false;
 
         m_Submission.Buffers.resize(1);
         m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
@@ -43,6 +44,10 @@ namespace Flourish::Vulkan
         m_Encoding = false;
 
         vkEndCommandBuffer(m_CommandBuffer);
+
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
@@ -67,5 +72,6 @@ namespace Flourish::Vulkan
             VK_FILTER_LINEAR,
             m_CommandBuffer
         );
+        m_AnyCommandRecorded = true;
     }
 }

@@ -40,6 +40,7 @@ namespace Flourish
         RenderGraphNodeBuilder();
         RenderGraphNodeBuilder(RenderGraph* graph, CommandBuffer* buffer);
 
+        RenderGraphNodeBuilder& Reset();
         RenderGraphNodeBuilder& SetCommandBuffer(CommandBuffer* buffer);
         RenderGraphNodeBuilder& AddExecutionDependency(const CommandBuffer* buffer);
 
