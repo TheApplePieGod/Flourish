@@ -2,6 +2,7 @@
 
 #include "Flourish/Api/RayTracing/AccelerationStructure.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
+#include "Flourish/Backends/Vulkan/Util/Commands.h"
 
 namespace Flourish::Vulkan
 {
@@ -12,21 +13,33 @@ namespace Flourish::Vulkan
         AccelerationStructure(const AccelerationStructureCreateInfo& createInfo);
         ~AccelerationStructure() override;
 
-        void Build(Flourish::Buffer* vertexBuffer, Flourish::Buffer* indexBuffer) override;
-        void Build(AccelerationStructureInstance* instances, u32 instanceCount) override;
+        void BuildNode(
+            Flourish::Buffer* vertexBuffer,
+            Flourish::Buffer* indexBuffer,
+            bool update = false
+        ) override;
+        void BuildScene(
+            AccelerationStructureInstance* instances,
+            u32 instanceCount,
+            bool update = false
+        ) override;
 
         // TS
         inline VkAccelerationStructureKHR GetAccelStructure() const { return m_AccelStructure; }
 
     private:
         void BuildInternal(
-            const VkAccelerationStructureGeometryKHR& geom,
-            const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo
+            VkAccelerationStructureBuildGeometryInfoKHR& buildInfo,
+            const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo,
+            VkCommandBuffer cmdBuf
         );
+        void CleanupAccel();
+        CommandBufferAllocInfo BeginCommands(VkCommandBuffer* cmdBuf);
 
     private:
         VkAccelerationStructureKHR m_AccelStructure = nullptr;
         std::shared_ptr<Buffer> m_AccelBuffer;
         std::shared_ptr<Buffer> m_ScratchBuffer;
+        u32 m_ScratchAlignment;
     };
 }

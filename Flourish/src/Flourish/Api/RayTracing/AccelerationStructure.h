@@ -18,6 +18,7 @@ namespace Flourish
     struct AccelerationStructureCreateInfo
     {
         AccelerationStructureType Type;
+        bool AllowUpdating = false;
     };
 
     // TODO: Rename class?
@@ -30,8 +31,16 @@ namespace Flourish
         {}
         virtual ~AccelerationStructure() = default;
 
-        virtual void Build(Buffer* vertexBuffer, Buffer* indexBuffer) = 0;
-        virtual void Build(AccelerationStructureInstance* instances, u32 instanceCount) = 0;
+        virtual void BuildNode(
+            Buffer* vertexBuffer,
+            Buffer* indexBuffer,
+            bool update = false
+        ) = 0;
+        virtual void BuildScene(
+            AccelerationStructureInstance* instances,
+            u32 instanceCount,
+            bool update = false
+        ) = 0;
 
     public:
         static std::shared_ptr<AccelerationStructure> Create(const AccelerationStructureCreateInfo& createInfo);

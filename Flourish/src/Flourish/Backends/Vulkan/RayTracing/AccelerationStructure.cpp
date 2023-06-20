@@ -13,25 +13,39 @@ namespace Flourish::Vulkan
             Flourish::Context::FeatureTable().RayTracing,
             "RayTracing feature must be enabled and supported to use AccelerationStructures"
         );
+
+        // TODO: this should be cached somehwere
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProps{};
+        accelProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+        VkPhysicalDeviceProperties2 devProps{};
+        devProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        devProps.pNext = &accelProps;
+        vkGetPhysicalDeviceProperties2(Context::Devices().PhysicalDevice(), &devProps);
+        m_ScratchAlignment = accelProps.minAccelerationStructureScratchOffsetAlignment;
     }
 
     AccelerationStructure::~AccelerationStructure()
     {
-        auto accelStructure = m_AccelStructure;
-        Context::FinalizerQueue().Push([=]()
-        {
-            if (accelStructure)
-                vkDestroyAccelerationStructureKHR(Context::Devices().Device(), accelStructure, nullptr);
-        });
+        CleanupAccel();
     }
 
     // TODO: build directly from vertex and index data?
     // that would change BUILD_TYPE from device to host
-    void AccelerationStructure::Build(Flourish::Buffer* vertexBuffer, Flourish::Buffer* indexBuffer)
+    void AccelerationStructure::BuildNode(Flourish::Buffer* vertexBuffer, Flourish::Buffer* indexBuffer, bool update)
     {
         FL_ASSERT(
             vertexBuffer->CanCreateAccelerationStructure() && indexBuffer->CanCreateAccelerationStructure(),
             "Vertex and index buffers must be created with CanCreateAccelerationStructure"
+        );
+
+        FL_ASSERT(
+            m_Info.Type == Flourish::AccelerationStructureType::Node,
+            "Type must be Node to call BuildNode"
+        );
+
+        FL_ASSERT(
+            !update || m_Info.AllowUpdating,
+            "AllowUpdating must be true to update node"
         );
 
         // TODO HERE
@@ -66,19 +80,34 @@ namespace Flourish::Vulkan
         rangeInfo.primitiveOffset = 0;
         rangeInfo.transformOffset = 0;
 
-        BuildInternal(asGeom, &rangeInfo);
+        VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+        buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+        buildInfo.geometryCount = 1;
+        buildInfo.pGeometries = &asGeom;
+        buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+
+        VkCommandBuffer cmdBuf;
+        auto cmdAlloc = BeginCommands(&cmdBuf);
+
+        BuildInternal(buildInfo, &rangeInfo, cmdBuf);
+
+        vkEndCommandBuffer(cmdBuf);
+        Context::Queues().ExecuteCommand(GPUWorkloadType::Compute, cmdBuf);
+
+        Context::Commands().FreeBuffer(cmdAlloc, cmdBuf);
     }
 
-    void AccelerationStructure::Build(AccelerationStructureInstance* instances, u32 instanceCount)
+    void AccelerationStructure::BuildScene(AccelerationStructureInstance* instances, u32 instanceCount, bool update)
     {
-        if (m_AccelStructure)
-        {
-            auto accelStructure = m_AccelStructure;
-            Context::FinalizerQueue().Push([accelStructure]()
-            {
-                vkDestroyAccelerationStructureKHR(Context::Devices().Device(), accelStructure, nullptr);
-            });
-        }
+        FL_ASSERT(
+            m_Info.Type == Flourish::AccelerationStructureType::Scene,
+            "Type must be Scene to call BuildNode"
+        );
+
+        FL_ASSERT(
+            !update || m_Info.AllowUpdating,
+            "AllowUpdating must be true to update scene"
+        );
 
         // Populate instances
         std::vector<VkAccelerationStructureInstanceKHR> vkInstances;
@@ -103,17 +132,7 @@ namespace Flourish::Vulkan
         }
 
         VkCommandBuffer cmdBuf;
-        auto commandAlloc = Context::Commands().AllocateBuffers(
-            GPUWorkloadType::Compute,
-            false,
-            &cmdBuf, 1,
-            true
-        );
-
-        VkCommandBufferBeginInfo cmdBeginInfo{};
-        cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(cmdBuf, &cmdBeginInfo);
+        auto cmdAlloc = BeginCommands(&cmdBuf);
 
         BufferCreateInfo ibCreateInfo;
         ibCreateInfo.Usage = BufferUsageType::Static;
@@ -154,100 +173,45 @@ namespace Flourish::Vulkan
 
         // Get build size
         VkAccelerationStructureBuildGeometryInfoKHR buildInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
-        buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
         buildInfo.geometryCount = 1;
         buildInfo.pGeometries = &topGeom;
-        // TODO: update
-        buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-        buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-        buildInfo.srcAccelerationStructure = VK_NULL_HANDLE;
-
-        VkAccelerationStructureBuildSizesInfoKHR buildSize{};
-        buildSize.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
-        vkGetAccelerationStructureBuildSizesKHR(
-            Context::Devices().Device(),
-            VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-            &buildInfo,
-            &instanceCount,
-            &buildSize
-        );
-
-        BufferCreateInfo abCreateInfo;
-        abCreateInfo.Usage = BufferUsageType::Static;
-        abCreateInfo.ElementCount = 1;
-        abCreateInfo.Stride = buildSize.accelerationStructureSize;
-        m_AccelBuffer = std::make_shared<Buffer>(
-            abCreateInfo,
-            VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-            Buffer::MemoryDirection::CPUToGPU
-        );
-
-        VkAccelerationStructureKHR accel;
-        VkAccelerationStructureCreateInfoKHR accCreateInfo{};
-        accCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-        accCreateInfo.size = buildSize.accelerationStructureSize;
-        accCreateInfo.type = buildInfo.type;
-        accCreateInfo.buffer = m_AccelBuffer->GetBuffer();
-        vkCreateAccelerationStructureKHR(Context::Devices().Device(), &accCreateInfo, nullptr, &accel);
-
-        // TODO: this should be cached somehwere
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProps{};
-        accelProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-        VkPhysicalDeviceProperties2 devProps{};
-        devProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        devProps.pNext = &accelProps;
-        vkGetPhysicalDeviceProperties2(Context::Devices().PhysicalDevice(), &devProps);
-        u32 scratchAlignment = accelProps.minAccelerationStructureScratchOffsetAlignment;
-    
-        BufferCreateInfo scratchCreateInfo;
-        scratchCreateInfo.Usage = BufferUsageType::Static;
-        scratchCreateInfo.ElementCount = 1;
-        scratchCreateInfo.Stride = buildSize.buildScratchSize + scratchAlignment;
-        m_ScratchBuffer = std::make_shared<Buffer>(
-            scratchCreateInfo,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-            Buffer::MemoryDirection::CPUToGPU
-        );
-        VkDeviceAddress scratchAddress = m_ScratchBuffer->GetBufferDeviceAddress();
-        scratchAddress += (scratchAlignment - (scratchAddress % scratchAlignment));
-
-        // Finalize build info
-        buildInfo.dstAccelerationStructure = accel;
-        buildInfo.scratchData.deviceAddress = scratchAddress;
+        buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 
         VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
         rangeInfo.firstVertex = 0;
         rangeInfo.primitiveCount = instanceCount;
         rangeInfo.primitiveOffset = 0;
         rangeInfo.transformOffset = 0;
-        const auto rangeInfoPtr = &rangeInfo;
 
-        vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfoPtr);
+        BuildInternal(buildInfo, &rangeInfo, cmdBuf);
+
         vkEndCommandBuffer(cmdBuf);
-
         Context::Queues().ExecuteCommand(GPUWorkloadType::Compute, cmdBuf);
 
-        m_AccelStructure = accel;
+        Context::Commands().FreeBuffer(cmdAlloc, cmdBuf);
     }
 
     void AccelerationStructure::BuildInternal(
-        const VkAccelerationStructureGeometryKHR& geom,
-        const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo
+        VkAccelerationStructureBuildGeometryInfoKHR& buildInfo,
+        const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo,
+        VkCommandBuffer cmdBuf
     )
     {
-        // TODO HERE:
-        // - VK_BUILD_MODE_UPDATE
-        // - Fast trace vs fast build
+        // Force build if this is the first time
+        if (!m_AccelStructure)
+            buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+        bool isUpdating = buildInfo.mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
 
-        VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
-        buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
         buildInfo.type = Common::ConvertAccelerationStructureType(m_Info.Type);
         buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
         buildInfo.flags = //VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR |
                           VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-                          // VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR
-        buildInfo.geometryCount = 1;
-        buildInfo.pGeometries = &geom;
+        if (m_Info.AllowUpdating)
+            buildInfo.flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+
+        // TODO HERE:
+        // - VK_BUILD_MODE_UPDATE
+        // - Fast trace vs fast build
 
         // Finding sizes to create acceleration structures and scratch
         VkAccelerationStructureBuildSizesInfoKHR buildSize;
@@ -255,94 +219,98 @@ namespace Flourish::Vulkan
         vkGetAccelerationStructureBuildSizesKHR(
             Context::Devices().Device(),
             VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-            //VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR,
             &buildInfo,
             &rangeInfo->primitiveCount,
             &buildSize
         );
 
-        // TODO: this should be cached somehwere
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProps{};
-        accelProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-        VkPhysicalDeviceProperties2 devProps{};
-        devProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        devProps.pNext = &accelProps;
-        vkGetPhysicalDeviceProperties2(Context::Devices().PhysicalDevice(), &devProps);
-        u32 scratchAlignment = accelProps.minAccelerationStructureScratchOffsetAlignment;
-
         // Allocate scratch buffer
-        // TODO: updateScratchSize
-        VkBuffer scratchBuffer;
-        VmaAllocation scratchBufferAlloc;
-        VkBufferCreateInfo bufCreateInfo{};
-        bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufCreateInfo.size = buildSize.buildScratchSize + scratchAlignment;
-        bufCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-        VmaAllocationCreateInfo allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        if (!FL_VK_CHECK_RESULT(vmaCreateBuffer(
-            Context::Allocator(),
-            &bufCreateInfo,
-            &allocCreateInfo,
-            &scratchBuffer,
-            &scratchBufferAlloc,
-            nullptr
-        ), "Create AccelerationStructure scratch buffer"))
-            throw std::exception();
-        VkBufferDeviceAddressInfo daInfo{};
-        daInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-        daInfo.buffer = scratchBuffer;
-        VkDeviceAddress scratchAddress = vkGetBufferDeviceAddress(Context::Devices().Device(), &daInfo);
-        scratchAddress += scratchAlignment - (scratchAddress % scratchAlignment);
+        u32 scratchSize = m_ScratchAlignment;
+        if (isUpdating)
+            scratchSize += buildSize.updateScratchSize;
+        else
+            scratchSize += buildSize.buildScratchSize;
+        if (!m_ScratchBuffer || m_ScratchBuffer->GetAllocatedSize() < scratchSize)
+        {
+            BufferCreateInfo scratchCreateInfo;
+            scratchCreateInfo.Usage = BufferUsageType::Static;
+            scratchCreateInfo.ElementCount = 1;
+            scratchCreateInfo.Stride = scratchSize;
+            m_ScratchBuffer = std::make_shared<Buffer>(
+                scratchCreateInfo,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                Buffer::MemoryDirection::CPUToGPU
+            );
+        }
+        VkDeviceAddress scratchAddress = m_ScratchBuffer->GetBufferDeviceAddress();
+        scratchAddress += (m_ScratchAlignment - (scratchAddress % m_ScratchAlignment));
 
-        // Allocate buffer to store acceleration structure
-        VkBuffer accelBuffer;
-        VmaAllocation accelBufferAlloc;
-        bufCreateInfo = {};
-        bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufCreateInfo.size = buildSize.accelerationStructureSize;
-        bufCreateInfo.usage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-        allocCreateInfo = {};
-        allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        if (!FL_VK_CHECK_RESULT(vmaCreateBuffer(
-            Context::Allocator(),
-            &bufCreateInfo,
-            &allocCreateInfo,
-            &accelBuffer,
-            &accelBufferAlloc,
-            nullptr
-        ), "Create AccelerationStructure buffer"))
-            throw std::exception();
-
-        VkAccelerationStructureKHR accel;
         VkAccelerationStructureCreateInfoKHR accCreateInfo{};
         accCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
         accCreateInfo.size = buildSize.accelerationStructureSize;
         accCreateInfo.type = buildInfo.type;
-        accCreateInfo.buffer = accelBuffer;
-        vkCreateAccelerationStructureKHR(Context::Devices().Device(), &accCreateInfo, nullptr, &accel);
+
+        // Allocate buffer to store acceleration structure
+        BufferCreateInfo abCreateInfo;
+        abCreateInfo.Usage = BufferUsageType::Static;
+        abCreateInfo.ElementCount = 1;
+        abCreateInfo.Stride = buildSize.accelerationStructureSize;
+
+        // We always allocate a new buffer on build since the old buffer and structure will
+        // be cleaned up. TODO: could alternate between buffers to store
+        if (!isUpdating)
+        {
+            CleanupAccel();
+
+            m_AccelBuffer = std::make_shared<Buffer>(
+                abCreateInfo,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                Buffer::MemoryDirection::CPUToGPU
+            );
+
+            accCreateInfo.buffer = m_AccelBuffer->GetBuffer();
+            vkCreateAccelerationStructureKHR(Context::Devices().Device(), &accCreateInfo, nullptr, &m_AccelStructure);
+        }
 
         // Finalize build info
-        buildInfo.dstAccelerationStructure = accel;
+        buildInfo.srcAccelerationStructure = m_AccelStructure;
+        buildInfo.dstAccelerationStructure = m_AccelStructure;
         buildInfo.scratchData.deviceAddress = scratchAddress;
 
-        VkCommandBuffer cmdBuf;
+        vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
+
+        // Cleanup scratch buffer for builds since the update scratch is usually
+        // smaller
+        if (!isUpdating)
+            m_ScratchBuffer.reset();
+    }
+
+    void AccelerationStructure::CleanupAccel()
+    {
+        if (!m_AccelStructure)
+            return;
+
+        auto accelStructure = m_AccelStructure;
+        Context::FinalizerQueue().Push([=]()
+        {
+            vkDestroyAccelerationStructureKHR(Context::Devices().Device(), accelStructure, nullptr);
+        });
+    }
+
+    CommandBufferAllocInfo AccelerationStructure::BeginCommands(VkCommandBuffer* cmdBuf)
+    {
         auto commandAlloc = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Compute,
             false,
-            &cmdBuf, 1,
+            cmdBuf, 1,
             true
         );
 
         VkCommandBufferBeginInfo cmdBeginInfo{};
         cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        vkBeginCommandBuffer(cmdBuf, &cmdBeginInfo);
-        vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
-        vkEndCommandBuffer(cmdBuf);
-
-        Context::Queues().ExecuteCommand(GPUWorkloadType::Compute, cmdBuf);
-
-        m_AccelStructure = accel;
+        vkBeginCommandBuffer(*cmdBuf, &cmdBeginInfo);
+        
+        return commandAlloc;
     }
 }
