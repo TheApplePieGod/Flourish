@@ -8,6 +8,13 @@ namespace Flourish
         Scene
     };
 
+    class AccelerationStructure;
+    struct AccelerationStructureInstance
+    {
+        float* TransformMatrix; // 4x4 column-major (64 bytes)
+        const AccelerationStructure* Parent;
+    };
+
     struct AccelerationStructureCreateInfo
     {
         AccelerationStructureType Type;
@@ -23,8 +30,8 @@ namespace Flourish
         {}
         virtual ~AccelerationStructure() = default;
 
-        virtual void Build(void* vertexData, u32 vertexStride, u32 vertexCount, u32* indexData, u32 indexCount) = 0;
         virtual void Build(Buffer* vertexBuffer, Buffer* indexBuffer) = 0;
+        virtual void Build(AccelerationStructureInstance* instances, u32 instanceCount) = 0;
 
     public:
         static std::shared_ptr<AccelerationStructure> Create(const AccelerationStructureCreateInfo& createInfo);

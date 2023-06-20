@@ -5,14 +5,18 @@
 
 namespace Flourish::Vulkan
 {
+    class Buffer;
     class AccelerationStructure : public Flourish::AccelerationStructure
     {
     public:
         AccelerationStructure(const AccelerationStructureCreateInfo& createInfo);
         ~AccelerationStructure() override;
 
-        void Build(void* vertexData, u32 vertexStride, u32 vertexCount, u32* indexData, u32 indexCount) override;
         void Build(Flourish::Buffer* vertexBuffer, Flourish::Buffer* indexBuffer) override;
+        void Build(AccelerationStructureInstance* instances, u32 instanceCount) override;
+
+        // TS
+        inline VkAccelerationStructureKHR GetAccelStructure() const { return m_AccelStructure; }
 
     private:
         void BuildInternal(
@@ -20,5 +24,9 @@ namespace Flourish::Vulkan
             const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo
         );
 
+    private:
+        VkAccelerationStructureKHR m_AccelStructure = nullptr;
+        std::shared_ptr<Buffer> m_AccelBuffer;
+        std::shared_ptr<Buffer> m_ScratchBuffer;
     };
 }

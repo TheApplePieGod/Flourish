@@ -8,6 +8,13 @@ namespace Flourish::Vulkan
     Buffer::Buffer(const BufferCreateInfo& createInfo)
         : Flourish::Buffer(createInfo)
     {
+        #if defined(FL_DEBUG) && defined(FL_LOGGING) 
+        if (m_Info.Usage == BufferUsageType::Static && !m_Info.InitialData)
+            FL_LOG_WARN("Creating a static buffer with no initial data");
+        if (m_Info.Usage == BufferUsageType::Static && GetAllocatedSize() != m_Info.InitialDataSize)
+            FL_LOG_WARN("Creating a static buffer with initial data of a different size");
+        #endif
+
         VkBufferUsageFlags usage;
         MemoryDirection memDirection;
         switch (m_Info.Type)
@@ -53,16 +60,17 @@ namespace Flourish::Vulkan
         if (m_Info.CanCreateAccelerationStructure)
             usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         
-        CreateInternal(usage, memDirection);
+        CreateInternal(usage, memDirection, nullptr);
     }
 
     Buffer::Buffer(
         const BufferCreateInfo& createInfo,
         VkBufferUsageFlags usageFlags,
-        MemoryDirection memoryDirection
+        MemoryDirection memoryDirection,
+        VkCommandBuffer uploadBuffer
     ) : Flourish::Buffer(createInfo)
     {
-        CreateInternal(usageFlags, memoryDirection);
+        CreateInternal(usageFlags, memoryDirection, uploadBuffer);
     }
 
     Buffer::~Buffer()
@@ -82,7 +90,7 @@ namespace Flourish::Vulkan
         }, "Buffer free");
     }
 
-    void Buffer::CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection)
+    void Buffer::CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection, VkCommandBuffer uploadBuffer)
     {
         m_MemoryDirection = memDirection;
 
@@ -96,12 +104,6 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
-        #if defined(FL_DEBUG) && defined(FL_LOGGING) 
-        if (m_Info.Usage == BufferUsageType::Static && !m_Info.InitialData)
-            FL_LOG_WARN("Creating a static buffer with no initial data");
-        if (m_Info.Usage == BufferUsageType::Static && GetAllocatedSize() != m_Info.InitialDataSize)
-            FL_LOG_WARN("Creating a static buffer with initial data of a different size");
-        #endif
         auto device = Context::Devices().Device();
         VkDeviceSize bufSize = static_cast<u64>(GetAllocatedSize());
 
@@ -139,7 +141,7 @@ namespace Flourish::Vulkan
             FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have");
         #endif
 
-        CreateBuffers(bufCreateInfo);
+        CreateBuffers(bufCreateInfo, uploadBuffer);
     }
 
     void Buffer::SetBytes(const void* data, u32 byteCount, u32 byteOffset)
@@ -348,7 +350,7 @@ namespace Flourish::Vulkan
         return m_StagingBuffers[Flourish::Context::FrameIndex()];
     }
 
-    void Buffer::CreateBuffers(VkBufferCreateInfo bufCreateInfo)
+    void Buffer::CreateBuffers(VkBufferCreateInfo bufCreateInfo, VkCommandBuffer uploadBuffer)
     {
         // Default allocation is device local
         // TODO: dedicated allocation for large allocations
@@ -437,7 +439,7 @@ namespace Flourish::Vulkan
                         initialDataStagingBuf.Buffer,
                         m_Buffers[i].Buffer,
                         m_Info.InitialDataSize,
-                        nullptr,
+                        uploadBuffer,
                         !m_Info.AsyncUpload,
                         m_Info.UploadedCallback
                     );
