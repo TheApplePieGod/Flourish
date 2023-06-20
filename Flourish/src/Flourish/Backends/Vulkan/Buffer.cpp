@@ -196,7 +196,7 @@ namespace Flourish::Vulkan
         return m_Buffers[frameIndex].DeviceAddress;
     }
 
-    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute)
+    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute, std::function<void()> callback)
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
@@ -231,9 +231,11 @@ namespace Flourish::Vulkan
             }
             else
             {
-                Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo]()
+                Context::Queues().PushCommand(GPUWorkloadType::Transfer, cmdBuffer, [cmdBuffer, allocInfo, callback]()
                 {
                     Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+                    if (callback)
+                        callback();
                 }); //, "CopyBufferToBuffer command free");
             }
         }
@@ -389,6 +391,7 @@ namespace Flourish::Vulkan
         }
         
         // Initial data transfers only apply when buffer is cpu->gpu
+        bool gpuCopy = false;
         BufferData initialDataStagingBuf;
         if (m_MemoryDirection == MemoryDirection::CPUToGPU && m_Info.InitialData && m_Info.InitialDataSize > 0)
         {
@@ -410,13 +413,26 @@ namespace Flourish::Vulkan
                         memcpy(initialDataStagingBuf.AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
                     }
                     
-                    CopyBufferToBuffer(initialDataStagingBuf.Buffer, m_Buffers[i].Buffer, m_Info.InitialDataSize);
+                    CopyBufferToBuffer(
+                        initialDataStagingBuf.Buffer,
+                        m_Buffers[i].Buffer,
+                        m_Info.InitialDataSize,
+                        nullptr,
+                        !m_Info.AsyncUpload,
+                        m_Info.UploadedCallback
+                    );
+                    gpuCopy = true;
                 }
                 else
                     // Otherwise this is a dynamic host buffer that we can directly write to
                     memcpy(m_Buffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
             }
         }
+
+        // If async is false or gpu copy never happened, nothing will signal the callback,
+        // so we signal it manually here
+        if ((!gpuCopy || !m_Info.AsyncUpload) && m_Info.UploadedCallback)
+            m_Info.UploadedCallback();
         
         // Destroy the temp staging buffer if it was created
         if (initialDataStagingBuf.Buffer)

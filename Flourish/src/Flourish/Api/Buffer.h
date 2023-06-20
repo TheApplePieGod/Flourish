@@ -143,6 +143,10 @@ namespace Flourish
         void* InitialData = nullptr;
         u32 InitialDataSize = 0; // Bytes
         bool CanCreateAccelerationStructure = false;
+
+        // Only used when populating initial data
+        bool AsyncUpload = true;
+        std::function<void()> UploadedCallback = nullptr;
     };
 
     class Buffer

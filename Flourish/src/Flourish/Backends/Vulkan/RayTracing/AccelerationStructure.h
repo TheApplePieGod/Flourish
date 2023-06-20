@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Flourish/Api/AccelerationStructure.h"
+#include "Flourish/Api/RayTracing/AccelerationStructure.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
 namespace Flourish::Vulkan

@@ -3,7 +3,7 @@
 #include "Flourish/Api/Context.h"
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"
-#include "Flourish/Api/AccelerationStructure.h"
+#include "Flourish/Api/RayTracing/AccelerationStructure.h"
 #include "volk/volk.h"
 #include "vk_mem_alloc.h"
 

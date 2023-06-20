@@ -31,7 +31,8 @@ namespace Flourish::Vulkan
             VkBuffer dst,
             u64 size,
             VkCommandBuffer buffer = nullptr,
-            bool execute = false
+            bool execute = false,
+            std::function<void()> callback = nullptr
         );
         static void CopyBufferToImage(
             VkBuffer src,

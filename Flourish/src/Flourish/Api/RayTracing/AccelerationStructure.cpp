@@ -1,7 +1,7 @@
 #include "flpch.h"
 #include "AccelerationStructure.h"
 
-#include "Flourish/Backends/Vulkan/AccelerationStructure.h"
+#include "Flourish/Backends/Vulkan/RayTracing/AccelerationStructure.h"
 
 namespace Flourish
 {
