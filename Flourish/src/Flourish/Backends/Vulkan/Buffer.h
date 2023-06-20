@@ -22,6 +22,8 @@ namespace Flourish::Vulkan
         VkBuffer GetBuffer(u32 frameIndex) const;
         VkBuffer GetStagingBuffer() const;
         VkBuffer GetStagingBuffer(u32 frameIndex) const;
+        VkDeviceAddress GetBufferDeviceAddress() const;
+        VkDeviceAddress GetBufferDeviceAddress(u32 frameIndex) const;
 
     public:
         static void CopyBufferToBuffer(
@@ -64,6 +66,7 @@ namespace Flourish::Vulkan
         struct BufferData
         {
             VkBuffer Buffer = nullptr;
+            VkDeviceAddress DeviceAddress = 0;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
             bool HasComplement = false;
@@ -82,6 +85,7 @@ namespace Flourish::Vulkan
 
     private:
         u32 m_BufferCount = 1;
+        bool m_UseDeviceAddress = false;
         MemoryDirection m_MemoryDirection;
         std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_Buffers;
         std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_StagingBuffers;

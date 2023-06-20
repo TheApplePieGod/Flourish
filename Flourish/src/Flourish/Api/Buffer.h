@@ -142,6 +142,7 @@ namespace Flourish
         u32 ElementCount = 0;
         void* InitialData = nullptr;
         u32 InitialDataSize = 0; // Bytes
+        bool CanCreateAccelerationStructure = false;
     };
 
     class Buffer
@@ -165,6 +166,7 @@ namespace Flourish
         inline u32 GetStride() const { return m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride; }
         inline u32 GetAllocatedSize() const { return m_Info.ElementCount * GetStride(); }
         inline u32 GetAllocatedCount() const { return m_Info.ElementCount; }
+        inline bool CanCreateAccelerationStructure() const { return m_Info.CanCreateAccelerationStructure; }
 
     public:
         // TS

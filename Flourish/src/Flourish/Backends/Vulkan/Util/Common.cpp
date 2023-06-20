@@ -309,6 +309,19 @@ namespace Flourish::Vulkan
         return VK_SAMPLER_REDUCTION_MODE_MAX_ENUM;
     }
 
+    VkAccelerationStructureTypeKHR Common::ConvertAccelerationStructureType(AccelerationStructureType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AccelerationStructureType"); } break;
+            case AccelerationStructureType::Node: return VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            case AccelerationStructureType::Scene: return VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+        }
+
+        return VK_ACCELERATION_STRUCTURE_TYPE_MAX_ENUM_KHR;
+    }
+
     bool Common::CheckResult(VkResult result, bool ensure, const char* name)
     {
         /*

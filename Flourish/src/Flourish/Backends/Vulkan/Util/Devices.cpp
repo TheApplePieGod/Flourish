@@ -75,11 +75,28 @@ namespace Flourish::Vulkan
                 queuePriorities.push_back(1.0);
         }
 
+        // TODO: clean this up / don't enable everything
+
         VkPhysicalDeviceFeatures deviceFeatures{};
         PopulateDeviceFeatures(deviceFeatures, initInfo);
 
+        // RT
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
+        accelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        accelFeatures.accelerationStructure = true;
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures{};
+        rtFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        rtFeatures.pNext = &accelFeatures;
+        rtFeatures.rayTracingPipeline = true;
+
+        VkPhysicalDeviceBufferDeviceAddressFeatures bufAddrFeatures{};
+        bufAddrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+        bufAddrFeatures.pNext = &rtFeatures;
+        bufAddrFeatures.bufferDeviceAddress = true;
+
         VkPhysicalDeviceSynchronization2Features syncFeatures{};
         syncFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+        syncFeatures.pNext = &bufAddrFeatures;
         syncFeatures.synchronization2 = true;
 
         VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
@@ -88,6 +105,7 @@ namespace Flourish::Vulkan
         #if defined(FL_PLATFORM_MACOS)
             VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilityFeatures{};
             portabilityFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR;
+            portabilityFeatures.pNext = &bufAddrFeatures;
             portabilityFeatures.events = true;
             timelineFeatures.pNext = &portabilityFeatures;
         #else
@@ -197,6 +215,21 @@ namespace Flourish::Vulkan
             extensions.push_back(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
             Flourish::Context::FeatureTable().SamplerMinMax = true;
         }
+        else
+        { FL_LOG_WARN("SamplerMinMax was requested but not supported"); }
+
+        if (initInfo.RequestedFeatures.RayTracing &&
+            Common::SupportsExtension(supportedExtensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
+            Common::SupportsExtension(supportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
+            Common::SupportsExtension(supportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME))
+        {
+            extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+            extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+            extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+            Flourish::Context::FeatureTable().RayTracing = true;
+        }
+        else
+        { FL_LOG_WARN("RayTracing was requested but not supported"); }
     }
 
     void Devices::PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo)

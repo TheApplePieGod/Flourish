@@ -24,7 +24,6 @@ namespace Flourish::Vulkan
         if (m_Info.Usage == BufferUsageType::Static && GetAllocatedSize() != m_Info.InitialDataSize)
             FL_LOG_WARN("Creating a static buffer with initial data of a different size");
         #endif
-
         auto device = Context::Devices().Device();
         VkDeviceSize bufSize = static_cast<u64>(GetAllocatedSize());
 
@@ -90,6 +89,12 @@ namespace Flourish::Vulkan
                 bufCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 m_MemoryDirection = MemoryDirection::CPUToGPU;
             } break;
+        }
+
+        if (m_Info.CanCreateAccelerationStructure)
+        {
+            bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+            m_UseDeviceAddress = true;
         }
         
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
@@ -160,8 +165,7 @@ namespace Flourish::Vulkan
 
     VkBuffer Buffer::GetBuffer() const
     {
-        if (m_BufferCount == 1) return m_Buffers[0].Buffer;
-        return m_Buffers[Flourish::Context::FrameIndex()].Buffer;
+        return GetBuffer(Flourish::Context::FrameIndex());
     }
 
     VkBuffer Buffer::GetBuffer(u32 frameIndex) const
@@ -172,14 +176,24 @@ namespace Flourish::Vulkan
 
     VkBuffer Buffer::GetStagingBuffer() const
     {
-        if (m_BufferCount == 1) return m_StagingBuffers[0].Buffer;
-        return m_StagingBuffers[Flourish::Context::FrameIndex()].Buffer;
+        return GetStagingBuffer(Flourish::Context::FrameIndex());
     }
 
     VkBuffer Buffer::GetStagingBuffer(u32 frameIndex) const
     {
         if (m_BufferCount == 1) return m_StagingBuffers[0].Buffer;
         return m_StagingBuffers[frameIndex].Buffer;
+    }
+
+    VkDeviceAddress Buffer::GetBufferDeviceAddress() const
+    {
+        return GetBufferDeviceAddress(Flourish::Context::FrameIndex());
+    }
+
+    VkDeviceAddress Buffer::GetBufferDeviceAddress(u32 frameIndex) const
+    {
+        if (m_BufferCount == 1) return m_Buffers[0].DeviceAddress;
+        return m_Buffers[frameIndex].DeviceAddress;
     }
 
     void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute)
@@ -343,6 +357,14 @@ namespace Flourish::Vulkan
                 &m_Buffers[i].AllocationInfo
             ), "Buffer create buffer"))
                 throw std::exception();
+
+            if (m_UseDeviceAddress)
+            {
+                VkBufferDeviceAddressInfo addInfo{};
+                addInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+                addInfo.buffer = m_Buffers[i].Buffer;
+                m_Buffers[i].DeviceAddress = vkGetBufferDeviceAddress(Context::Devices().Device(), &addInfo);
+            }
 
             if (dynamicHostBuffer)
             {
