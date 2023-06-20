@@ -57,7 +57,7 @@ namespace Flourish::Vulkan
                 u64 semaphoreVal;
                 for (u32 j = 0; j < value.WaitSemaphores.size(); j++)
                 {
-                    vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphores[j], &semaphoreVal);
+                    vkGetSemaphoreCounterValue(Context::Devices().Device(), value.WaitSemaphores[j], &semaphoreVal);
                     execute = semaphoreVal == value.WaitValues[j]; // Completed
                     if (!execute) break; // If any fail then all fail
                 }

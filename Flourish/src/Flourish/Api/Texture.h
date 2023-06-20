@@ -92,6 +92,7 @@ namespace Flourish
         #endif
 
         // TS  
+        inline u64 GetId() const { return m_Id; }
         inline u32 GetArrayCount() const { return m_Info.ArrayCount; }
         inline u32 GetWidth() const { return m_Info.Width; }
         inline u32 GetHeight() const { return m_Info.Height; }
@@ -114,5 +115,6 @@ namespace Flourish
         TextureCreateInfo m_Info;
         u32 m_MipLevels;
         u32 m_Channels;
+        u64 m_Id;
     };
 }

@@ -11,6 +11,7 @@ namespace Flourish
     {
         FL_ASSERT(createInfo.Usage != TextureUsageType::None, "Must define usage when creating texture");
         m_Channels = ColorFormatComponentCount(createInfo.Format);
+        m_Id = Context::GetNextId();
     }
 
     std::shared_ptr<Texture> Texture::Create(const TextureCreateInfo& createInfo)

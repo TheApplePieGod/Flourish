@@ -25,7 +25,6 @@ namespace Flourish
 
     class RenderCommandEncoder;
     class Framebuffer;
-    class CommandBuffer;
     class RenderPass;
     class RenderContext
     {
@@ -34,10 +33,11 @@ namespace Flourish
         {}
         virtual ~RenderContext() = default;
 
-        virtual void Present(const std::vector<std::vector<CommandBuffer*>>& dependencyBuffers) = 0;
         virtual void UpdateDimensions(u32 width, u32 height) = 0;
         virtual RenderPass* GetRenderPass() const = 0;
         virtual bool Validate() = 0;
+
+        // Can only encode once per frame
         [[nodiscard]] virtual RenderCommandEncoder* EncodeRenderCommands() = 0;
 
     public:

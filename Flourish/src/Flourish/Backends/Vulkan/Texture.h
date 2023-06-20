@@ -36,8 +36,10 @@ namespace Flourish::Vulkan
         VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
         VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
-        VkSampler GetSampler() const { return m_Sampler; }
-        bool IsDepthImage() const { return m_IsDepthImage; }
+
+        // TS
+        inline VkSampler GetSampler() const { return m_Sampler; }
+        inline bool IsDepthImage() const { return m_IsDepthImage; }
         
     public:
         static void GenerateMipmaps(

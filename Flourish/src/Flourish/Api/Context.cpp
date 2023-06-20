@@ -5,11 +5,6 @@
 
 namespace Flourish
 {
-    void ContextCommandSubmissions::Clear()
-    {
-        Buffers.clear();
-        Contexts.clear();
-    }
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
@@ -62,55 +57,61 @@ namespace Flourish
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
-        s_FrameSubmissions.Clear();
+        s_GraphSubmissions.clear();
+        s_ContextSubmissions.clear();
         s_FrameCount++;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     
-    void Context::PushFrameCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
+    void Context::PushFrameRenderGraph(RenderGraph* graph)
     {
-        if (buffers.empty()) return;
+        if (!graph) return;
         
-        s_FrameSubmissions.Mutex.lock();
-        s_FrameSubmissions.Buffers.insert(s_FrameSubmissions.Buffers.end(), buffers.begin(), buffers.end());
-        s_FrameSubmissions.Mutex.unlock();
+        s_FrameMutex.lock();
+        s_GraphSubmissions.emplace_back(graph);
+        s_FrameMutex.unlock();
 
         switch (s_BackendType)
         {
-            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
-        }
-    }
-
-    void Context::PushCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers, std::function<void()> callback)
-    {
-        if (buffers.empty()) return;
-        
-        switch (s_BackendType)
-        {
-            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessPushSubmission(buffers, callback); } break;
-        }
-    }
-
-    void Context::ExecuteCommandBuffers(const std::vector<std::vector<CommandBuffer*>>& buffers)
-    {
-        if (buffers.empty()) return;
-        
-        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
-            for (auto& list : buffers)
-                for (auto buffer : list)
-                    FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in ExecuteCommandBuffers");
-        #endif
-
-        switch (s_BackendType)
-        {
-            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(buffers); } break;
+            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
+            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
         }
     }
 
     void Context::PushFrameRenderContext(RenderContext* context)
     {
-        s_FrameSubmissions.Mutex.lock();
-        s_FrameSubmissions.Contexts.push_back(context);
-        s_FrameSubmissions.Mutex.unlock();
+        if (!context) return;
+        
+        s_FrameMutex.lock();
+        s_ContextSubmissions.emplace_back(context);
+        s_FrameMutex.unlock();
+    }
+
+    void Context::PushRenderGraph(RenderGraph* graph, std::function<void()> callback)
+    {
+        if (!graph) return;
+        
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessPushSubmission(graph, callback); } break;
+        }
+    }
+
+    void Context::ExecuteRenderGraph(RenderGraph* graph)
+    {
+        if (!graph) return;
+        
+        /*
+        #if defined(FL_DEBUG) && defined(FL_ENABLE_ASSERTS)
+            for (auto& list : buffers)
+                for (auto buffer : list)
+                    FL_ASSERT(!buffer->IsFrameRestricted(), "Cannot include a frame restricted command buffer in ExecuteCommandBuffers");
+        #endif
+        */
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(graph); } break;
+        }
     }
 }

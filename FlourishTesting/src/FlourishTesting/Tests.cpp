@@ -1,3 +1,4 @@
+#include "Flourish/Api/RenderGraph.h"
 #include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Api/Shader.h"
 #include "flpch.h"
@@ -36,7 +37,7 @@ namespace FlourishTesting
 
             if (m_RenderContext->Validate())
             {
-                // RunSingleThreadedTest();
+                //RunSingleThreadedTest();
                 RunMultiThreadedTest();
             }
 
@@ -116,7 +117,40 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        m_RenderContext->Present({{ parallelBuffers, { m_CommandBuffers[objectCount + 1].get() } }});
+        if (!m_RenderGraph->IsBuild())
+        {
+            // Objects
+            for (u32 i = 0; i < objectCount; i++)
+            {
+                m_RenderGraph->ConstructNewNode(m_CommandBuffers[i].get())
+                    .AddEncoderNode(Flourish::GPUWorkloadType::Graphics)
+                    .EncoderAddTextureWrite(m_FrameTextures[i].get())
+                    .AddToGraph();
+            }
+
+            // Compute
+            m_RenderGraph->ConstructNewNode(m_CommandBuffers[objectCount].get())
+                .AddEncoderNode(Flourish::GPUWorkloadType::Compute)
+                .EncoderAddBufferWrite(m_ObjectData.get())
+                .AddToGraph();
+
+            // Final copy
+            auto builder = m_RenderGraph->ConstructNewNode(m_CommandBuffers[objectCount + 1].get());
+            builder.AddEncoderNode(Flourish::GPUWorkloadType::Graphics);
+            for (u32 i = 0; i < objectCount; i++)
+            {
+                builder.AddExecutionDependency(m_CommandBuffers[i].get());
+                builder.EncoderAddTextureRead(m_FrameTextures[i].get());
+            }
+            builder.AddExecutionDependency(m_CommandBuffers[objectCount].get());
+            builder.EncoderAddBufferRead(m_ObjectData.get());
+            builder.AddToGraph();
+
+            m_RenderGraph->Build();
+        }
+
+        Flourish::Context::PushFrameRenderGraph(m_RenderGraph.get());
+        Flourish::Context::PushFrameRenderContext(m_RenderContext.get());
     }
     
     void Tests::RunSingleThreadedTest()
@@ -137,25 +171,42 @@ namespace FlourishTesting
 
         auto encoder1 = m_CommandBuffers[0]->EncodeRenderCommands(m_FrameTextureBuffers[0].get());
         encoder1->BindPipeline("object_image");
-        encoder1->BindResourceSet(m_DogDescriptorSet.get(), 0);
-        encoder1->FlushResourceSet(0);
-        encoder1->BindResourceSet(m_ObjectDescriptorSet.get(), 1);
-        encoder1->FlushResourceSet(1);
-        encoder1->BindVertexBuffer(m_QuadVertices.get()); 
-        encoder1->BindIndexBuffer(m_QuadIndices.get());
-        encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, objectCount, 0);
+        encoder1->BindResourceSet(m_ObjectDescriptorSetDynamic.get(), 1);
+        for (u32 i = 0; i < objectCount; i++)
+        {
+            m_FrameDescriptorSet->BindTexture(0, m_DogTexture.get());
+            m_FrameDescriptorSet->FlushBindings();
+            encoder1->BindResourceSet(m_FrameDescriptorSet.get(), 0);
+            encoder1->FlushResourceSet(0);
+            encoder1->UpdateDynamicOffset(1, 0, i * m_ObjectData->GetStride());
+            encoder1->FlushResourceSet(1);
+            encoder1->BindVertexBuffer(m_QuadVertices.get()); 
+            encoder1->BindIndexBuffer(m_QuadIndices.get());
+            encoder1->DrawIndexed(m_QuadIndices->GetAllocatedCount(), 0, 0, 1, 0);
+        }
         encoder1->EndEncoding();
 
         auto frameEncoder = m_RenderContext->EncodeRenderCommands();
         frameEncoder->BindPipeline("main");
         m_FrameDescriptorSet->BindTexture(0, m_FrameTextures[0]);
         m_FrameDescriptorSet->FlushBindings();
+        frameEncoder->BindResourceSet(m_FrameDescriptorSet.get(), 0);
         frameEncoder->FlushResourceSet(0);
         frameEncoder->BindVertexBuffer(m_FullTriangleVertices.get()); // TODO: validate buffer is actually a vertex
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
 
-        m_RenderContext->Present({{ { m_CommandBuffers[0].get() } }});
+        if (!m_RenderGraph->IsBuild())
+        {
+            m_RenderGraph->ConstructNewNode(m_CommandBuffers[0].get())
+                .AddEncoderNode(Flourish::GPUWorkloadType::Graphics)
+                .AddToGraph();
+
+            m_RenderGraph->Build();
+        }
+
+        Flourish::Context::PushFrameRenderGraph(m_RenderGraph.get());
+        Flourish::Context::PushFrameRenderContext(m_RenderContext.get());
     }
 
     Tests::Tests()
@@ -472,9 +523,13 @@ namespace FlourishTesting
     void Tests::CreateCommandBuffers()
     {
         Flourish::CommandBufferCreateInfo cmdCreateInfo;
-        cmdCreateInfo.MaxEncoders = 2;
+        cmdCreateInfo.FrameRestricted = true;
         
         for (u32 i = 0; i < 10; i++)
             m_CommandBuffers.push_back(Flourish::CommandBuffer::Create(cmdCreateInfo));
+
+        Flourish::RenderGraphCreateInfo rgCreateInfo;
+        rgCreateInfo.Usage = Flourish::RenderGraphUsageType::PerFrame;
+        m_RenderGraph = Flourish::RenderGraph::Create(rgCreateInfo);
     }
 }

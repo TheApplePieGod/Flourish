@@ -28,11 +28,13 @@ namespace Flourish::Vulkan
 
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
+        inline void MarkManuallyRecorded() { m_AnyCommandRecorded = true; }
 
     private:
+        bool m_AnyCommandRecorded = false;
         bool m_FrameRestricted;
-        CommandBufferAllocInfo m_AllocInfo;
         VkCommandBuffer m_CommandBuffer;
+        CommandBufferEncoderSubmission m_Submission;
         CommandBuffer* m_ParentBuffer;
         ComputePipeline* m_BoundPipeline = nullptr;
         DescriptorBinder m_DescriptorBinder;

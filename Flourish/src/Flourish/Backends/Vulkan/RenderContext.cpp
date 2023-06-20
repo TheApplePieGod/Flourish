@@ -12,7 +12,7 @@ namespace Flourish::Vulkan
 {
     RenderContext::RenderContext(const RenderContextCreateInfo& createInfo)
         : Flourish::RenderContext(createInfo),
-         m_CommandBuffer({}, false)
+         m_CommandBuffer({})
     {
         auto instance = Context::Instance();
 
@@ -53,10 +53,8 @@ namespace Flourish::Vulkan
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
         {
-            m_SubmissionData.SignalSemaphores[frame] = {
-                Synchronization::CreateTimelineSemaphore(0),
-                Synchronization::CreateSemaphore()
-            };
+            m_SignalSemaphores[frame][0] = Synchronization::CreateTimelineSemaphore(0);
+            m_SignalSemaphores[frame][1] = Synchronization::CreateSemaphore();
         }
     }
 
@@ -65,82 +63,17 @@ namespace Flourish::Vulkan
         m_Swapchain.Shutdown();
 
         auto surface = m_Surface;
-        auto semaphores = m_SubmissionData.SignalSemaphores;
+        auto semaphores = m_SignalSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
             if (surface)
                 vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
-                if (semaphores[frame][0])
-                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
-                if (semaphores[frame][1])
-                    vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
+                vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
             }
         }, "Render context free");
-    }
-
-    void RenderContext::Present(const std::vector<std::vector<Flourish::CommandBuffer*>>& dependencyBuffers)
-    {
-        FL_CRASH_ASSERT(m_LastEncodingFrame == Flourish::Context::FrameCount(), "Cannot present render context that has not been encoded");
-        if (m_LastPresentFrame == Flourish::Context::FrameCount())
-        {
-            FL_ASSERT(false, "Cannot present render context multiple times per frame");
-            return;
-        }
-        m_LastPresentFrame = Flourish::Context::FrameCount();
-        
-        if (!m_Swapchain.IsValid()) return;
-
-        // TODO: test this when it is empty
-        if (!m_CommandBuffer.GetEncoderSubmissions().empty())
-        {
-            m_SubmissionData.WaitSemaphores.clear();
-            m_SubmissionData.WaitSemaphoreValues.clear();
-            m_SubmissionData.WaitStages.clear();
-            
-            // Add semaphore to wait for the image to be available
-            m_SubmissionData.WaitSemaphores.push_back(GetImageAvailableSemaphore());
-            m_SubmissionData.WaitSemaphoreValues.push_back(Flourish::Context::FrameCount());
-            m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-            for (auto& _buffer : dependencyBuffers.back())
-            {
-                Vulkan::CommandBuffer* buffer = static_cast<Vulkan::CommandBuffer*>(_buffer);
-                if (buffer->GetEncoderSubmissions().empty()) continue; // TODO: warn here?
-
-                auto& subData = buffer->GetSubmissionData();
-                        
-                // Add each final sub buffer semaphore to wait on
-                m_SubmissionData.WaitSemaphores.push_back(subData.SyncSemaphores[Flourish::Context::FrameIndex()]);
-                m_SubmissionData.WaitSemaphoreValues.push_back(buffer->GetFinalSemaphoreValue());
-                
-                // This is fine because we are only submitting graphics commands in the render context command buf
-                m_SubmissionData.WaitStages.push_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
-            }
-
-            Flourish::Context::PushFrameCommandBuffers(dependencyBuffers);
-        
-            // Update the first encoded command to wait until the image is available
-            auto& subData = m_CommandBuffer.GetSubmissionData();
-            subData.FirstSubmitInfo->waitSemaphoreCount = m_SubmissionData.WaitSemaphores.size();
-            subData.FirstSubmitInfo->pWaitSemaphores = m_SubmissionData.WaitSemaphores.data();
-            subData.FirstSubmitInfo->pWaitDstStageMask = m_SubmissionData.WaitStages.data();
-            subData.TimelineSubmitInfos.front().waitSemaphoreValueCount = m_SubmissionData.WaitSemaphores.size();
-            subData.TimelineSubmitInfos.front().pWaitSemaphoreValues = m_SubmissionData.WaitSemaphoreValues.data();
-
-            // Update last encoded command to signal the final binary semaphore needed to present
-            subData.LastSubmitInfo->signalSemaphoreCount = 2;
-            subData.LastSubmitInfo->pSignalSemaphores = m_SubmissionData.SignalSemaphores[Flourish::Context::FrameIndex()].data();
-            
-            auto values = m_SubmissionData.SignalSemaphoreValues[Flourish::Context::FrameIndex()].data();
-            subData.TimelineSubmitInfos.back().signalSemaphoreValueCount = 2;
-            subData.TimelineSubmitInfos.back().pSignalSemaphoreValues = values;
-            values[0] = Flourish::Context::FrameCount();
-            values[1] = values[0]; // Binary semaphore so value doesn't matter
-        }
-
-        Flourish::Context::PushFrameRenderContext(this);
     }
 
     void RenderContext::UpdateDimensions(u32 width, u32 height)
@@ -168,8 +101,21 @@ namespace Flourish::Vulkan
         {
             m_LastEncodingFrame = Flourish::Context::FrameCount();
             m_Swapchain.UpdateActiveImage();
+            m_SignalValue++;
         }
+        else
+            throw std::exception();
 
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
+
+    VkSemaphore RenderContext::GetTimelineSignalSemaphore() const
+    {
+        return m_SignalSemaphores[Flourish::Context::FrameIndex()][0];
+    }
+
+    VkSemaphore RenderContext::GetBinarySignalSemaphore() const
+    {
+        return m_SignalSemaphores[Flourish::Context::FrameIndex()][1];
+    }
 }

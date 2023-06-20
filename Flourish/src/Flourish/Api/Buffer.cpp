@@ -31,6 +31,7 @@ namespace Flourish
     Buffer::Buffer(const BufferCreateInfo& createInfo)
         : m_Info(createInfo)
     {
+        m_Id = Context::GetNextId();
         if (m_Info.Stride != 0 && m_Info.Stride % 4 != 0)
             FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
     }

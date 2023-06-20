@@ -14,17 +14,25 @@ namespace Flourish::Vulkan
     void GraphicsCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
+        m_AnyCommandRecorded = false;
 
-        m_AllocInfo = Context::Commands().AllocateBuffers(
+        m_Submission.Buffers.resize(1);
+        m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Graphics,
-            false,
-            &m_CommandBuffer,
-            1, !m_FrameRestricted
-        );
+            true,
+            m_Submission.Buffers.data(),
+            m_Submission.Buffers.size(),
+            !m_FrameRestricted
+        );   
+        m_CommandBuffer = m_Submission.Buffers[0];
+    
+        VkCommandBufferInheritanceInfo inheritanceInfo{};
+        inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.pInheritanceInfo = &inheritanceInfo;
 
         // TODO: check result?
         vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
@@ -35,9 +43,12 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
 
-        VkCommandBuffer buffer = m_CommandBuffer;
-        vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo);
+        vkEndCommandBuffer(m_CommandBuffer);
+
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
+        m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
     void GraphicsCommandEncoder::GenerateMipMaps(Flourish::Texture* _texture)
@@ -61,5 +72,6 @@ namespace Flourish::Vulkan
             VK_FILTER_LINEAR,
             m_CommandBuffer
         );
+        m_AnyCommandRecorded = true;
     }
 }

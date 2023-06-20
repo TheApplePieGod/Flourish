@@ -75,7 +75,6 @@ namespace Flourish::Vulkan
 
         std::vector<CachedData> m_CachedData;
         std::vector<StoredReferences> m_StoredReferences;
-
         std::shared_ptr<DescriptorPool> m_ParentPool;
         std::array<DescriptorSetAllocation, Flourish::Context::MaxFrameBufferCount> m_Allocations;
         std::array<SetList, Flourish::Context::MaxFrameBufferCount> m_SetLists;

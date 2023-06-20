@@ -16,17 +16,25 @@ namespace Flourish::Vulkan
     void ComputeCommandEncoder::BeginEncoding()
     {
         m_Encoding = true;
+        m_AnyCommandRecorded = false;
 
-        m_AllocInfo = Context::Commands().AllocateBuffers(
+        m_Submission.Buffers.resize(1);
+        m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Compute,
-            false,
-            &m_CommandBuffer,
-            1, !m_FrameRestricted
-        );
+            true,
+            m_Submission.Buffers.data(),
+            m_Submission.Buffers.size(),
+            !m_FrameRestricted
+        );   
+        m_CommandBuffer = m_Submission.Buffers[0];
+
+        VkCommandBufferInheritanceInfo inheritanceInfo{};
+        inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
     
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.pInheritanceInfo = &inheritanceInfo;
 
         // TODO: check result?
         vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
@@ -40,9 +48,12 @@ namespace Flourish::Vulkan
         m_Encoding = false;
         m_BoundPipeline = nullptr;
 
-        VkCommandBuffer buffer = m_CommandBuffer;
-        vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo);
+        vkEndCommandBuffer(m_CommandBuffer);
+
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
+        m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
     void ComputeCommandEncoder::BindPipeline(Flourish::ComputePipeline* pipeline)
@@ -60,6 +71,7 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Dispatch after encoding has ended");
 
         vkCmdDispatch(m_CommandBuffer, x, y, z);
+        m_AnyCommandRecorded = true;
     }
 
     void ComputeCommandEncoder::DispatchIndirect(Flourish::Buffer* _buffer, u32 commandOffset)
@@ -73,6 +85,7 @@ namespace Flourish::Vulkan
             buffer,
             commandOffset * sizeof(VkDispatchIndirectCommand)
         );
+        m_AnyCommandRecorded = true;
     }
     
     void ComputeCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)
@@ -95,7 +108,8 @@ namespace Flourish::Vulkan
 
         auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
 
-        VkDescriptorSet sets[1] = { m_DescriptorBinder.GetResourceSet(setIndex)->GetSet() };
+        auto set = m_DescriptorBinder.GetResourceSet(setIndex);
+        VkDescriptorSet sets[1] = { set->GetSet() };
         vkCmdBindDescriptorSets(
             m_CommandBuffer,
             VK_PIPELINE_BIND_POINT_COMPUTE,

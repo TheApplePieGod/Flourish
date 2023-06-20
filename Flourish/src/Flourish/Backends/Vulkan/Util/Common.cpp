@@ -182,7 +182,7 @@ namespace Flourish::Vulkan
             case DepthComparison::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
             case DepthComparison::AlwaysTrue: return VK_COMPARE_OP_ALWAYS;
             case DepthComparison::AlwaysFalse: return VK_COMPARE_OP_NEVER;
-            case DepthComparison::Auto: return Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS;        }
+            case DepthComparison::Auto: return Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS; }
 
         return VK_COMPARE_OP_MAX_ENUM;
     }
