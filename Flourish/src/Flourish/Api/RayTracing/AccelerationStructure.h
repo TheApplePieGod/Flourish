@@ -8,6 +8,12 @@ namespace Flourish
         Scene
     };
 
+    enum class AccelerationStructurePerformanceType
+    {
+        FasterRuntime = 0,
+        FasterBuilds
+    };
+
     class AccelerationStructure;
     struct AccelerationStructureInstance
     {
@@ -18,6 +24,7 @@ namespace Flourish
     struct AccelerationStructureCreateInfo
     {
         AccelerationStructureType Type;
+        AccelerationStructurePerformanceType PerformancePreference;
         bool AllowUpdating = false;
     };
 

@@ -322,6 +322,19 @@ namespace Flourish::Vulkan
         return VK_ACCELERATION_STRUCTURE_TYPE_MAX_ENUM_KHR;
     }
 
+    VkBuildAccelerationStructureFlagsKHR Common::ConvertAccelerationStructurePerformanceType(AccelerationStructurePerformanceType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AccelerationStructurePerformanceType"); } break;
+            case AccelerationStructurePerformanceType::FasterRuntime: return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+            case AccelerationStructurePerformanceType::FasterBuilds: return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+        }
+
+        return VK_BUILD_ACCELERATION_STRUCTURE_FLAG_BITS_MAX_ENUM_KHR;
+    }
+
     bool Common::CheckResult(VkResult result, bool ensure, const char* name)
     {
         /*

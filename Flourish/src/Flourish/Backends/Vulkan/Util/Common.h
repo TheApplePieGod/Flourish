@@ -30,6 +30,7 @@ namespace Flourish::Vulkan
         static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
         static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);
         static VkAccelerationStructureTypeKHR ConvertAccelerationStructureType(AccelerationStructureType type);
+        static VkBuildAccelerationStructureFlagsKHR ConvertAccelerationStructurePerformanceType(AccelerationStructurePerformanceType type);
 
         static bool CheckResult(VkResult result, bool ensure, const char* name);
     };
