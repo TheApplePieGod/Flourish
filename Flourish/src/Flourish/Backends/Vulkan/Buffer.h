@@ -8,7 +8,19 @@ namespace Flourish::Vulkan
     class Buffer : public Flourish::Buffer
     {
     public:
+        enum class MemoryDirection
+        {
+            CPUToGPU = 0,
+            GPUToCPU
+        };
+
+    public:
         Buffer(const BufferCreateInfo& createInfo);
+        Buffer(
+            const BufferCreateInfo& createInfo,
+            VkBufferUsageFlags usageFlags,
+            MemoryDirection memoryDirection
+        );
         ~Buffer() override;
 
         void SetBytes(const void* data, u32 byteCount, u32 byteOffset) override;
@@ -72,14 +84,9 @@ namespace Flourish::Vulkan
             VmaAllocationInfo AllocationInfo;
             bool HasComplement = false;
         };
-        
-        enum MemoryDirection
-        {
-            CPUToGPU = 0,
-            GPUToCPU
-        };
 
     private:
+        void CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection);
         const BufferData& GetBufferData() const;
         const BufferData& GetStagingBufferData() const;
         void CreateBuffers(VkBufferCreateInfo bufCreateInfo);

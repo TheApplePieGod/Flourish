@@ -215,7 +215,7 @@ namespace Flourish::Vulkan
             extensions.push_back(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
             Flourish::Context::FeatureTable().SamplerMinMax = true;
         }
-        else
+        else if (initInfo.RequestedFeatures.SamplerMinMax)
         { FL_LOG_WARN("SamplerMinMax was requested but not supported"); }
 
         if (initInfo.RequestedFeatures.RayTracing &&
@@ -228,7 +228,7 @@ namespace Flourish::Vulkan
             extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
             Flourish::Context::FeatureTable().RayTracing = true;
         }
-        else
+        else if (initInfo.RequestedFeatures.RayTracing)
         { FL_LOG_WARN("RayTracing was requested but not supported"); }
     }
 

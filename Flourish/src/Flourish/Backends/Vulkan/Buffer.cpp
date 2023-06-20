@@ -8,6 +8,84 @@ namespace Flourish::Vulkan
     Buffer::Buffer(const BufferCreateInfo& createInfo)
         : Flourish::Buffer(createInfo)
     {
+        VkBufferUsageFlags usage;
+        MemoryDirection memDirection;
+        switch (m_Info.Type)
+        {
+            default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
+            case BufferType::Uniform:
+            {
+                usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                memDirection = MemoryDirection::CPUToGPU;
+            } break;
+
+            case BufferType::Storage:
+            {
+                usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                memDirection = MemoryDirection::CPUToGPU;
+            } break;
+
+            case BufferType::Pixel:
+            {
+                usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                memDirection = MemoryDirection::GPUToCPU;
+            } break;
+
+            case BufferType::Indirect:
+            {
+                usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                memDirection = MemoryDirection::CPUToGPU;
+            } break;
+
+            case BufferType::Vertex:
+            {
+                usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                memDirection = MemoryDirection::CPUToGPU;
+            } break;
+
+            case BufferType::Index:
+            {
+                usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                memDirection = MemoryDirection::CPUToGPU;
+            } break;
+        }
+
+        if (m_Info.CanCreateAccelerationStructure)
+            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        
+        CreateInternal(usage, memDirection);
+    }
+
+    Buffer::Buffer(
+        const BufferCreateInfo& createInfo,
+        VkBufferUsageFlags usageFlags,
+        MemoryDirection memoryDirection
+    ) : Flourish::Buffer(createInfo)
+    {
+        CreateInternal(usageFlags, memoryDirection);
+    }
+
+    Buffer::~Buffer()
+    {
+        auto buffers = m_Buffers;
+        auto stagingBuffers = m_StagingBuffers;
+        auto bufferCount = m_BufferCount;
+        Context::FinalizerQueue().Push([=]()
+        {
+            for (u32 i = 0; i < bufferCount; i++)
+            {
+                if (buffers[i].HasComplement && stagingBuffers[i].Buffer)
+                    vmaDestroyBuffer(Context::Allocator(), stagingBuffers[i].Buffer, stagingBuffers[i].Allocation);
+                if (buffers[i].Buffer)
+                    vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
+            }
+        }, "Buffer free");
+    }
+
+    void Buffer::CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection)
+    {
+        m_MemoryDirection = memDirection;
+
         // Dynamic buffers need a separate buffer for each frame buffer
         if (m_Info.Usage == BufferUsageType::Dynamic)
             m_BufferCount = Flourish::Context::FrameBufferCount();
@@ -31,70 +109,29 @@ namespace Flourish::Vulkan
         bufCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufCreateInfo.size = bufSize;
         bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        switch (m_Info.Type)
-        {
-            default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
-            case BufferType::Uniform:
-            {
-                if (m_Info.ElementCount > 1)
-                {
-                    VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
-                    if (GetStride() % minAlignment != 0)
-                    {
-                        FL_LOG_ERROR("Uniform buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
-                        throw std::exception();
-                    }
-                }
+        bufCreateInfo.usage = usage;
 
-                bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                m_MemoryDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Storage:
-            {
-                if (m_Info.ElementCount > 1)
-                {
-                    VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
-                    if (GetStride() % minAlignment != 0)
-                    {
-                        FL_LOG_ERROR("Storage buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
-                        throw std::exception();
-                    }
-                }
-
-                bufCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                m_MemoryDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Pixel:
-            {
-                bufCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                m_MemoryDirection = MemoryDirection::GPUToCPU;
-            } break;
-
-            case BufferType::Indirect:
-            {
-                bufCreateInfo.usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                m_MemoryDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Vertex:
-            {
-                bufCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                m_MemoryDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Index:
-            {
-                bufCreateInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-                m_MemoryDirection = MemoryDirection::CPUToGPU;
-            } break;
-        }
-
-        if (m_Info.CanCreateAccelerationStructure)
-        {
-            bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
             m_UseDeviceAddress = true;
+
+        // Validate alignment
+        if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
+        {
+            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+            if (GetStride() % minAlignment != 0)
+            {
+                FL_LOG_ERROR("Uniform buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
+                throw std::exception();
+            }
+        }
+        if ((usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) && m_Info.ElementCount > 1)
+        {
+            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
+            if (GetStride() % minAlignment != 0)
+            {
+                FL_LOG_ERROR("Storage buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
+                throw std::exception();
+            }
         }
         
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
@@ -103,23 +140,6 @@ namespace Flourish::Vulkan
         #endif
 
         CreateBuffers(bufCreateInfo);
-    }
-
-    Buffer::~Buffer()
-    {
-        auto buffers = m_Buffers;
-        auto stagingBuffers = m_StagingBuffers;
-        auto bufferCount = m_BufferCount;
-        Context::FinalizerQueue().Push([=]()
-        {
-            for (u32 i = 0; i < bufferCount; i++)
-            {
-                if (buffers[i].HasComplement && stagingBuffers[i].Buffer)
-                    vmaDestroyBuffer(Context::Allocator(), stagingBuffers[i].Buffer, stagingBuffers[i].Allocation);
-                if (buffers[i].Buffer)
-                    vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
-            }
-        }, "Buffer free");
     }
 
     void Buffer::SetBytes(const void* data, u32 byteCount, u32 byteOffset)
