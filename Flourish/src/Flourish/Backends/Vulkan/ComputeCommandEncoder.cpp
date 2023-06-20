@@ -6,6 +6,7 @@
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
+#include "Flourish/Backends/Vulkan/RayTracing/AccelerationStructure.h"
 
 namespace Flourish::Vulkan
 {
@@ -85,6 +86,22 @@ namespace Flourish::Vulkan
             buffer,
             commandOffset * sizeof(VkDispatchIndirectCommand)
         );
+        m_AnyCommandRecorded = true;
+    }
+
+    void ComputeCommandEncoder::RebuildAccelerationStructureScene(Flourish::AccelerationStructure* accel, const AccelerationStructureSceneBuildInfo& buildInfo)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode RebuildAccelerationStructureScene after encoding has ended");
+
+        static_cast<AccelerationStructure*>(accel)->RebuildSceneInternal(buildInfo, m_CommandBuffer);
+        m_AnyCommandRecorded = true;
+    }
+
+    void ComputeCommandEncoder::RebuildAccelerationStructureNode(Flourish::AccelerationStructure* accel, const AccelerationStructureNodeBuildInfo& buildInfo)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode RebuildAccelerationStructureNode after encoding has ended");
+
+        static_cast<AccelerationStructure*>(accel)->RebuildNodeInternal(buildInfo, m_CommandBuffer);
         m_AnyCommandRecorded = true;
     }
     

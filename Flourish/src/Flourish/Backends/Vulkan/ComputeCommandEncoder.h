@@ -21,6 +21,8 @@ namespace Flourish::Vulkan
         void BindPipeline(Flourish::ComputePipeline* pipeline) override;
         void Dispatch(u32 x, u32 y, u32 z) override;
         void DispatchIndirect(Flourish::Buffer* buffer, u32 commandOffset) override;
+        void RebuildAccelerationStructureScene(AccelerationStructure* accel, const AccelerationStructureSceneBuildInfo& buildInfo) override;
+        void RebuildAccelerationStructureNode(AccelerationStructure* accel, const AccelerationStructureNodeBuildInfo& buildInfo) override;
         
         void BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex) override;
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) override;
