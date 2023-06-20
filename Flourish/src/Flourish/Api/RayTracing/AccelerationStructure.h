@@ -21,15 +21,33 @@ namespace Flourish
         const AccelerationStructure* Parent;
     };
 
+    class Buffer;
+    struct AccelerationStructureNodeBuildInfo
+    {
+        Buffer* VertexBuffer;
+        Buffer* IndexBuffer;
+        bool TryUpdate = false;
+        bool AsyncCompletion = false;
+        std::function<void()> CompletionCallback = nullptr;
+    };
+
+    struct AccelerationStructureSceneBuildInfo
+    {
+        AccelerationStructureInstance* Instances;
+        u32 InstanceCount;
+        bool TryUpdate = false;
+        bool AsyncCompletion = false;
+        std::function<void()> CompletionCallback = nullptr;
+    };
+
     struct AccelerationStructureCreateInfo
     {
         AccelerationStructureType Type;
-        AccelerationStructurePerformanceType PerformancePreference;
+        AccelerationStructurePerformanceType PerformancePreference = AccelerationStructurePerformanceType::FasterRuntime;
         bool AllowUpdating = false;
     };
 
     // TODO: Rename class?
-    class Buffer;
     class AccelerationStructure
     {
     public:
@@ -38,16 +56,8 @@ namespace Flourish
         {}
         virtual ~AccelerationStructure() = default;
 
-        virtual void BuildNode(
-            Buffer* vertexBuffer,
-            Buffer* indexBuffer,
-            bool update = false
-        ) = 0;
-        virtual void BuildScene(
-            AccelerationStructureInstance* instances,
-            u32 instanceCount,
-            bool update = false
-        ) = 0;
+        virtual void RebuildNode(const AccelerationStructureNodeBuildInfo& buildInfo) = 0;
+        virtual void RebuildScene(const AccelerationStructureSceneBuildInfo& buildInfo) = 0;
 
     public:
         static std::shared_ptr<AccelerationStructure> Create(const AccelerationStructureCreateInfo& createInfo);

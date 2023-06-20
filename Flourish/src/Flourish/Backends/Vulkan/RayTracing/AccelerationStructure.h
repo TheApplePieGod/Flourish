@@ -13,16 +13,11 @@ namespace Flourish::Vulkan
         AccelerationStructure(const AccelerationStructureCreateInfo& createInfo);
         ~AccelerationStructure() override;
 
-        void BuildNode(
-            Flourish::Buffer* vertexBuffer,
-            Flourish::Buffer* indexBuffer,
-            bool update = false
-        ) override;
-        void BuildScene(
-            AccelerationStructureInstance* instances,
-            u32 instanceCount,
-            bool update = false
-        ) override;
+        void RebuildNode(const AccelerationStructureNodeBuildInfo& buildInfo) override;
+        void RebuildScene(const AccelerationStructureSceneBuildInfo& buildInfo) override;
+
+        void RebuildNodeInternal(const AccelerationStructureNodeBuildInfo& buildInfo, VkCommandBuffer cmdBuf);
+        void RebuildSceneInternal(const AccelerationStructureSceneBuildInfo& buildInfo, VkCommandBuffer cmdBuf);
 
         // TS
         inline VkAccelerationStructureKHR GetAccelStructure() const { return m_AccelStructure; }
@@ -35,11 +30,19 @@ namespace Flourish::Vulkan
         );
         void CleanupAccel();
         CommandBufferAllocInfo BeginCommands(VkCommandBuffer* cmdBuf);
+        void EndCommands(
+            const CommandBufferAllocInfo& alloc,
+            VkCommandBuffer buf,
+            bool async,
+            std::function<void()> callback
+        );
 
     private:
         VkAccelerationStructureKHR m_AccelStructure = nullptr;
         std::shared_ptr<Buffer> m_AccelBuffer;
         std::shared_ptr<Buffer> m_ScratchBuffer;
+        std::shared_ptr<Buffer> m_InstanceBuffer;
+        std::vector<VkAccelerationStructureInstanceKHR> m_Instances;
         u32 m_ScratchAlignment;
     };
 }
