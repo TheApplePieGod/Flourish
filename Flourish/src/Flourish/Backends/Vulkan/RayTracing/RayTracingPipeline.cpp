@@ -52,6 +52,7 @@ namespace Flourish::Vulkan
             else
                 groups.back().type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 
+            groups.back().generalShader = VK_SHADER_UNUSED_KHR;
             groups.back().intersectionShader = group.IntersectionShader == -1 ? VK_SHADER_UNUSED_KHR : group.IntersectionShader;
             groups.back().anyHitShader = group.AnyHitShader == -1 ? VK_SHADER_UNUSED_KHR : group.AnyHitShader;
             groups.back().closestHitShader = group.ClosestHitShader == -1 ? VK_SHADER_UNUSED_KHR : group.ClosestHitShader;

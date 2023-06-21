@@ -28,8 +28,8 @@ namespace Flourish::Vulkan
         void BindInternal(u32 groupIndex, u32 offset, RayTracingShaderGroupType group);
 
     private:
-        u32 m_AlignedHandleSize;
-        u32 m_BaseAlignment;
+        VkDeviceSize m_AlignedHandleSize;
+        VkDeviceSize m_BaseAlignment;
         std::array<std::shared_ptr<Buffer>, 4> m_Buffers;
     };
 }

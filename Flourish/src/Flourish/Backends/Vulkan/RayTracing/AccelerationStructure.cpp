@@ -104,6 +104,9 @@ namespace Flourish::Vulkan
         m_Instances.clear();
         m_Instances.reserve(buildInfo.InstanceCount);
         VkAccelerationStructureInstanceKHR instance{};
+        instance.mask = 0xFF;
+        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+        instance.instanceShaderBindingTableRecordOffset = 0; // Revisit this / parameterize?
         VkAccelerationStructureDeviceAddressInfoKHR accelInfo{};
         accelInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
         for (u32 i = 0; i < buildInfo.InstanceCount; i++)
@@ -202,7 +205,7 @@ namespace Flourish::Vulkan
         // - Fast trace vs fast build
 
         // Finding sizes to create acceleration structures and scratch
-        VkAccelerationStructureBuildSizesInfoKHR buildSize;
+        VkAccelerationStructureBuildSizesInfoKHR buildSize{};
         buildSize.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
         vkGetAccelerationStructureBuildSizesKHR(
             Context::Devices().Device(),
@@ -213,7 +216,7 @@ namespace Flourish::Vulkan
         );
 
         // Allocate scratch buffer
-        u32 alignment = Context::Devices().AccelStructureProperties().minAccelerationStructureScratchOffsetAlignment;
+        VkDeviceSize alignment = Context::Devices().AccelStructureProperties().minAccelerationStructureScratchOffsetAlignment;
         u32 scratchSize = alignment;
         if (isUpdating)
             scratchSize += buildSize.updateScratchSize;
@@ -269,6 +272,20 @@ namespace Flourish::Vulkan
         buildInfo.scratchData.deviceAddress = scratchAddress;
 
         vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
+
+        VkMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+        vkCmdPipelineBarrier(
+            cmdBuf,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+            0,
+            1, &barrier,
+            0, nullptr,
+            0, nullptr
+        );
 
         // Cleanup scratch buffer for builds since the update scratch is usually
         // smaller
