@@ -30,6 +30,7 @@ namespace Flourish::Vulkan
 
         // TS
         VkDescriptorSet GetSet() const;
+        VkDescriptorSet GetSet(u32 frameIndex) const;
         
         // TS
         inline const DescriptorPool* GetParentPool() const { return m_ParentPool.get(); }
@@ -47,7 +48,6 @@ namespace Flourish::Vulkan
 
         struct CachedData
         {
-            u32 WritesReadyCount = 0;
             std::vector<VkWriteDescriptorSet> DescriptorWrites;
             std::vector<VkDescriptorBufferInfo> BufferInfos;
             std::vector<VkDescriptorImageInfo> ImageInfos;
@@ -63,7 +63,12 @@ namespace Flourish::Vulkan
 
     private:
         void SwapNextAllocation();
-        void ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
+        void ValidateBinding(
+            u32 bindingIndex,
+            ShaderResourceType resourceType,
+            const void* resource,
+            u32 arrayIndex
+        );
         void UpdateBinding(
             u32 bindingIndex,
             ShaderResourceType resourceType,

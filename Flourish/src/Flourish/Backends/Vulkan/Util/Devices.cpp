@@ -208,7 +208,7 @@ namespace Flourish::Vulkan
 
     void Devices::PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
-        DeviceFeatures supported{};
+        DeviceFeatures supported;
         vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &supported.GeneralFeatures);
 
         // Should be universal except on macos
@@ -312,6 +312,27 @@ namespace Flourish::Vulkan
             else
             { FL_LOG_WARN("PartiallyBoundResourceSets was requested but not supported"); }
         }
+
+        /*
+        if (initInfo.RequestedFeatures.BindlessShaderResources)
+        {
+            if (supported.IndexingFeatures.runtimeDescriptorArray &&
+                supported.IndexingFeatures.shaderSampledImageArrayNonUniformIndexing &&
+                supported.IndexingFeatures.shaderStorageImageArrayNonUniformIndexing &&
+                supported.IndexingFeatures.shaderStorageBufferArrayNonUniformIndexing &&
+                supported.IndexingFeatures.shaderStorageBufferArrayNonUniformIndexing)
+            {
+                m_Features.IndexingFeatures.runtimeDescriptorArray = true;
+                m_Features.IndexingFeatures.shaderSampledImageArrayNonUniformIndexing = true;
+                m_Features.IndexingFeatures.shaderStorageImageArrayNonUniformIndexing = true;
+                m_Features.IndexingFeatures.shaderStorageBufferArrayNonUniformIndexing = true;
+                m_Features.IndexingFeatures.shaderStorageBufferArrayNonUniformIndexing = true;
+                Flourish::Context::FeatureTable().BindlessShaderResources = true;
+            }
+            else
+            { FL_LOG_WARN("BindlessShaderResources was requested but not supported"); }
+        }
+        */
     }
 
     void Devices::PopulateDeviceProperties()
