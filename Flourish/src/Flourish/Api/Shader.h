@@ -46,6 +46,9 @@ namespace Flourish
         {}
         virtual ~Shader() = default;
 
+        // TS
+        inline ShaderType GetType() const { return m_Type; }
+
     public:
         // TS
         static std::shared_ptr<Shader> Create(const ShaderCreateInfo& createInfo);
