@@ -6,6 +6,9 @@
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
 #include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
+#include "Flourish/Backends/Vulkan/ComputePipeline.h"
+#include "Flourish/Backends/Vulkan/RayTracing/RayTracingPipeline.h"
+#include "Flourish/Backends/Vulkan/RayTracing/RayTracingGroupTable.h"
 #include "Flourish/Backends/Vulkan/RayTracing/AccelerationStructure.h"
 
 namespace Flourish::Vulkan
@@ -47,7 +50,8 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
-        m_BoundPipeline = nullptr;
+        m_BoundComputePipeline = nullptr;
+        m_BoundRayTracingPipeline = nullptr;
 
         vkEndCommandBuffer(m_CommandBuffer);
 
@@ -57,19 +61,21 @@ namespace Flourish::Vulkan
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
-    void ComputeCommandEncoder::BindPipeline(Flourish::ComputePipeline* pipeline)
+    void ComputeCommandEncoder::BindComputePipeline(Flourish::ComputePipeline* pipeline)
     {
-        if (m_BoundPipeline == static_cast<ComputePipeline*>(pipeline)) return;
-        m_BoundPipeline = static_cast<ComputePipeline*>(pipeline);
+        if (m_BoundComputePipeline == static_cast<ComputePipeline*>(pipeline)) return;
+        m_BoundComputePipeline = static_cast<ComputePipeline*>(pipeline);
+        m_BoundRayTracingPipeline = nullptr;
 
-        m_DescriptorBinder.BindPipelineData(m_BoundPipeline->GetDescriptorData());
+        m_DescriptorBinder.BindPipelineData(m_BoundComputePipeline->GetDescriptorData());
 
-        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_BoundPipeline->GetPipeline());
+        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_BoundComputePipeline->GetPipeline());
     }
     
     void ComputeCommandEncoder::Dispatch(u32 x, u32 y, u32 z)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Dispatch after encoding has ended");
+        FL_CRASH_ASSERT(m_BoundComputePipeline, "Must bind compute pipeline before dispatching");
 
         vkCmdDispatch(m_CommandBuffer, x, y, z);
         m_AnyCommandRecorded = true;
@@ -78,6 +84,7 @@ namespace Flourish::Vulkan
     void ComputeCommandEncoder::DispatchIndirect(Flourish::Buffer* _buffer, u32 commandOffset)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DispatchIndirect after encoding has ended");
+        FL_CRASH_ASSERT(m_BoundComputePipeline, "Must bind compute pipeline before dispatching");
 
         VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
 
@@ -87,6 +94,41 @@ namespace Flourish::Vulkan
             commandOffset * sizeof(VkDispatchIndirectCommand)
         );
         m_AnyCommandRecorded = true;
+    }
+
+    void ComputeCommandEncoder::BindRayTracingPipeline(Flourish::RayTracingPipeline* pipeline)
+    {
+        if (m_BoundRayTracingPipeline == static_cast<RayTracingPipeline*>(pipeline)) return;
+        m_BoundRayTracingPipeline = static_cast<RayTracingPipeline*>(pipeline);
+        m_BoundComputePipeline = nullptr;
+
+        m_DescriptorBinder.BindPipelineData(m_BoundRayTracingPipeline->GetDescriptorData());
+
+        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_BoundRayTracingPipeline->GetPipeline());
+    }
+
+    void ComputeCommandEncoder::TraceRays(Flourish::RayTracingGroupTable* _groupTable, u32 width, u32 height, u32 depth)
+    {
+        FL_CRASH_ASSERT(m_BoundRayTracingPipeline, "Must bind ray tracing pipeline before tracing rays");
+
+        RayTracingGroupTable* table = static_cast<RayTracingGroupTable*>(_groupTable);
+        std::array<VkStridedDeviceAddressRegionKHR, 4> regions = {
+            table->GetBufferRegion(RayTracingShaderGroupType::RayGen),
+            table->GetBufferRegion(RayTracingShaderGroupType::Miss),
+            table->GetBufferRegion(RayTracingShaderGroupType::Hit),
+            table->GetBufferRegion(RayTracingShaderGroupType::Callable),
+        };
+
+        vkCmdTraceRaysKHR(
+            m_CommandBuffer,
+            &regions[0],
+            &regions[1],
+            &regions[2],
+            &regions[3],
+            width,
+            height,
+            depth
+        );
     }
 
     void ComputeCommandEncoder::RebuildAccelerationStructureScene(Flourish::AccelerationStructure* accel, const AccelerationStructureSceneBuildInfo& buildInfo)
@@ -107,28 +149,41 @@ namespace Flourish::Vulkan
     
     void ComputeCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)
     {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a resource set");
+        FL_CRASH_ASSERT(m_BoundComputePipeline || m_BoundRayTracingPipeline, "Must bind a pipeline before binding a resource set");
 
         m_DescriptorBinder.BindResourceSet(static_cast<const ResourceSet*>(set), setIndex);
     }
 
     void ComputeCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
     {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before updating dynamic offsets");
+        FL_CRASH_ASSERT(m_BoundComputePipeline || m_BoundRayTracingPipeline, "Must bind a pipeline before updating dynamic offsets");
 
         m_DescriptorBinder.UpdateDynamicOffset(setIndex, bindingIndex, offset);
     }
 
     void ComputeCommandEncoder::FlushResourceSet(u32 setIndex)
     {
-        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a resource set");
+        FL_CRASH_ASSERT(m_BoundComputePipeline || m_BoundRayTracingPipeline, "Must bind a pipeline before flushing a resource set");
+
+        VkPipelineLayout layout;
+        VkPipelineBindPoint bind;
+        if (m_BoundComputePipeline)
+        {
+            layout = m_BoundComputePipeline->GetLayout();
+            bind = VK_PIPELINE_BIND_POINT_COMPUTE;
+        }
+        else
+        {
+            layout = m_BoundRayTracingPipeline->GetLayout();
+            bind = VK_PIPELINE_BIND_POINT_RAY_TRACING_NV;
+        }
 
         auto set = m_DescriptorBinder.GetResourceSet(setIndex);
         VkDescriptorSet sets[1] = { set->GetSet() };
         vkCmdBindDescriptorSets(
             m_CommandBuffer,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            m_BoundPipeline->GetLayout(),
+            bind,
+            layout,
             setIndex, 1,
             sets,
             m_DescriptorBinder.GetDynamicOffsetCount(setIndex),

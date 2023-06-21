@@ -19,6 +19,9 @@ namespace Flourish::Vulkan
         void BindCallableGroup(u32 groupIndex, u32 offset) override;
 
         // TS
+        VkStridedDeviceAddressRegionKHR GetBufferRegion(RayTracingShaderGroupType group);
+
+        // TS
         inline Buffer* GetBuffer(RayTracingShaderGroupType group) const { return m_Buffers[(u32)group].get(); }
 
     private:

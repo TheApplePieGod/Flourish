@@ -68,6 +68,17 @@ namespace Flourish::Vulkan
         BindInternal(groupIndex, offset, RayTracingShaderGroupType::Callable);
     }
 
+    VkStridedDeviceAddressRegionKHR RayTracingGroupTable::GetBufferRegion(RayTracingShaderGroupType group)
+    {
+        Buffer* buffer = GetBuffer(group);
+        u32 padStart = FL_ALIGN_UP(buffer->GetBufferDeviceAddress(), m_BaseAlignment) - buffer->GetBufferDeviceAddress();
+        VkStridedDeviceAddressRegionKHR region{};
+        region.deviceAddress = buffer->GetBufferDeviceAddress() + padStart;
+        region.size = buffer->GetAllocatedSize() - padStart;
+        region.stride = m_AlignedHandleSize;
+        return region;
+    }
+
     void RayTracingGroupTable::BindInternal(u32 groupIndex, u32 offset, RayTracingShaderGroupType group)
     {
         u8* handle = static_cast<RayTracingPipeline*>(m_Info.Pipeline.get())->GetGroupHandle(groupIndex);
