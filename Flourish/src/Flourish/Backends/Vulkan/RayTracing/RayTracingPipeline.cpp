@@ -84,7 +84,10 @@ namespace Flourish::Vulkan
         pipelineInfo.pStages = stages.data();
         pipelineInfo.groupCount = groups.size();
         pipelineInfo.pGroups = groups.data();
-        pipelineInfo.maxPipelineRayRecursionDepth = m_Info.MaxRayRecursionDepth;
+        pipelineInfo.maxPipelineRayRecursionDepth = std::max(1U, std::min(
+            m_Info.MaxRayRecursionDepth,
+            Context::Devices().RayTracingProperties().maxRayRecursionDepth
+        ));
         if (!FL_VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(
             Context::Devices().Device(),
             VK_NULL_HANDLE,

@@ -14,14 +14,7 @@ namespace Flourish::Vulkan
             "RayTracing feature must be enabled and supported to use AccelerationStructures"
         );
 
-        // TODO: this should be cached somehwere
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProps{};
-        accelProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
-        VkPhysicalDeviceProperties2 devProps{};
-        devProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        devProps.pNext = &accelProps;
-        vkGetPhysicalDeviceProperties2(Context::Devices().PhysicalDevice(), &devProps);
-        m_ScratchAlignment = accelProps.minAccelerationStructureScratchOffsetAlignment;
+        m_ScratchAlignment = Context::Devices().AccelStructureProperties().minAccelerationStructureScratchOffsetAlignment;
     }
 
     AccelerationStructure::~AccelerationStructure()

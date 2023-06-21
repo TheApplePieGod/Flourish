@@ -79,6 +79,7 @@ namespace Flourish::Vulkan
 
         VkPhysicalDeviceFeatures deviceFeatures{};
         PopulateDeviceFeatures(deviceFeatures, initInfo);
+        PopulateDeviceProperties();
 
         // RT
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
@@ -251,6 +252,23 @@ namespace Flourish::Vulkan
         {
             features.wideLines = true;
             Flourish::Context::FeatureTable().WideLines = true;
+        }
+    }
+
+    void Devices::PopulateDeviceProperties()
+    {
+        if (Flourish::Context::FeatureTable().RayTracing)
+        {
+            m_RayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+            m_AccelStructureProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+
+            m_AccelStructureProperties.pNext = &m_RayTracingProperties;
+
+            VkPhysicalDeviceProperties2 devProps{};
+            devProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+            devProps.pNext = &m_AccelStructureProperties;
+
+            vkGetPhysicalDeviceProperties2(m_PhysicalDevice, &devProps);
         }
     }
 
