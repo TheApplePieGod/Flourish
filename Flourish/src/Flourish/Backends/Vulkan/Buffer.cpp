@@ -13,6 +13,8 @@ namespace Flourish::Vulkan
             FL_LOG_WARN("Creating a static buffer with no initial data");
         if (m_Info.Usage == BufferUsageType::Static && GetAllocatedSize() != m_Info.InitialDataSize)
             FL_LOG_WARN("Creating a static buffer with initial data of a different size");
+        if (m_Info.Stride != 0 && m_Info.Stride % 4 != 0)
+            FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
         #endif
 
         VkBufferUsageFlags usage;
