@@ -9,5 +9,7 @@ namespace Flourish
         bool IndependentBlend = false;
         bool WideLines = false;
         bool RayTracing = false;
+        bool BufferGPUAddress = false;
+        bool PartiallyBoundResourceSets = false;
     };
 }

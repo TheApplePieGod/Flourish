@@ -120,7 +120,13 @@ namespace Flourish::Vulkan
         bufCreateInfo.usage = usage;
 
         if (m_Info.ExposeGPUAddress)
+        {
+            FL_ASSERT(
+                Flourish::Context::FeatureTable().BufferGPUAddress,
+                "BufferGPUAddress feature must be enabled"
+            );
             bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+        }
 
         // Validate alignment
         if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)

@@ -8,6 +8,20 @@ namespace Flourish::Vulkan
     class Devices
     {
     public:
+        struct DeviceFeatures
+        {
+            DeviceFeatures();
+
+            VkPhysicalDeviceAccelerationStructureFeaturesKHR AccelFeatures{};
+            VkPhysicalDeviceRayTracingPipelineFeaturesKHR RtPipelineFeatures{};
+            VkPhysicalDeviceBufferDeviceAddressFeatures BufferAddrFeatures{};
+            VkPhysicalDeviceTimelineSemaphoreFeatures TimelineFeatures{};
+            VkPhysicalDeviceSynchronization2Features Sync2Features{};
+            VkPhysicalDeviceDescriptorIndexingFeatures IndexingFeatures{};
+            VkPhysicalDeviceFeatures2 GeneralFeatures{};
+        };
+
+    public:
         void Initialize(const ContextInitializeInfo& initInfo);
         void Shutdown();
 
@@ -22,7 +36,7 @@ namespace Flourish::Vulkan
     private:
         bool CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions);
         void PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
-        void PopulateFeatureTable(VkPhysicalDeviceFeatures& features, std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
+        void PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
         void PopulateDeviceProperties();
         VkSampleCountFlagBits GetMaxSampleCount();
         void DumpDeviceInfo(LogLevel logLevel, const VkPhysicalDeviceProperties& props);
@@ -35,5 +49,6 @@ namespace Flourish::Vulkan
         VkPhysicalDeviceAccelerationStructurePropertiesKHR m_AccelStructureProperties;
         VkSampleCountFlagBits m_DeviceMaxSampleCount;
         VkDevice m_Device;
+        DeviceFeatures m_Features;
     };
 }

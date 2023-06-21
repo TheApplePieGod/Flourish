@@ -204,7 +204,8 @@ namespace Flourish::Vulkan
         createInfo.device = s_Devices.Device();
         createInfo.vulkanApiVersion = VulkanApiVersion;
         createInfo.pVulkanFunctions = &vulkanFunctions;
-        createInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        if (Flourish::Context::FeatureTable().BufferGPUAddress)
+            createInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
         FL_VK_ENSURE_RESULT(vmaCreateAllocator(&createInfo, &s_Allocator), "Vulkan create allocator");
     }

@@ -6,6 +6,24 @@
 
 namespace Flourish::Vulkan
 {
+    Devices::DeviceFeatures::DeviceFeatures()
+    {
+        AccelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        //AccelFeatures.pNext = &BufferAddrFeatures;
+        RtPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        RtPipelineFeatures.pNext = &AccelFeatures;
+        BufferAddrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+        BufferAddrFeatures.pNext = &RtPipelineFeatures;
+        TimelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        TimelineFeatures.pNext = &BufferAddrFeatures;
+        Sync2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+        Sync2Features.pNext = &TimelineFeatures;
+        IndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        IndexingFeatures.pNext = &Sync2Features;
+        GeneralFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        GeneralFeatures.pNext = &IndexingFeatures;
+    }
+
     void Devices::Initialize(const ContextInitializeInfo& initInfo)
     {
         FL_LOG_TRACE("Vulkan device initialization begin");
@@ -57,8 +75,7 @@ namespace Flourish::Vulkan
         m_SupportedExtensions.resize(supportedExtensionCount);
         vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, m_SupportedExtensions.data());
 
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        PopulateFeatureTable(deviceFeatures, deviceExtensions, initInfo);
+        PopulateFeatureTable(deviceExtensions, initInfo);
         PopulateDeviceProperties();
         PopulateOptionalExtensions(deviceExtensions, initInfo);
 
@@ -87,45 +104,23 @@ namespace Flourish::Vulkan
                 queuePriorities.push_back(1.0);
         }
 
-        // RT
-        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
-        accelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-        accelFeatures.accelerationStructure = true;
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtFeatures{};
-        rtFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-        rtFeatures.pNext = &accelFeatures;
-        rtFeatures.rayTracingPipeline = true;
+        // Create device
+        VkDeviceCreateInfo createInfo{};
 
-        VkPhysicalDeviceBufferDeviceAddressFeatures bufAddrFeatures{};
-        bufAddrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-        bufAddrFeatures.pNext = &rtFeatures;
-        bufAddrFeatures.bufferDeviceAddress = true;
-
-        VkPhysicalDeviceSynchronization2Features syncFeatures{};
-        syncFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-        syncFeatures.pNext = &bufAddrFeatures;
-        syncFeatures.synchronization2 = true;
-
-        VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
-        timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-        timelineFeatures.timelineSemaphore = true;
         #if defined(FL_PLATFORM_MACOS)
             VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilityFeatures{};
             portabilityFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR;
-            portabilityFeatures.pNext = &bufAddrFeatures;
+            portabilityFeatures.pNext = m_Features.GeneralFeatures.pNext;
             portabilityFeatures.events = true;
-            timelineFeatures.pNext = &portabilityFeatures;
+            createInfo.pNext = &portabilityFeatures;
         #else
-            timelineFeatures.pNext = &syncFeatures;
+            createInfo.pNext = m_Features.GeneralFeatures.pNext;
         #endif
         
-        // Create device
-        VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pNext = &timelineFeatures;
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size());
-        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.pEnabledFeatures = &m_Features.GeneralFeatures.features;
         createInfo.enabledExtensionCount = static_cast<u32>(deviceExtensions.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
         #if FL_DEBUG
@@ -211,16 +206,26 @@ namespace Flourish::Vulkan
         #endif
     }
 
-    void Devices::PopulateFeatureTable(VkPhysicalDeviceFeatures& features, std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
+    void Devices::PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
-        VkPhysicalDeviceFeatures supported;
-        vkGetPhysicalDeviceFeatures(m_PhysicalDevice, &supported);
+        DeviceFeatures supported{};
+        vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &supported.GeneralFeatures);
+
+        // Should be universal except on macos
+        if (supported.Sync2Features.synchronization2)
+            m_Features.Sync2Features.synchronization2 = true;
+
+        FL_CRASH_ASSERT(
+            supported.TimelineFeatures.timelineSemaphore,
+            "Timeline semaphore feature is required to be supported"
+        );
+        m_Features.TimelineFeatures.timelineSemaphore = true;
         
         if (initInfo.RequestedFeatures.SamplerAnisotropy)
         {
-            if (supported.samplerAnisotropy)
+            if (supported.GeneralFeatures.features.samplerAnisotropy)
             {
-                features.samplerAnisotropy = true;
+                m_Features.GeneralFeatures.features.samplerAnisotropy = true;
                 Flourish::Context::FeatureTable().SamplerAnisotropy = true;
             }
             else
@@ -229,9 +234,9 @@ namespace Flourish::Vulkan
 
         if (initInfo.RequestedFeatures.IndependentBlend)
         {
-            if (supported.independentBlend)
+            if (supported.GeneralFeatures.features.independentBlend)
             {
-                features.independentBlend = true;
+                m_Features.GeneralFeatures.features.independentBlend = true;
                 Flourish::Context::FeatureTable().IndependentBlend = true;
             }
             else
@@ -240,9 +245,9 @@ namespace Flourish::Vulkan
 
         if (initInfo.RequestedFeatures.WideLines)
         {
-            if (supported.wideLines)
+            if (supported.GeneralFeatures.features.wideLines)
             {
-                features.wideLines = true;
+                m_Features.GeneralFeatures.features.wideLines = true;
                 Flourish::Context::FeatureTable().WideLines = true;
             }
             else
@@ -262,19 +267,50 @@ namespace Flourish::Vulkan
 
         if (initInfo.RequestedFeatures.RayTracing)
         {
-            if (supported.shaderInt64 &&
+            if (supported.GeneralFeatures.features.shaderInt64 &&
+                supported.AccelFeatures.accelerationStructure &&
+                supported.RtPipelineFeatures.rayTracingPipeline &&
+                supported.BufferAddrFeatures.bufferDeviceAddress &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME))
             {
-                features.shaderInt64 = true;
+                m_Features.GeneralFeatures.features.shaderInt64 = true;
+                m_Features.AccelFeatures.accelerationStructure = true;
+                m_Features.RtPipelineFeatures.rayTracingPipeline = true;
+                m_Features.BufferAddrFeatures.bufferDeviceAddress = true;
                 extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
                 Flourish::Context::FeatureTable().RayTracing = true;
+                Flourish::Context::FeatureTable().BufferGPUAddress = true;
             }
             else
             { FL_LOG_WARN("RayTracing was requested but not supported"); }
+        }
+
+        if (initInfo.RequestedFeatures.BufferGPUAddress)
+        {
+            if (supported.GeneralFeatures.features.shaderInt64 &&
+                supported.BufferAddrFeatures.bufferDeviceAddress)
+            {
+                m_Features.GeneralFeatures.features.shaderInt64 = true;
+                m_Features.BufferAddrFeatures.bufferDeviceAddress = true;
+                Flourish::Context::FeatureTable().BufferGPUAddress = true;
+            }
+            else
+            { FL_LOG_WARN("BufferGPUAddress was requested but not supported"); }
+        }
+
+        if (initInfo.RequestedFeatures.PartiallyBoundResourceSets)
+        {
+            if (supported.IndexingFeatures.descriptorBindingPartiallyBound)
+            {
+                m_Features.IndexingFeatures.descriptorBindingPartiallyBound = true;
+                Flourish::Context::FeatureTable().PartiallyBoundResourceSets = true;
+            }
+            else
+            { FL_LOG_WARN("PartiallyBoundResourceSets was requested but not supported"); }
         }
     }
 
