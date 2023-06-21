@@ -20,7 +20,8 @@ namespace Flourish::Vulkan
             const BufferCreateInfo& createInfo,
             VkBufferUsageFlags usageFlags,
             MemoryDirection memoryDirection,
-            VkCommandBuffer uploadBuffer = nullptr
+            VkCommandBuffer uploadBuffer = nullptr,
+            bool forceDeviceMemory = false
         );
         ~Buffer() override;
 
@@ -87,10 +88,19 @@ namespace Flourish::Vulkan
         };
 
     private:
-        void CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection, VkCommandBuffer uploadBuffer);
+        void CreateInternal(
+            VkBufferUsageFlags usage,
+            MemoryDirection memDirection,
+            VkCommandBuffer uploadBuffer,
+            bool forceDeviceMemory
+        );
         const BufferData& GetBufferData() const;
         const BufferData& GetStagingBufferData() const;
-        void CreateBuffers(VkBufferCreateInfo bufCreateInfo, VkCommandBuffer uploadBuffer);
+        void CreateBuffers(
+            VkBufferCreateInfo bufCreateInfo,
+            VkCommandBuffer uploadBuffer,
+            bool forceDeviceMemory
+        );
 
     private:
         u32 m_BufferCount = 1;

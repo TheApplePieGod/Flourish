@@ -60,17 +60,18 @@ namespace Flourish::Vulkan
         if (m_Info.CanCreateAccelerationStructure)
             usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         
-        CreateInternal(usage, memDirection, nullptr);
+        CreateInternal(usage, memDirection, nullptr, false);
     }
 
     Buffer::Buffer(
         const BufferCreateInfo& createInfo,
         VkBufferUsageFlags usageFlags,
         MemoryDirection memoryDirection,
-        VkCommandBuffer uploadBuffer
+        VkCommandBuffer uploadBuffer,
+        bool forceDeviceMemory
     ) : Flourish::Buffer(createInfo)
     {
-        CreateInternal(usageFlags, memoryDirection, uploadBuffer);
+        CreateInternal(usageFlags, memoryDirection, uploadBuffer, forceDeviceMemory);
     }
 
     Buffer::~Buffer()
@@ -90,7 +91,7 @@ namespace Flourish::Vulkan
         }, "Buffer free");
     }
 
-    void Buffer::CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection, VkCommandBuffer uploadBuffer)
+    void Buffer::CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection, VkCommandBuffer uploadBuffer, bool forceDeviceMemory)
     {
         m_MemoryDirection = memDirection;
 
@@ -141,7 +142,7 @@ namespace Flourish::Vulkan
             FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have");
         #endif
 
-        CreateBuffers(bufCreateInfo, uploadBuffer);
+        CreateBuffers(bufCreateInfo, uploadBuffer, forceDeviceMemory);
     }
 
     void Buffer::SetBytes(const void* data, u32 byteCount, u32 byteOffset)
@@ -346,11 +347,14 @@ namespace Flourish::Vulkan
 
     const Buffer::BufferData& Buffer::GetStagingBufferData() const
     {
-        // Buffer count will never be 1 with persistent staging buffers
-        return m_StagingBuffers[Flourish::Context::FrameIndex()];
+        return m_BufferCount == 1 ? m_StagingBuffers[0] : m_StagingBuffers[Flourish::Context::FrameIndex()];
     }
 
-    void Buffer::CreateBuffers(VkBufferCreateInfo bufCreateInfo, VkCommandBuffer uploadBuffer)
+    void Buffer::CreateBuffers(
+        VkBufferCreateInfo bufCreateInfo,
+        VkCommandBuffer uploadBuffer,
+        bool forceDeviceMemory
+    )
     {
         // Default allocation is device local
         // TODO: dedicated allocation for large allocations
@@ -360,7 +364,7 @@ namespace Flourish::Vulkan
         // Assumes that we want cpu visible memory if we have a dyanmic cpu -> gpu buffer
         // TODO: add granularity for this
         bool dynamicHostBuffer = m_MemoryDirection == MemoryDirection::CPUToGPU && (m_Info.Usage == BufferUsageType::Dynamic || m_Info.Usage == BufferUsageType::DynamicOneFrame);
-        if (dynamicHostBuffer)
+        if (dynamicHostBuffer && !forceDeviceMemory)
         {
             allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
             allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
@@ -423,20 +427,30 @@ namespace Flourish::Vulkan
                 // dynamic buffers will also need to have data transferred
                 if (m_Info.Usage == BufferUsageType::Static || m_Buffers[i].HasComplement)
                 {
-                    if (!initialDataStagingBuf.Buffer)
+                    VkBuffer srcBuffer;
+                    if (m_Buffers[i].HasComplement)
                     {
-                        AllocateStagingBuffer(
-                            initialDataStagingBuf.Buffer,
-                            initialDataStagingBuf.Allocation,
-                            initialDataStagingBuf.AllocationInfo,
-                            bufCreateInfo.size
-                        );
+                        srcBuffer = m_StagingBuffers[i].Buffer;
+                        memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+                    }
+                    else
+                    {
+                        if (!initialDataStagingBuf.Buffer)
+                        {
+                            AllocateStagingBuffer(
+                                initialDataStagingBuf.Buffer,
+                                initialDataStagingBuf.Allocation,
+                                initialDataStagingBuf.AllocationInfo,
+                                bufCreateInfo.size
+                            );
 
-                        memcpy(initialDataStagingBuf.AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+                            memcpy(initialDataStagingBuf.AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+                        }
+                        srcBuffer = initialDataStagingBuf.Buffer;
                     }
                     
                     CopyBufferToBuffer(
-                        initialDataStagingBuf.Buffer,
+                        srcBuffer,
                         m_Buffers[i].Buffer,
                         m_Info.InitialDataSize,
                         uploadBuffer,

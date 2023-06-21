@@ -128,7 +128,7 @@ namespace Flourish::Vulkan
         if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
         {
             BufferCreateInfo ibCreateInfo;
-            ibCreateInfo.Usage = BufferUsageType::Static;
+            ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
             ibCreateInfo.ElementCount = buildInfo.InstanceCount;
             ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
             ibCreateInfo.InitialData = m_Instances.data();
@@ -137,8 +137,14 @@ namespace Flourish::Vulkan
                 ibCreateInfo,
                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 Buffer::MemoryDirection::CPUToGPU,
-                cmdBuf
+                cmdBuf,
+                true
             );
+        }
+        else
+        {
+            m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
+            m_InstanceBuffer->FlushInternal(cmdBuf, false);
         }
 
         // Ensure data is uploaded before performing build
