@@ -22,12 +22,13 @@ namespace Flourish::Vulkan
     private:
         bool CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions);
         void PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
-        void PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo);
+        void PopulateFeatureTable(VkPhysicalDeviceFeatures& features, std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
         void PopulateDeviceProperties();
         VkSampleCountFlagBits GetMaxSampleCount();
         void DumpDeviceInfo(LogLevel logLevel, const VkPhysicalDeviceProperties& props);
 
     private:
+        std::vector<VkExtensionProperties> m_SupportedExtensions;
         VkPhysicalDevice m_PhysicalDevice;
         VkPhysicalDeviceProperties m_PhysicalDeviceProperties;
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_RayTracingProperties;

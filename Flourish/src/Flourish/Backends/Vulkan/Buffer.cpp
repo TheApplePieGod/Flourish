@@ -50,16 +50,12 @@ namespace Flourish::Vulkan
             {
                 usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
-                if (m_Info.CanCreateAccelerationStructure)
-                    usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
             } break;
 
             case BufferType::Index:
             {
                 usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
-                if (m_Info.CanCreateAccelerationStructure)
-                    usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
             } break;
         }
 
@@ -124,7 +120,7 @@ namespace Flourish::Vulkan
         bufCreateInfo.usage = usage;
 
         if (m_Info.ExposeGPUAddress)
-            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+            bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         // Validate alignment
         if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)

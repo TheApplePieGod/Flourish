@@ -48,6 +48,18 @@ namespace Flourish::Vulkan
         }
         FL_CRASH_ASSERT(m_PhysicalDevice, "Unable to find a compatible graphics device while initializing");
 
+
+        // TODO: clean this up / don't enable everything
+
+        // Get hardware extension support
+        u32 supportedExtensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, nullptr);
+        m_SupportedExtensions.resize(supportedExtensionCount);
+        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, m_SupportedExtensions.data());
+
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        PopulateFeatureTable(deviceFeatures, deviceExtensions, initInfo);
+        PopulateDeviceProperties();
         PopulateOptionalExtensions(deviceExtensions, initInfo);
 
         // Get the max amount of queues we can/need to create for each family
@@ -74,12 +86,6 @@ namespace Flourish::Vulkan
             for (u32 i = 0; i < pair.second; i++)
                 queuePriorities.push_back(1.0);
         }
-
-        // TODO: clean this up / don't enable everything
-
-        VkPhysicalDeviceFeatures deviceFeatures{};
-        PopulateDeviceFeatures(deviceFeatures, initInfo);
-        PopulateDeviceProperties();
 
         // RT
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures{};
@@ -193,65 +199,82 @@ namespace Flourish::Vulkan
 
     void Devices::PopulateOptionalExtensions(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
-        // Get hardware extension support
-        u32 supportedExtensionCount = 0;
-        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, nullptr);
-        std::vector<VkExtensionProperties> supportedExtensions(supportedExtensionCount);
-        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &supportedExtensionCount, supportedExtensions.data());
-        
         // Ensure portability subset is enabled on mac but only if it is supported
         #ifdef FL_PLATFORM_MACOS
-            if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_subset"))
+            if (Common::SupportsExtension(m_SupportedExtensions, "VK_KHR_portability_subset"))
                 extensions.push_back("VK_KHR_portability_subset");
         #endif
         
         #ifdef FL_DEBUG
-        if (Common::SupportsExtension(supportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
+        if (Common::SupportsExtension(m_SupportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
             extensions.push_back("VK_NV_device_diagnostic_checkpoints");
         #endif
-        
-        if (initInfo.RequestedFeatures.SamplerMinMax &&
-            Common::SupportsExtension(supportedExtensions, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
-        {
-            extensions.push_back(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
-            Flourish::Context::FeatureTable().SamplerMinMax = true;
-        }
-        else if (initInfo.RequestedFeatures.SamplerMinMax)
-        { FL_LOG_WARN("SamplerMinMax was requested but not supported"); }
-
-        if (initInfo.RequestedFeatures.RayTracing &&
-            Common::SupportsExtension(supportedExtensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
-            Common::SupportsExtension(supportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
-            Common::SupportsExtension(supportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME))
-        {
-            extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-            extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-            extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-            Flourish::Context::FeatureTable().RayTracing = true;
-        }
-        else if (initInfo.RequestedFeatures.RayTracing)
-        { FL_LOG_WARN("RayTracing was requested but not supported"); }
     }
 
-    void Devices::PopulateDeviceFeatures(VkPhysicalDeviceFeatures& features, const ContextInitializeInfo& initInfo)
+    void Devices::PopulateFeatureTable(VkPhysicalDeviceFeatures& features, std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
         VkPhysicalDeviceFeatures supported;
         vkGetPhysicalDeviceFeatures(m_PhysicalDevice, &supported);
         
-        if (initInfo.RequestedFeatures.SamplerAnisotropy && supported.samplerAnisotropy)
+        if (initInfo.RequestedFeatures.SamplerAnisotropy)
         {
-            features.samplerAnisotropy = true;
-            Flourish::Context::FeatureTable().SamplerAnisotropy = true;
+            if (supported.samplerAnisotropy)
+            {
+                features.samplerAnisotropy = true;
+                Flourish::Context::FeatureTable().SamplerAnisotropy = true;
+            }
+            else
+            { FL_LOG_WARN("SamplerAnisotropy was requested but not supported"); }
         }
-        if (initInfo.RequestedFeatures.IndependentBlend && supported.independentBlend)
+
+        if (initInfo.RequestedFeatures.IndependentBlend)
         {
-            features.independentBlend = true;
-            Flourish::Context::FeatureTable().IndependentBlend = true;
+            if (supported.independentBlend)
+            {
+                features.independentBlend = true;
+                Flourish::Context::FeatureTable().IndependentBlend = true;
+            }
+            else
+            { FL_LOG_WARN("IndependentBlend was requested but not supported"); }
         }
-        if (initInfo.RequestedFeatures.WideLines && supported.wideLines)
+
+        if (initInfo.RequestedFeatures.WideLines)
         {
-            features.wideLines = true;
-            Flourish::Context::FeatureTable().WideLines = true;
+            if (supported.wideLines)
+            {
+                features.wideLines = true;
+                Flourish::Context::FeatureTable().WideLines = true;
+            }
+            else
+            { FL_LOG_WARN("WideLines was requested but not supported"); }
+        }
+        
+        if (initInfo.RequestedFeatures.SamplerMinMax)
+        {
+            if (Common::SupportsExtension(m_SupportedExtensions, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
+            {
+                extensions.push_back(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
+                Flourish::Context::FeatureTable().SamplerMinMax = true;
+            }
+            else
+            { FL_LOG_WARN("SamplerMinMax was requested but not supported"); }
+        }
+
+        if (initInfo.RequestedFeatures.RayTracing)
+        {
+            if (supported.shaderInt64 &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME))
+            {
+                features.shaderInt64 = true;
+                extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+                extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+                extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+                Flourish::Context::FeatureTable().RayTracing = true;
+            }
+            else
+            { FL_LOG_WARN("RayTracing was requested but not supported"); }
         }
     }
 
