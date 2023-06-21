@@ -16,6 +16,9 @@ namespace Flourish::Vulkan
         std::shared_ptr<Flourish::ResourceSet> CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo) override;
 
         // TS
+        u8* GetGroupHandle(u32 groupIndex);
+        
+        // TS
         inline VkPipeline GetPipeline() const { return m_Pipeline; }
         inline VkPipelineLayout GetLayout() const { return m_PipelineLayout; }
         inline const PipelineDescriptorData* GetDescriptorData() const { return &m_DescriptorData; }
@@ -24,5 +27,6 @@ namespace Flourish::Vulkan
         VkPipelineLayout m_PipelineLayout = nullptr;
         VkPipeline m_Pipeline = nullptr;
         PipelineDescriptorData m_DescriptorData;
+        std::vector<u8> m_GroupHandles;
     };
 }

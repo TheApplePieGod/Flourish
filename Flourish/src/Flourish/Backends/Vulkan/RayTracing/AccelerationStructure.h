@@ -43,6 +43,5 @@ namespace Flourish::Vulkan
         std::shared_ptr<Buffer> m_ScratchBuffer;
         std::shared_ptr<Buffer> m_InstanceBuffer;
         std::vector<VkAccelerationStructureInstanceKHR> m_Instances;
-        u32 m_ScratchAlignment;
     };
 }

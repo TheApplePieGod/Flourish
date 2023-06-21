@@ -4,6 +4,14 @@
 
 namespace Flourish
 {
+    enum class RayTracingShaderGroupType : u8
+    {
+        RayGen = 0,
+        Hit,
+        Miss,
+        Callable
+    };
+
     struct RayTracingShaderGroup
     {
         u32 GeneralShader = 0;
@@ -35,6 +43,10 @@ namespace Flourish
         // TS
         // NOTE: Try to keep binding & set indices as low as possible
         virtual std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo) = 0;
+
+        // TS
+        inline const auto& GetGroups() const { return m_Info.Groups; }
+        inline const auto& GetShaders() const { return m_Info.Shaders; }
         
     public:
         // TS

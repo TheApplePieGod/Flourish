@@ -13,8 +13,6 @@ namespace Flourish::Vulkan
             Flourish::Context::FeatureTable().RayTracing,
             "RayTracing feature must be enabled and supported to use AccelerationStructures"
         );
-
-        m_ScratchAlignment = Context::Devices().AccelStructureProperties().minAccelerationStructureScratchOffsetAlignment;
     }
 
     AccelerationStructure::~AccelerationStructure()
@@ -215,7 +213,8 @@ namespace Flourish::Vulkan
         );
 
         // Allocate scratch buffer
-        u32 scratchSize = m_ScratchAlignment;
+        u32 alignment = Context::Devices().AccelStructureProperties().minAccelerationStructureScratchOffsetAlignment;
+        u32 scratchSize = alignment;
         if (isUpdating)
             scratchSize += buildSize.updateScratchSize;
         else
@@ -232,8 +231,10 @@ namespace Flourish::Vulkan
                 Buffer::MemoryDirection::CPUToGPU
             );
         }
-        VkDeviceAddress scratchAddress = m_ScratchBuffer->GetBufferDeviceAddress();
-        scratchAddress += (m_ScratchAlignment - (scratchAddress % m_ScratchAlignment));
+        VkDeviceAddress scratchAddress = FL_ALIGN_UP(
+            m_ScratchBuffer->GetBufferDeviceAddress(),
+            alignment
+        );
 
         VkAccelerationStructureCreateInfoKHR accCreateInfo{};
         accCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;

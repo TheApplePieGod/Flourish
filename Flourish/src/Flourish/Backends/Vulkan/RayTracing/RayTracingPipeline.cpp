@@ -97,6 +97,17 @@ namespace Flourish::Vulkan
             &m_Pipeline
         ), "RayTracingPipeline create pipeline"))
             throw std::exception();
+
+        u32 handleDataSize = Context::Devices().RayTracingProperties().shaderGroupHandleSize * m_Info.Groups.size();
+        m_GroupHandles.resize(handleDataSize);
+        if (!FL_VK_CHECK_RESULT(vkGetRayTracingShaderGroupHandlesKHR(
+            Context::Devices().Device(),
+            m_Pipeline,
+            0, m_Info.Groups.size(),
+            handleDataSize,
+            m_GroupHandles.data()
+        ), "RayTracingPipeline get group handles"))
+            throw std::exception();
     }
 
     RayTracingPipeline::~RayTracingPipeline()
@@ -119,5 +130,10 @@ namespace Flourish::Vulkan
             ResourceSetPipelineCompatabilityFlags::RayTracing,
             createInfo
         );
+    }
+
+    u8* RayTracingPipeline::GetGroupHandle(u32 groupIndex)
+    {
+        return m_GroupHandles.data() + (groupIndex * Context::Devices().RayTracingProperties().shaderGroupHandleSize);
     }
 }

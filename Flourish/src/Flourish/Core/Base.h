@@ -38,3 +38,4 @@ using char16 = char16_t;
 #define FL_EXPAND_ARGS(args) args
 #define FL_BIT(x) (1 << x)
 #define FL_PLACEMENT_NEW(ptr, type, ...) new (ptr) type(__VA_ARGS__)
+#define FL_ALIGN_UP(val, align) (val + ((align - (val % align)) % align))
