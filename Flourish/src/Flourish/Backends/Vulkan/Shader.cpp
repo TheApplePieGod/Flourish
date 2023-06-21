@@ -102,6 +102,11 @@ namespace Flourish::Vulkan
             case ShaderTypeFlags::Vertex: { shaderKind = shaderc_glsl_vertex_shader; } break;
             case ShaderTypeFlags::Fragment: { shaderKind = shaderc_glsl_fragment_shader; } break;
             case ShaderTypeFlags::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
+            case ShaderTypeFlags::RayGen: { shaderKind = shaderc_glsl_raygen_shader; } break;
+            case ShaderTypeFlags::RayMiss: { shaderKind = shaderc_glsl_miss_shader; } break;
+            case ShaderTypeFlags::RayIntersection: { shaderKind = shaderc_glsl_intersection_shader; } break;
+            case ShaderTypeFlags::RayClosestHit: { shaderKind = shaderc_glsl_closesthit_shader; } break;
+            case ShaderTypeFlags::RayAnyHit: { shaderKind = shaderc_glsl_anyhit_shader; } break;
         }
 
         shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
@@ -171,6 +176,11 @@ namespace Flourish::Vulkan
             case ShaderTypeFlags::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
             case ShaderTypeFlags::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
             case ShaderTypeFlags::Compute: { stage = VK_SHADER_STAGE_COMPUTE_BIT; } break;
+            case ShaderTypeFlags::RayGen: { stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR; } break;
+            case ShaderTypeFlags::RayMiss: { stage = VK_SHADER_STAGE_MISS_BIT_KHR; } break;
+            case ShaderTypeFlags::RayIntersection: { stage = VK_SHADER_STAGE_INTERSECTION_BIT_KHR; } break;
+            case ShaderTypeFlags::RayClosestHit: { stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR; } break;
+            case ShaderTypeFlags::RayAnyHit: { stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR; } break;
         }
 
         VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -204,6 +214,11 @@ namespace Flourish::Vulkan
             case ShaderTypeFlags::Vertex: { typeString = "Vertex"; } break;
             case ShaderTypeFlags::Fragment: { typeString = "Fragment"; } break;
             case ShaderTypeFlags::Compute: { typeString = "Compute"; } break;
+            case ShaderTypeFlags::RayGen: { typeString = "RayGen"; } break;
+            case ShaderTypeFlags::RayMiss: { typeString = "RayMiss"; } break;
+            case ShaderTypeFlags::RayIntersection: { typeString = "RayIntersection"; } break;
+            case ShaderTypeFlags::RayClosestHit: { typeString = "RayClosestHit"; } break;
+            case ShaderTypeFlags::RayAnyHit: { typeString = "RayAnyHit"; } break;
         }
 
 		FL_LOG_DEBUG("GLSL %s shader", typeString);
@@ -367,6 +382,32 @@ namespace Flourish::Vulkan
             if (set >= maxSets)
             {
                 FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on subpass %s", maxSets, set, resource.name.c_str());
+                throw std::exception();
+            }
+		}
+
+        if (resources.acceleration_structures.size() > 0)
+		    FL_LOG_DEBUG("  Acceleration Structures:");
+		for (const auto& resource : resources.acceleration_structures)
+		{
+            const auto& accelType = compiler->get_type(resource.type_id);
+			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
+            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            
+            m_ReflectionData.emplace_back(
+                ShaderResourceType::AccelerationStructure,
+                m_Type,
+                binding,
+                set, 0, 1
+            );
+
+			FL_LOG_DEBUG("    Accel Struct (%s)", resource.name.c_str());
+            FL_LOG_DEBUG("      Set = %d", set);
+			FL_LOG_DEBUG("      Binding = %d", binding);
+
+            if (set >= maxSets)
+            {
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on accel struct %s", maxSets, set, resource.name.c_str());
                 throw std::exception();
             }
 		}

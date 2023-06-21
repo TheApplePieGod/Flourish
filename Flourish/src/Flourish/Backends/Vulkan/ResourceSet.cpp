@@ -4,6 +4,7 @@
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/Texture.h"
 #include "Flourish/Backends/Vulkan/Framebuffer.h"
+#include "Flourish/Backends/Vulkan/RayTracing/AccelerationStructure.h"
 #include "Flourish/Backends/Vulkan/Context.h"
 
 namespace Flourish::Vulkan
@@ -13,6 +14,7 @@ namespace Flourish::Vulkan
         Buffer = nullptr;
         Texture = nullptr;
         Framebuffer = nullptr;
+        AccelStruct = nullptr;
     }
 
     ResourceSet::ResourceSet(
@@ -40,11 +42,33 @@ namespace Flourish::Vulkan
             m_Allocations[i] = m_ParentPool->AllocateSet();
 
             m_CachedData.emplace_back();
-            m_CachedData.back().DescriptorWrites = m_ParentPool->GetCachedWrites();
-            for (auto& write : m_CachedData.back().DescriptorWrites)
+            auto& data = m_CachedData.back();
+            data.DescriptorWrites = m_ParentPool->GetCachedWrites();
+
+            if (compatability & ResourceSetPipelineCompatabilityFlags::RayTracing)
+            {
+                data.AccelWrites.reserve(m_ParentPool->GetCachedWrites().size());
+                data.Accels.resize(m_ParentPool->GetAccelStructCount());
+            }
+
+            for (u32 j = 0; j < data.DescriptorWrites.size(); j++)
+            {
+                auto& write = data.DescriptorWrites[j];
                 write.dstSet = m_Allocations[i].Set;
-            m_CachedData.back().BufferInfos.resize(m_ParentPool->GetBufferCount());
-            m_CachedData.back().ImageInfos.resize(m_ParentPool->GetImageArrayElementCount());
+                if (compatability & ResourceSetPipelineCompatabilityFlags::RayTracing)
+                {
+                    data.AccelWrites.push_back({
+                        VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                        nullptr,
+                        write.descriptorCount,
+                        nullptr
+                    });
+                    write.pNext = &data.AccelWrites.back();
+                }
+            }
+
+            data.BufferInfos.resize(m_ParentPool->GetBufferCount());
+            data.ImageInfos.resize(m_ParentPool->GetImageArrayElementCount());
 
             // Ensure free lists are populated with initial allocations when using multiwrite
             if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_MultiWrite))
@@ -127,6 +151,19 @@ namespace Flourish::Vulkan
         }
 
         BindSubpassInput(bindingIndex, framebuffer.get(), attachment);
+    }
+
+    void ResourceSet::BindAccelerationStructure(u32 bindingIndex, const std::shared_ptr<Flourish::AccelerationStructure>& accelStruct)
+    {
+        if (m_Info.StoreBindingReferences)
+        {
+            FL_CRASH_ASSERT(bindingIndex < m_StoredReferences.size(), "Binding index out of range");
+
+            m_StoredReferences[bindingIndex].Clear();
+            m_StoredReferences[bindingIndex].AccelStruct = accelStruct;
+        }
+
+        BindAccelerationStructure(bindingIndex, accelStruct.get());
     }
 
     void ResourceSet::BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount)
@@ -239,6 +276,23 @@ namespace Flourish::Vulkan
         );
     }
 
+    void ResourceSet::BindAccelerationStructure(u32 bindingIndex, const Flourish::AccelerationStructure* accelStruct)
+    {
+        FL_PROFILE_FUNCTION();
+        
+        ValidateBinding(bindingIndex, ShaderResourceType::AccelerationStructure, accelStruct);
+        
+        VkAccelerationStructureKHR accel = static_cast<const AccelerationStructure*>(accelStruct)->GetAccelStructure();
+
+        UpdateBinding(
+            bindingIndex, 
+            ShaderResourceType::AccelerationStructure, 
+            accel,
+            false,
+            0, 0, 0
+        );
+    }
+
     void ResourceSet::SwapNextAllocation()
     {
         auto& list = m_SetLists[Flourish::Context::FrameIndex()];
@@ -310,6 +364,16 @@ namespace Flourish::Vulkan
             auto& cachedData = m_AllocationCount == 1 ? m_CachedData[0] : m_CachedData[frameIndex];
             auto& bufferInfos = cachedData.BufferInfos;
             auto& imageInfos = cachedData.ImageInfos;
+
+            // TODO: should only be in debug
+            VkWriteDescriptorSet& descriptorWrite = cachedData.DescriptorWrites[writeIndex];
+            if (descriptorWrite.pBufferInfo == nullptr && descriptorWrite.pImageInfo == nullptr)
+            {
+                if (!(m_Compatability & ResourceSetPipelineCompatabilityFlags::RayTracing) ||
+                    static_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(descriptorWrite.pNext)->pAccelerationStructures == nullptr)
+                    cachedData.WritesReadyCount++;
+            }
+
             switch (resourceType)
             {
                 default: { FL_ASSERT(false, "Cannot update resource set with selected resource type"); } break;
@@ -347,11 +411,16 @@ namespace Flourish::Vulkan
                     imageInfos[imageInfoBaseIndex].imageLayout = useOffset ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
                     imageInfos[imageInfoBaseIndex].imageView = view;
                 } break;
-            }
 
-            VkWriteDescriptorSet& descriptorWrite = cachedData.DescriptorWrites[writeIndex];
-            if (descriptorWrite.pBufferInfo == nullptr && descriptorWrite.pImageInfo == nullptr)
-                cachedData.WritesReadyCount++;
+                case ShaderResourceType::AccelerationStructure:
+                {
+                    VkAccelerationStructureKHR accel = (VkAccelerationStructureKHR)resource;
+
+                    u32 accelBaseIndex = m_ParentPool->GetBindingData()[bindingIndex].AccelArrayIndex;
+                    cachedData.Accels[accelBaseIndex] = accel;
+                    ((VkWriteDescriptorSetAccelerationStructureKHR*)descriptorWrite.pNext)->pAccelerationStructures = &cachedData.Accels[accelBaseIndex];
+                } break;
+            }
 
             if (bufferInfoBaseIndex < bufferInfos.size())
                 descriptorWrite.pBufferInfo = &bufferInfos[bufferInfoBaseIndex];
@@ -409,11 +478,14 @@ namespace Flourish::Vulkan
             if (static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_FrameWrite))
             {
                 // Reset writes for next frame
+                // TODO: should probably be debug only
                 cachedData.WritesReadyCount = 0;
                 for (auto& write : writes)
                 {
                     write.pBufferInfo = nullptr;
                     write.pImageInfo = nullptr;
+                    if (m_Compatability & ResourceSetPipelineCompatabilityFlags::RayTracing)
+                        ((VkWriteDescriptorSetAccelerationStructureKHR*)write.pNext)->pAccelerationStructures = nullptr;
                 }
                 
                 // We never want to update more than one frame worth of data if we are

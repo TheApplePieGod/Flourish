@@ -11,6 +11,7 @@ namespace Flourish
             None = 0,
             Graphics = (1 << 0),
             Compute = (1 << 1),
+            RayTracing = (1 << 2)
         };
     }
     typedef ResourceSetPipelineCompatabilityEnum::Value ResourceSetPipelineCompatabilityFlags;
@@ -34,7 +35,7 @@ namespace Flourish
         bool StoreBindingReferences = false;
     };
 
-    // TODO: Change name to resourcebindings or something more descriptive
+    class AccelerationStructure;
     class ResourceSet
     {
     public:
@@ -48,10 +49,12 @@ namespace Flourish
         virtual void BindTexture(u32 bindingIndex, const std::shared_ptr<Texture>& texture, u32 arrayIndex = 0) = 0;
         virtual void BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Texture>& texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex = 0) = 0;
         virtual void BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Framebuffer>& framebuffer, SubpassAttachment attachment) = 0;
+        virtual void BindAccelerationStructure(u32 bindingIndex, const std::shared_ptr<AccelerationStructure>& accelStruct) = 0;
         virtual void BindBuffer(u32 bindingIndex, const Buffer* buffer, u32 bufferOffset, u32 elementCount) = 0;
         virtual void BindTexture(u32 bindingIndex, const Texture* texture, u32 arrayIndex = 0) = 0;
         virtual void BindTextureLayer(u32 bindingIndex, const Texture* texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex = 0) = 0;
         virtual void BindSubpassInput(u32 bindingIndex, const Framebuffer* framebuffer, SubpassAttachment attachment) = 0;
+        virtual void BindAccelerationStructure(u32 bindingIndex, const AccelerationStructure* accelStruct) = 0;
 
         // Cannot flush until all bindings are bound
         virtual void FlushBindings() = 0;

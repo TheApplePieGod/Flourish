@@ -123,8 +123,6 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a resource set");
 
-        auto shader = static_cast<const Shader*>(m_BoundPipeline->GetComputeShader());
-
         auto set = m_DescriptorBinder.GetResourceSet(setIndex);
         VkDescriptorSet sets[1] = { set->GetSet() };
         vkCmdBindDescriptorSets(

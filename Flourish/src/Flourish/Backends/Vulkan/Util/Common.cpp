@@ -198,6 +198,7 @@ namespace Flourish::Vulkan
             case ShaderResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             case ShaderResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
             case ShaderResourceType::SubpassInput: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+            case ShaderResourceType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         }
 
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -214,6 +215,7 @@ namespace Flourish::Vulkan
             case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return ShaderResourceType::UniformBuffer;
             case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return ShaderResourceType::StorageBuffer;
             case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return ShaderResourceType::SubpassInput;
+            case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: return ShaderResourceType::AccelerationStructure;
         }
 
         return ShaderResourceType::None;
@@ -225,6 +227,11 @@ namespace Flourish::Vulkan
         result |= ((type & ShaderTypeFlags::Vertex) > 0) * VK_SHADER_STAGE_VERTEX_BIT;
         result |= ((type & ShaderTypeFlags::Fragment) > 0) * VK_SHADER_STAGE_FRAGMENT_BIT;
         result |= ((type & ShaderTypeFlags::Compute) > 0) * VK_SHADER_STAGE_COMPUTE_BIT;
+        result |= ((type & ShaderTypeFlags::RayGen) > 0) * VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayMiss) > 0) * VK_SHADER_STAGE_MISS_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayIntersection) > 0) * VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayClosestHit) > 0) * VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayAnyHit) > 0) * VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
         return result;
     }
 

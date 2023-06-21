@@ -49,7 +49,9 @@ namespace Flourish::Vulkan
             bindingData.DescriptorWriteMapping = m_CachedDescriptorWrites.size(); 
             m_CachedDescriptorWrites.emplace_back(descriptorWrite);
 
-            // Populate the dynamic offset info if applicable
+            // Populate cache information
+            if (element.ResourceType == ShaderResourceType::AccelerationStructure)
+                bindingData.AccelArrayIndex = m_AccelStructCount++;
             if (element.ResourceType == ShaderResourceType::UniformBuffer ||
                 element.ResourceType == ShaderResourceType::StorageBuffer)
                 bindingData.BufferArrayIndex = m_BufferCount++;
