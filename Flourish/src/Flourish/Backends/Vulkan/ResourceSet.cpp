@@ -55,7 +55,7 @@ namespace Flourish::Vulkan
             {
                 auto& write = data.DescriptorWrites[j];
                 write.dstSet = m_Allocations[i].Set;
-                if (compatability & ResourceSetPipelineCompatabilityFlags::RayTracing)
+                if (compatability & ResourceSetPipelineCompatabilityFlags::RayTracing && write.descriptorType == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
                 {
                     data.AccelWrites.push_back({
                         VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
@@ -279,6 +279,8 @@ namespace Flourish::Vulkan
     void ResourceSet::BindAccelerationStructure(u32 bindingIndex, const Flourish::AccelerationStructure* accelStruct)
     {
         FL_PROFILE_FUNCTION();
+
+        FL_ASSERT(accelStruct->IsBuilt(), "Must build AccelerationStructure before binding");
         
         ValidateBinding(bindingIndex, ShaderResourceType::AccelerationStructure, accelStruct);
         
@@ -370,6 +372,7 @@ namespace Flourish::Vulkan
             if (descriptorWrite.pBufferInfo == nullptr && descriptorWrite.pImageInfo == nullptr)
             {
                 if (!(m_Compatability & ResourceSetPipelineCompatabilityFlags::RayTracing) ||
+                    !descriptorWrite.pNext ||
                     static_cast<const VkWriteDescriptorSetAccelerationStructureKHR*>(descriptorWrite.pNext)->pAccelerationStructures == nullptr)
                     cachedData.WritesReadyCount++;
             }
@@ -484,7 +487,7 @@ namespace Flourish::Vulkan
                 {
                     write.pBufferInfo = nullptr;
                     write.pImageInfo = nullptr;
-                    if (m_Compatability & ResourceSetPipelineCompatabilityFlags::RayTracing)
+                    if (m_Compatability & ResourceSetPipelineCompatabilityFlags::RayTracing && write.pNext)
                         ((VkWriteDescriptorSetAccelerationStructureKHR*)write.pNext)->pAccelerationStructures = nullptr;
                 }
                 

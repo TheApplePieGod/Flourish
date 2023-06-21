@@ -77,7 +77,7 @@ namespace FlourishTesting
             jobs.push_back(std::async(std::launch::async, [&]()
             {
                 auto encoder = m_CommandBuffers[objectCount]->EncodeComputeCommands();
-                encoder->BindPipeline(m_ComputePipeline.get());
+                encoder->BindComputePipeline(m_ComputePipeline.get());
                 encoder->BindResourceSet(m_ObjectDescriptorSet.get(), 0);
                 encoder->FlushResourceSet(0);
                 encoder->Dispatch(objectCount, 1, 1);

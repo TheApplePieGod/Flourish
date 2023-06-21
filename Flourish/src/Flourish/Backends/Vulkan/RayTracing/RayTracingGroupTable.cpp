@@ -74,7 +74,7 @@ namespace Flourish::Vulkan
         u32 padStart = FL_ALIGN_UP(buffer->GetBufferDeviceAddress(), m_BaseAlignment) - buffer->GetBufferDeviceAddress();
         VkStridedDeviceAddressRegionKHR region{};
         region.deviceAddress = buffer->GetBufferDeviceAddress() + padStart;
-        region.size = buffer->GetAllocatedSize() - padStart;
+        region.size = buffer->GetAllocatedSize() - m_BaseAlignment;
         region.stride = m_AlignedHandleSize;
         return region;
     }

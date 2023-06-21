@@ -129,6 +129,7 @@ namespace Flourish::Vulkan
             height,
             depth
         );
+        m_AnyCommandRecorded = true;
     }
 
     void ComputeCommandEncoder::RebuildAccelerationStructureScene(Flourish::AccelerationStructure* accel, const AccelerationStructureSceneBuildInfo& buildInfo)

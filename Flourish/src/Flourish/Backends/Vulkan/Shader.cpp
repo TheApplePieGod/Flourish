@@ -81,7 +81,7 @@ namespace Flourish::Vulkan
         #endif
 
         std::string baseSource(source);
-        options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, 0);
+        options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
         if (!path.empty())
         {
             // If the path is passed in, we want to enable the #include resolver

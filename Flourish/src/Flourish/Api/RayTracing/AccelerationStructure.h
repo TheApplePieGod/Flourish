@@ -59,6 +59,10 @@ namespace Flourish
         virtual void RebuildNode(const AccelerationStructureNodeBuildInfo& buildInfo) = 0;
         virtual void RebuildScene(const AccelerationStructureSceneBuildInfo& buildInfo) = 0;
 
+        // Whether the resource is allowed to be used on the CPU, not if it has
+        // completed building on the GPU
+        virtual bool IsBuilt() const = 0;
+
     public:
         static std::shared_ptr<AccelerationStructure> Create(const AccelerationStructureCreateInfo& createInfo);
 

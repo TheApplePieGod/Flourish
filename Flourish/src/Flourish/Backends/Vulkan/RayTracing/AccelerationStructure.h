@@ -16,6 +16,8 @@ namespace Flourish::Vulkan
         void RebuildNode(const AccelerationStructureNodeBuildInfo& buildInfo) override;
         void RebuildScene(const AccelerationStructureSceneBuildInfo& buildInfo) override;
 
+        bool IsBuilt() const override { return m_AccelStructure; }
+
         void RebuildNodeInternal(const AccelerationStructureNodeBuildInfo& buildInfo, VkCommandBuffer cmdBuf);
         void RebuildSceneInternal(const AccelerationStructureSceneBuildInfo& buildInfo, VkCommandBuffer cmdBuf);
 

@@ -27,10 +27,10 @@ namespace Flourish::Vulkan
             groups.emplace_back();
             groups.back().sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 
-            if (group.GeneralShader)
+            if (group.GeneralShader != -1)
             {
                 FL_ASSERT(
-                    !group.AnyHitShader && !group.ClosestHitShader && !group.IntersectionShader,
+                    (group.AnyHitShader == -1) && (group.ClosestHitShader == -1) && (group.IntersectionShader == -1),
                     "General shaders can only exist on their own"
                 );
                 FL_ASSERT(
@@ -41,17 +41,20 @@ namespace Flourish::Vulkan
 
                 groups.back().type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
                 groups.back().generalShader = group.GeneralShader;
+                groups.back().closestHitShader = VK_SHADER_UNUSED_KHR;
+                groups.back().anyHitShader = VK_SHADER_UNUSED_KHR;
+                groups.back().intersectionShader = VK_SHADER_UNUSED_KHR;
                 continue;
             }
 
-            if (group.IntersectionShader)
+            if (group.IntersectionShader != -1)
                 groups.back().type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
             else
                 groups.back().type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 
-            groups.back().intersectionShader = group.IntersectionShader;
-            groups.back().anyHitShader = group.AnyHitShader;
-            groups.back().closestHitShader = group.ClosestHitShader;
+            groups.back().intersectionShader = group.IntersectionShader == -1 ? VK_SHADER_UNUSED_KHR : group.IntersectionShader;
+            groups.back().anyHitShader = group.AnyHitShader == -1 ? VK_SHADER_UNUSED_KHR : group.AnyHitShader;
+            groups.back().closestHitShader = group.ClosestHitShader == -1 ? VK_SHADER_UNUSED_KHR : group.ClosestHitShader;
         }
 
         m_DescriptorData.Populate(shaders.data(), shaders.size());

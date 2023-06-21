@@ -14,10 +14,10 @@ namespace Flourish
 
     struct RayTracingShaderGroup
     {
-        u32 GeneralShader = 0;
-        u32 IntersectionShader = 0;
-        u32 ClosestHitShader = 0;
-        u32 AnyHitShader = 0;
+        int GeneralShader = -1;
+        int IntersectionShader = -1;
+        int ClosestHitShader = -1;
+        int AnyHitShader = -1;
     };
 
     struct RayTracingPipelineCreateInfo
