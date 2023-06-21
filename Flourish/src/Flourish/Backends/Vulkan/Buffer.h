@@ -28,6 +28,7 @@ namespace Flourish::Vulkan
         void SetBytes(const void* data, u32 byteCount, u32 byteOffset) override;
         void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const override;
         void Flush(bool immediate) override;
+        void* GetBufferGPUAddress() const override;
 
         void FlushInternal(VkCommandBuffer buffer, bool execute = false);
 
@@ -36,8 +37,6 @@ namespace Flourish::Vulkan
         VkBuffer GetBuffer(u32 frameIndex) const;
         VkBuffer GetStagingBuffer() const;
         VkBuffer GetStagingBuffer(u32 frameIndex) const;
-        VkDeviceAddress GetBufferDeviceAddress() const;
-        VkDeviceAddress GetBufferDeviceAddress(u32 frameIndex) const;
 
     public:
         static void CopyBufferToBuffer(
@@ -104,7 +103,6 @@ namespace Flourish::Vulkan
 
     private:
         u32 m_BufferCount = 1;
-        bool m_UseDeviceAddress = false;
         MemoryDirection m_MemoryDirection;
         std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_Buffers;
         std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_StagingBuffers;

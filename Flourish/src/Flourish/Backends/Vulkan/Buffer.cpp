@@ -50,17 +50,24 @@ namespace Flourish::Vulkan
             {
                 usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
+                if (m_Info.CanCreateAccelerationStructure)
+                    usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
             } break;
 
             case BufferType::Index:
             {
                 usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
+                if (m_Info.CanCreateAccelerationStructure)
+                    usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
             } break;
         }
 
         if (m_Info.CanCreateAccelerationStructure)
-            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        {
+            usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+            m_Info.ExposeGPUAddress = true;
+        }
         
         CreateInternal(usage, memDirection, nullptr, false);
     }
@@ -116,8 +123,8 @@ namespace Flourish::Vulkan
         bufCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         bufCreateInfo.usage = usage;
 
-        if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
-            m_UseDeviceAddress = true;
+        if (m_Info.ExposeGPUAddress)
+            usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
         // Validate alignment
         if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
@@ -210,15 +217,12 @@ namespace Flourish::Vulkan
         return m_StagingBuffers[frameIndex].Buffer;
     }
 
-    VkDeviceAddress Buffer::GetBufferDeviceAddress() const
+    void* Buffer::GetBufferGPUAddress() const
     {
-        return GetBufferDeviceAddress(Flourish::Context::FrameIndex());
-    }
+        FL_ASSERT(m_Info.ExposeGPUAddress, "Buffer must be created with ExposeGPUAddress");
 
-    VkDeviceAddress Buffer::GetBufferDeviceAddress(u32 frameIndex) const
-    {
-        if (m_BufferCount == 1) return m_Buffers[0].DeviceAddress;
-        return m_Buffers[frameIndex].DeviceAddress;
+        if (m_BufferCount == 1) return (void*)m_Buffers[0].DeviceAddress;
+        return (void*)m_Buffers[Flourish::Context::FrameIndex()].DeviceAddress;
     }
 
     void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute, std::function<void()> callback)
@@ -388,7 +392,7 @@ namespace Flourish::Vulkan
             ), "Buffer create buffer"))
                 throw std::exception();
 
-            if (m_UseDeviceAddress)
+            if (m_Info.ExposeGPUAddress)
             {
                 VkBufferDeviceAddressInfo addInfo{};
                 addInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;

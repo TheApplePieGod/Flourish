@@ -16,13 +16,12 @@ namespace Flourish::Vulkan
             Context::Devices().RayTracingProperties().shaderGroupHandleAlignment
         );
 
-        VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                                        VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+        VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
         Buffer::MemoryDirection memDir = Buffer::MemoryDirection::CPUToGPU;
         BufferCreateInfo bufCreateInfo;
         bufCreateInfo.Usage = m_Info.Usage;
         bufCreateInfo.Stride = 1;
+        bufCreateInfo.ExposeGPUAddress = true;
 
         bufCreateInfo.ElementCount = m_AlignedHandleSize + m_BaseAlignment;
         m_Buffers[(u32)RayTracingShaderGroupType::RayGen] = std::make_shared<Buffer>(bufCreateInfo, usageFlags, memDir);
@@ -71,9 +70,9 @@ namespace Flourish::Vulkan
     VkStridedDeviceAddressRegionKHR RayTracingGroupTable::GetBufferRegion(RayTracingShaderGroupType group)
     {
         Buffer* buffer = GetBuffer(group);
-        u32 padStart = FL_ALIGN_UP(buffer->GetBufferDeviceAddress(), m_BaseAlignment) - buffer->GetBufferDeviceAddress();
+        VkDeviceAddress bufferAddr = (VkDeviceAddress)buffer->GetBufferGPUAddress();
         VkStridedDeviceAddressRegionKHR region{};
-        region.deviceAddress = buffer->GetBufferDeviceAddress() + padStart;
+        region.deviceAddress = FL_ALIGN_UP(bufferAddr, m_BaseAlignment);
         region.size = buffer->GetAllocatedSize() - m_BaseAlignment;
         region.stride = m_AlignedHandleSize;
         return region;
@@ -85,7 +84,8 @@ namespace Flourish::Vulkan
         Buffer* buffer = GetBuffer(group);
 
         // TODO: cache this value?
-        u32 padStart = FL_ALIGN_UP(buffer->GetBufferDeviceAddress(), m_BaseAlignment) - buffer->GetBufferDeviceAddress();
+        VkDeviceAddress bufferAddr = (VkDeviceAddress)buffer->GetBufferGPUAddress();
+        u32 padStart = FL_ALIGN_UP(bufferAddr, m_BaseAlignment) - bufferAddr;
         buffer->SetBytes(
             handle,
             Context::Devices().RayTracingProperties().shaderGroupHandleSize,

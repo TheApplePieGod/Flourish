@@ -59,8 +59,8 @@ namespace Flourish::Vulkan
         // - index format
         // - transform data
 
-        VkDeviceAddress vertexAddress = static_cast<Buffer*>(buildInfo.VertexBuffer)->GetBufferDeviceAddress();
-        VkDeviceAddress indexAddress = static_cast<Buffer*>(buildInfo.IndexBuffer)->GetBufferDeviceAddress();
+        VkDeviceAddress vertexAddress = (VkDeviceAddress)buildInfo.VertexBuffer->GetBufferGPUAddress();
+        VkDeviceAddress indexAddress = (VkDeviceAddress)buildInfo.IndexBuffer->GetBufferGPUAddress();
 
         uint32_t maxPrimitiveCount = buildInfo.IndexBuffer->GetAllocatedCount() / 3;
         VkAccelerationStructureGeometryTrianglesDataKHR triangleGeom{};
@@ -133,9 +133,10 @@ namespace Flourish::Vulkan
             ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
             ibCreateInfo.InitialData = m_Instances.data();
             ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
+            ibCreateInfo.ExposeGPUAddress = true;
             m_InstanceBuffer = std::make_shared<Buffer>(
                 ibCreateInfo,
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 Buffer::MemoryDirection::CPUToGPU,
                 cmdBuf,
                 true
@@ -166,7 +167,7 @@ namespace Flourish::Vulkan
         topGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         topGeom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         topGeom.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-        topGeom.geometry.instances.data.deviceAddress = m_InstanceBuffer->GetBufferDeviceAddress();
+        topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
         buildInfoVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -234,14 +235,15 @@ namespace Flourish::Vulkan
             scratchCreateInfo.Usage = BufferUsageType::Static;
             scratchCreateInfo.ElementCount = 1;
             scratchCreateInfo.Stride = scratchSize;
+            scratchCreateInfo.ExposeGPUAddress = true;
             m_ScratchBuffer = std::make_shared<Buffer>(
                 scratchCreateInfo,
-                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ,
                 Buffer::MemoryDirection::CPUToGPU
             );
         }
         VkDeviceAddress scratchAddress = FL_ALIGN_UP(
-            m_ScratchBuffer->GetBufferDeviceAddress(),
+            (VkDeviceAddress)m_ScratchBuffer->GetBufferGPUAddress(),
             alignment
         );
 

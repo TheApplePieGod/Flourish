@@ -143,6 +143,7 @@ namespace Flourish
         void* InitialData = nullptr;
         u32 InitialDataSize = 0; // Bytes
         bool CanCreateAccelerationStructure = false;
+        bool ExposeGPUAddress = false;
 
         // Only used when populating initial data
         bool AsyncUpload = true;
@@ -159,8 +160,8 @@ namespace Flourish
         void SetElements(const void* data, u32 elementCount, u32 elementOffset);
         virtual void SetBytes(const void* data, u32 byteCount, u32 byteOffset) = 0;
         virtual void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const = 0;
-        
         virtual void Flush(bool immediate = false) = 0;
+        virtual void* GetBufferGPUAddress() const = 0;
 
         // TS
         inline u64 GetId() const { return m_Id; }
