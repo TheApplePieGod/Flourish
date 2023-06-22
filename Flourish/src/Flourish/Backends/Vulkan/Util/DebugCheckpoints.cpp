@@ -31,16 +31,8 @@ namespace Flourish::Vulkan
     {
         for (u32 i = 0; i < count; i++)
         {
-            if (data[i].stage == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT)
-            {
-                FL_LOG_WARN("Top of pipe checkpoints:");
-                DebugCheckpoints::LogCheckpoint((u32)(intptr_t)data[i].pCheckpointMarker);
-            }
-            else if (data[i].stage == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT)
-            {
-                FL_LOG_WARN("Bottom of pipe checkpoints:");
-                DebugCheckpoints::LogCheckpoint((u32)(intptr_t)data[i].pCheckpointMarker);
-            }
+            FL_LOG_WARN("Checkpoint %d", data[i].stage);
+            DebugCheckpoints::LogCheckpoint((u32)(intptr_t)data[i].pCheckpointMarker);
         }
     }
 

@@ -117,7 +117,7 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        if (!m_RenderGraph->IsBuild())
+        if (!m_RenderGraph->IsBuilt())
         {
             // Objects
             for (u32 i = 0; i < objectCount; i++)
@@ -196,7 +196,7 @@ namespace FlourishTesting
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
 
-        if (!m_RenderGraph->IsBuild())
+        if (!m_RenderGraph->IsBuilt())
         {
             m_RenderGraph->ConstructNewNode(m_CommandBuffers[0].get())
                 .AddEncoderNode(Flourish::GPUWorkloadType::Graphics)

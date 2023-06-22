@@ -147,6 +147,21 @@ namespace Flourish::Vulkan
             FL_LOG_INFO("%d vulkan validation layers enabled", createInfo.enabledLayerCount);
             for (u32 i = 0; i < createInfo.enabledLayerCount; i++)
                 FL_LOG_INFO("    %s", createInfo.ppEnabledLayerNames[i]);
+
+            VkValidationFeatureEnableEXT enables[] = {
+                VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+                VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+                VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+            };
+            VkValidationFeaturesEXT features = {};
+            features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+            features.enabledValidationFeatureCount = 3;
+            features.pEnabledValidationFeatures = enables;
+            if (Common::SupportsExtension(supportedExtensions, "VK_EXT_validation_features"))
+            {
+                requiredExtensions.push_back("VK_EXT_validation_features");
+                createInfo.pNext = &features;
+            }
         #else
             createInfo.enabledLayerCount = 0;
         #endif
@@ -212,8 +227,9 @@ namespace Flourish::Vulkan
 
     void Context::ConfigureValidationLayers()
     {
-        std::array<const char*, 1> requestedLayers = {
-            "VK_LAYER_KHRONOS_validation"
+        std::array<const char*, 2> requestedLayers = {
+            "VK_LAYER_KHRONOS_validation",
+            "VK_LAYER_KHRONOS_synchronization2"
         };
 
         u32 supportedLayerCount;

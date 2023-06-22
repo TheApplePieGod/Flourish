@@ -46,6 +46,8 @@ namespace Flourish::Vulkan
 
     void FinalizerQueue::Iterate(bool force)
     {
+        FL_PROFILE_FUNCTION();
+
         m_QueueLock.lock();
         for (int i = 0; i < m_Queue.size(); i++)
         {

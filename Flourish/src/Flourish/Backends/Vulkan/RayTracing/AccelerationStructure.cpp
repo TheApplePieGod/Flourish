@@ -125,62 +125,66 @@ namespace Flourish::Vulkan
             m_Instances.emplace_back(instance);
         }
 
-        if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
+        if (buildInfo.InstanceCount > 0)
         {
-            BufferCreateInfo ibCreateInfo;
-            ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
-            ibCreateInfo.ElementCount = buildInfo.InstanceCount;
-            ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
-            ibCreateInfo.InitialData = m_Instances.data();
-            ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
-            ibCreateInfo.ExposeGPUAddress = true;
-            m_InstanceBuffer = std::make_shared<Buffer>(
-                ibCreateInfo,
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                Buffer::MemoryDirection::CPUToGPU,
+            if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
+            {
+                BufferCreateInfo ibCreateInfo;
+                ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
+                ibCreateInfo.ElementCount = buildInfo.InstanceCount;
+                ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
+                ibCreateInfo.InitialData = m_Instances.data();
+                ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
+                ibCreateInfo.ExposeGPUAddress = true;
+                m_InstanceBuffer = std::make_shared<Buffer>(
+                    ibCreateInfo,
+                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                    Buffer::MemoryDirection::CPUToGPU,
+                    cmdBuf,
+                    true
+                );
+            }
+            else
+            {
+                m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
+                m_InstanceBuffer->FlushInternal(cmdBuf, false);
+            }
+
+            // Ensure data is uploaded before performing build
+            VkMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            vkCmdPipelineBarrier(
                 cmdBuf,
-                true
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                0,
+                1, &barrier,
+                0, nullptr,
+                0, nullptr
+            );
+
+            // Ensure all instance writes are complete
+            barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+            vkCmdPipelineBarrier(
+                cmdBuf,
+                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+                0,
+                1, &barrier,
+                0, nullptr,
+                0, nullptr
             );
         }
-        else
-        {
-            m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
-            m_InstanceBuffer->FlushInternal(cmdBuf, false);
-        }
-
-        // Ensure data is uploaded before performing build
-        VkMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-        vkCmdPipelineBarrier(
-            cmdBuf,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-            0,
-            1, &barrier,
-            0, nullptr,
-            0, nullptr
-        );
-
-        // Ensure all instance writes are complete
-        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-        vkCmdPipelineBarrier(
-            cmdBuf,
-            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-            0,
-            1, &barrier,
-            0, nullptr,
-            0, nullptr
-        );
 
         VkAccelerationStructureGeometryKHR topGeom{};
         topGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         topGeom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         topGeom.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-        topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
+        if (buildInfo.InstanceCount > 0)
+            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
         buildInfoVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
