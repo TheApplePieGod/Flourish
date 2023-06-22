@@ -36,22 +36,22 @@ namespace Flourish::Vulkan
     
     PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
     {
-        std::vector<VkSemaphore> semaphore = { RetrieveSemaphore() };
+        VkSemaphore semaphore = RetrieveSemaphore();
 
         m_SemaphoresLock.lock();
-        std::vector<u64> signalValue = { ++m_ExecuteSemaphoreSignalValue };
+        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
         m_SemaphoresLock.unlock();
 
         VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
         timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
         timelineSubmitInfo.signalSemaphoreValueCount = 1;
-        timelineSubmitInfo.pSignalSemaphoreValues = signalValue.data();
+        timelineSubmitInfo.pSignalSemaphoreValues = &signalValue;
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.pNext = &timelineSubmitInfo;
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = semaphore.data();
+        submitInfo.pSignalSemaphores = &semaphore;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
 
@@ -63,17 +63,17 @@ namespace Flourish::Vulkan
         LockPresentQueue(false);
         LockQueue(workloadType, false);
 
-        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore, signalValue, debugName]()
+        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore]()
         {
             m_SemaphoresLock.lock();
-            m_UnusedSemaphores.push_back(semaphore[0]);
+            m_UnusedSemaphores.push_back(semaphore);
             m_SemaphoresLock.unlock();
 
             if (completionCallback)
                 completionCallback();
-        }, &semaphore, &signalValue, debugName);
+        }, &semaphore, &signalValue, 1, debugName);
         
-        return { semaphore[0], signalValue[0] };
+        return { semaphore, signalValue };
     }
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName)

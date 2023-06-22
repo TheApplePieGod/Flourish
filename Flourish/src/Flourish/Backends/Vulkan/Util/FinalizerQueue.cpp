@@ -28,8 +28,9 @@ namespace Flourish::Vulkan
 
     void FinalizerQueue::PushAsync(
         std::function<void()> executeFunc,
-        const std::vector<VkSemaphore>* semaphores,
-        const std::vector<u64>* waitValues,
+        const VkSemaphore* semaphores,
+        const u64* waitValues,
+        u32 semaphoreCount,
         const char* debugName)
     {
         m_QueueLock.lock();
@@ -58,7 +59,7 @@ namespace Flourish::Vulkan
                 for (u32 j = 0; j < value.WaitSemaphores.size(); j++)
                 {
                     vkGetSemaphoreCounterValue(Context::Devices().Device(), value.WaitSemaphores[j], &semaphoreVal);
-                    execute = semaphoreVal == value.WaitValues[j]; // Completed
+                    execute = semaphoreVal >= value.WaitValues[j]; // Completed
                     if (!execute) break; // If any fail then all fail
                 }
             }

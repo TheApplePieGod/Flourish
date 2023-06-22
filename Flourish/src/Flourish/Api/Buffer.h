@@ -133,6 +133,7 @@ namespace Flourish
         Uniform, Storage, Vertex, Index, Pixel, Indirect
     };
 
+    class TransferCommandEncoder;
     struct BufferCreateInfo
     {
         BufferType Type;
@@ -146,8 +147,9 @@ namespace Flourish
         bool ExposeGPUAddress = false;
 
         // Only used when populating initial data
-        bool AsyncUpload = true;
-        std::function<void()> UploadedCallback = nullptr;
+        // TODO: this is more of a temporary solution, a better one would be to
+        // always defer the initial data upload
+        TransferCommandEncoder* UploadEncoder = nullptr;
     };
 
     class Buffer

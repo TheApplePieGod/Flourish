@@ -92,6 +92,8 @@ namespace Flourish::Vulkan
             m_Info.MaxRayRecursionDepth,
             Context::Devices().RayTracingProperties().maxRayRecursionDepth
         ));
+        if (pipelineInfo.maxPipelineRayRecursionDepth != m_Info.MaxRayRecursionDepth)
+        { FL_LOG_WARN("Max supported recursion depth is %d, truncating", pipelineInfo.maxPipelineRayRecursionDepth); }
         if (!FL_VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(
             Context::Devices().Device(),
             VK_NULL_HANDLE,

@@ -61,6 +61,7 @@ namespace Flourish::Vulkan
         ProcessSubmission(
             Flourish::Context::FrameGraphSubmissions().data(),
             Flourish::Context::FrameGraphSubmissions().size(),
+            true,
             &frameSems,
             &frameVals
         );
@@ -99,7 +100,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1,
+            &graph, 1, false,
             &semaphores,
             &values
         );
@@ -111,7 +112,7 @@ namespace Flourish::Vulkan
 
             if (callback)
                 callback();
-        }, &semaphores,  &values, "Push submission finalizer");
+        }, semaphores.data(), values.data(), semaphores.size(), "Push submission finalizer");
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
@@ -120,7 +121,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1,
+            &graph, 1, false,
             &semaphores,
             &values
         );
@@ -137,6 +138,7 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessSubmission(
         Flourish::RenderGraph* const* graphs,
         u32 graphCount,
+        bool frameScope,
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
@@ -149,7 +151,9 @@ namespace Flourish::Vulkan
         for (u32 graphIdx = 0; graphIdx < graphCount; graphIdx++)
         {
             auto graph = static_cast<RenderGraph*>(graphs[graphIdx]);
+            FL_ASSERT(graph->IsBuilt(), "Cannot submit non-built graph");
             graph->PrepareForSubmission();
+
             auto& executeData = graph->GetExecutionData();
             u32 frameIndex = graph->GetUsage() == RenderGraphUsageType::PerFrame ? Flourish::Context::FrameIndex() : 0;
 
@@ -167,6 +171,7 @@ namespace Flourish::Vulkan
             u32 totalIndex = 0;
             int nextSubmit = -1;
             VkCommandBuffer primaryBuf;
+            CommandBufferAllocInfo lastAlloc;
             for (u32 orderIndex = 0; orderIndex <= executeData.SubmissionOrder.size(); orderIndex++)
             {
                 bool finalIteration = orderIndex == executeData.SubmissionOrder.size();
@@ -198,16 +203,25 @@ namespace Flourish::Vulkan
                                 nullptr
                             ), "Submission handler 2 submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
+
+                            // Need to free buffer
+                            if (!frameScope)
+                            {
+                                Context::FinalizerQueue().PushAsync([lastAlloc, primaryBuf]()
+                                {
+                                    Context::Commands().FreeBuffer(lastAlloc, primaryBuf);
+                                }, submitInfo.pSignalSemaphores, &submitData.SignalSemaphoreValue, 1);
+                            }
                         }
 
                         if (finalIteration)
                             break;
 
-                        Context::Commands().AllocateBuffers(
+                        lastAlloc = Context::Commands().AllocateBuffers(
                             submissions[subIndex].AllocInfo.WorkloadType,
                             false,
                             &primaryBuf, 1,
-                            false
+                            !frameScope
                         );   
                         
                         vkBeginCommandBuffer(primaryBuf, &cmdBeginInfo);

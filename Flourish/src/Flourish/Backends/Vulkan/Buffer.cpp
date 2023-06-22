@@ -2,6 +2,7 @@
 #include "Buffer.h"
 
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/TransferCommandEncoder.h"
 
 namespace Flourish::Vulkan
 {
@@ -64,8 +65,21 @@ namespace Flourish::Vulkan
             usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
             m_Info.ExposeGPUAddress = true;
         }
+
+        VkCommandBuffer uploadBuffer = nullptr;
+        if (m_Info.UploadEncoder)
+        {
+            FL_ASSERT(
+                m_Info.UploadEncoder->IsEncoding(),
+                "Cannot create buffer with UploadEncoder that is not encoding"
+            );
+
+            auto encoder = static_cast<TransferCommandEncoder*>(m_Info.UploadEncoder);
+            encoder->MarkManuallyRecorded();
+            uploadBuffer = encoder->GetCommandBuffer();
+        }
         
-        CreateInternal(usage, memDirection, nullptr, false);
+        CreateInternal(usage, memDirection, uploadBuffer, false);
     }
 
     Buffer::Buffer(
@@ -462,8 +476,8 @@ namespace Flourish::Vulkan
                         m_Buffers[i].Buffer,
                         m_Info.InitialDataSize,
                         uploadBuffer,
-                        !m_Info.AsyncUpload,
-                        m_Info.UploadedCallback
+                        true,
+                        nullptr
                     );
                     gpuCopy = true;
                 }
@@ -472,11 +486,6 @@ namespace Flourish::Vulkan
                     memcpy(m_Buffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
             }
         }
-
-        // If async is false or gpu copy never happened, nothing will signal the callback,
-        // so we signal it manually here
-        if ((!gpuCopy || !m_Info.AsyncUpload) && m_Info.UploadedCallback)
-            m_Info.UploadedCallback();
         
         // Destroy the temp staging buffer if it was created
         if (initialDataStagingBuf.Buffer)

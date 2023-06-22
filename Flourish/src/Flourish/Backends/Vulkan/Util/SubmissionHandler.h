@@ -25,6 +25,7 @@ namespace Flourish::Vulkan
         static void ProcessSubmission(
             Flourish::RenderGraph* const* graphs,
             u32 graphCount,
+            bool frameScope,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
         );
