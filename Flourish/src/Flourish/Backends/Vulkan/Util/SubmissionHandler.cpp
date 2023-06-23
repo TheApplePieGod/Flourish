@@ -253,7 +253,7 @@ namespace Flourish::Vulkan
                                 &eventData.Events[frameIndex],
                                 eventData.DepInfo.pMemoryBarriers[0].srcStageMask,
                                 eventData.DepInfo.pMemoryBarriers[0].dstStageMask,
-                                1, &memBarrier,
+                                eventData.DepInfo.memoryBarrierCount, &memBarrier,
                                 0, nullptr, 0, nullptr
                             );
                         #else

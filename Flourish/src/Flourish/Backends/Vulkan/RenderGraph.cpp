@@ -26,10 +26,10 @@ namespace Flourish::Vulkan
     const VkMemoryBarrier2 COMPUTE_MEM_BARRIER = {
         VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
         nullptr,
-        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_SHADER_WRITE_BIT,
-        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_SHADER_READ_BIT
+        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+        VK_ACCESS_2_MEMORY_WRITE_BIT,
+        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR,
+        VK_ACCESS_2_MEMORY_READ_BIT,
     };
 
     const VkMemoryBarrier2 TRANSFER_MEM_BARRIER = {
@@ -177,14 +177,21 @@ namespace Flourish::Vulkan
                             u32 eventDataIndex = m_ExecuteData.EventData.size();
                             m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
 
+                            auto& eventData = m_ExecuteData.EventData.back();
                             switch (submission.WorkloadType)
                             {
                                 case GPUWorkloadType::Graphics:
-                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
+                                {
+                                    eventData.DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER;
+                                } break;
                                 case GPUWorkloadType::Compute:
-                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER; } break;
+                                {
+                                    eventData.DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER;
+                                } break;
                                 case GPUWorkloadType::Transfer:
-                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER; } break;
+                                {
+                                    eventData.DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER;
+                                } break;
                             }
 
                             currentSync.WaitEvents.emplace_back(eventDataIndex);
