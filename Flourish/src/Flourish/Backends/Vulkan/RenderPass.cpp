@@ -61,6 +61,7 @@ namespace Flourish::Vulkan
         {
             VkFormat colorFormat = Common::ConvertColorFormat(attachment.Format);
 
+            VkImageLayout initLayout = attachment.SupportComputeImages ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             VkAttachmentDescription2 colorAttachment{};
             colorAttachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
             colorAttachment.format = colorFormat;
@@ -69,8 +70,8 @@ namespace Flourish::Vulkan
             colorAttachment.storeOp = m_UseResolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
             colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            colorAttachment.initialLayout = attachment.Initialization == AttachmentInitialization::Preserve ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-            colorAttachment.finalLayout = m_UseResolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            colorAttachment.initialLayout = attachment.Initialization == AttachmentInitialization::Preserve ? initLayout : VK_IMAGE_LAYOUT_UNDEFINED;
+            colorAttachment.finalLayout = m_UseResolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : initLayout;
             if (m_RendersToSwapchain)
                 colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             attachmentDescriptions.emplace_back(colorAttachment);
@@ -136,7 +137,9 @@ namespace Flourish::Vulkan
                         m_UseResolve
                             ? colorAttachmentStartIndex + (attachment.AttachmentIndex * 2) + 1
                             : colorAttachmentStartIndex + attachment.AttachmentIndex,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        m_Info.ColorAttachments[attachment.AttachmentIndex].SupportComputeImages
+                            ? VK_IMAGE_LAYOUT_GENERAL
+                            : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                         VK_IMAGE_ASPECT_COLOR_BIT
                     });
                 }

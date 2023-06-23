@@ -87,7 +87,10 @@ namespace Flourish::Vulkan
                 if (attachment.Texture)
                 {
                     auto texture = static_cast<Texture*>(attachment.Texture.get());
-                    FL_ASSERT(texture->GetUsageType() == TextureUsageType::RenderTarget, "Cannot use texture in framebuffer that is not a RenderTarget");
+                    FL_ASSERT(
+                        texture->GetUsageType() & TextureUsageFlags::Graphics,
+                        "Cannot use texture in framebuffer that does not have the graphics usage flag"
+                    );
                     FL_ASSERT(texture->IsDepthImage(), "Framebuffer depth attachment texture must be a depth texture");
                     m_CachedImageViews[frame].push_back(
                         texture->GetLayerImageView(
@@ -141,7 +144,14 @@ namespace Flourish::Vulkan
                 if (attachment.Texture)
                 {
                     auto texture = static_cast<Texture*>(attachment.Texture.get());
-                    FL_ASSERT(texture->GetUsageType() == TextureUsageType::RenderTarget, "Cannot use texture in framebuffer that is not a RenderTarget");
+                    FL_ASSERT(
+                        texture->GetUsageType() & TextureUsageFlags::Graphics,
+                        "Cannot use texture in framebuffer that does not have the graphics usage flag"
+                    );
+                    FL_ASSERT(
+                        !(texture->GetUsageType() & TextureUsageFlags::Compute) || renderPass->GetColorAttachment(i).SupportComputeImages,
+                        "Cannot use texture in framebuffer that has the compute usage flag unless the RenderPass attachment has SupportComputeImages set"
+                    );
                     FL_ASSERT(!texture->IsDepthImage(), "Framebuffer color attachment texture must not be a depth texture");
                     m_CachedImageViews[frame].push_back(
                         texture->GetLayerImageView(

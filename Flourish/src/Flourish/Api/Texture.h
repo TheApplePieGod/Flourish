@@ -4,6 +4,19 @@
 
 namespace Flourish
 {
+    namespace TextureUsageEnum
+    {
+        enum Value : u8
+        {
+            Readonly = 0,
+            Graphics = (1 << 0),
+            Compute = (1 << 1),
+            Transfer = (1 << 2)
+        };
+    }
+    typedef TextureUsageEnum::Value TextureUsageFlags;
+    typedef u8 TextureUsage;
+    
     enum class ColorFormat
     {
         None = 0,
@@ -14,14 +27,6 @@ namespace Flourish
         R16_FLOAT, RGBA16_FLOAT,
         R32_FLOAT, RGBA32_FLOAT,
         Depth
-    };
-    
-    enum class TextureUsageType
-    {
-        None = 0,
-        Readonly,
-        RenderTarget,
-        ComputeTarget
     };
     
     enum class TextureWritability
@@ -68,7 +73,7 @@ namespace Flourish
     {
         u32 Width, Height;
         ColorFormat Format;
-        TextureUsageType Usage = TextureUsageType::Readonly;
+        TextureUsage Usage = TextureUsageFlags::Readonly;
         TextureWritability Writability = TextureWritability::None;
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
@@ -100,7 +105,7 @@ namespace Flourish
         inline u32 GetMipWidth(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Width * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Channels; }
-        inline TextureUsageType GetUsageType() const { return m_Info.Usage; }
+        inline TextureUsage GetUsageType() const { return m_Info.Usage; }
         inline TextureWritability GetWritability() const { return m_Info.Writability; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
         inline ColorFormat GetColorFormat() const { return m_Info.Format; }

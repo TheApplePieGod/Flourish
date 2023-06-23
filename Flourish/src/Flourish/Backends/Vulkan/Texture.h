@@ -97,6 +97,7 @@ namespace Flourish::Vulkan
         u32 m_ImageCount = 0;
         u32* m_ReadyState = nullptr;
         bool m_IsDepthImage = false;
+        bool m_IsStorageImage = false;
     
     private:
         #ifdef FL_USE_IMGUI

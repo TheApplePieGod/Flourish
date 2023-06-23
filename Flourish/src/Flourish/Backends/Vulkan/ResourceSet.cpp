@@ -188,14 +188,14 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         ShaderResourceType texType =
-            texture->GetUsageType() == TextureUsageType::ComputeTarget
+            (texture->GetUsageType() & TextureUsageFlags::Compute)
                 ? ShaderResourceType::StorageTexture
                 : ShaderResourceType::Texture;
         
         ValidateBinding(bindingIndex, texType, texture, arrayIndex);
         FL_ASSERT(
             m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
-            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+            "Attempting to bind a texture to a storage image binding that does not have the compute flag set"
         );
 
         if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_DynamicData)) && texture->GetWritability() == TextureWritability::PerFrame)
@@ -219,14 +219,14 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         ShaderResourceType texType =
-            texture->GetUsageType() == TextureUsageType::ComputeTarget
+            (texture->GetUsageType() & TextureUsageFlags::Compute)
                 ? ShaderResourceType::StorageTexture
                 : ShaderResourceType::Texture;
 
         ValidateBinding(bindingIndex, texType, texture, arrayIndex);
         FL_ASSERT(
             m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
-            "Attempting to bind a texture to a storage image binding that was not created as a compute target"
+            "Attempting to bind a texture to a storage image binding that does not have the compute flag set"
         );
 
         UpdateBinding(

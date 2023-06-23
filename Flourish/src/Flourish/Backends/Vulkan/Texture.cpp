@@ -16,6 +16,7 @@ namespace Flourish::Vulkan
         m_ReadyState = new u32();
         m_IsDepthImage = m_Info.Format == ColorFormat::Depth;
         m_Format = Common::ConvertColorFormat(m_Info.Format);
+        m_IsStorageImage = m_Info.Usage & TextureUsageFlags::Compute;
 
         // Populate initial image info
         bool hasInitialData = m_Info.InitialData && m_Info.InitialDataSize > 0;
@@ -26,17 +27,19 @@ namespace Flourish::Vulkan
         imageInfo.format = m_Format;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-        if (m_Info.Usage == TextureUsageType::RenderTarget)
+        if (m_Info.Usage & TextureUsageFlags::Graphics)
         {
             if (m_IsDepthImage)
                 imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
             else
                 imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+            // Transfer is for mipmap generation
             imageInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         }
-        else if (m_Info.Usage == TextureUsageType::ComputeTarget)
+        if (m_IsStorageImage)
             imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        if (hasInitialData)
+        if (hasInitialData || m_Info.Usage & TextureUsageFlags::Transfer)
             imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -175,7 +178,7 @@ namespace Flourish::Vulkan
                     imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
                         m_Sampler,
                         layerView,
-                        m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                        m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                     ));
                     s_ImGuiMutex.unlock();
                     #endif
@@ -217,7 +220,7 @@ namespace Flourish::Vulkan
                     m_MipLevels,
                     m_Info.ArrayCount,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     VK_FILTER_LINEAR,
                     cmdBuffer
                 );
@@ -227,7 +230,7 @@ namespace Flourish::Vulkan
                 TransitionImageLayout(
                     imageData.Image,
                     currentLayout,
-                    m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     aspect,
                     0, m_MipLevels,
                     0, m_Info.ArrayCount,
