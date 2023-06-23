@@ -57,11 +57,11 @@ namespace Flourish::Vulkan
 
         // Lock queues here to ensure we don't submit to the same queue on different threads concurrently. Additionally, lock the present queue
         // because it is likely that the present queue is just an alias for a different queue and is not its own thing
-        LockQueue(workloadType, true);
         LockPresentQueue(true);
+        LockQueue(workloadType, true);
         FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr), "PushCommand queue submit");
-        LockPresentQueue(false);
         LockQueue(workloadType, false);
+        LockPresentQueue(false);
 
         Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore]()
         {
