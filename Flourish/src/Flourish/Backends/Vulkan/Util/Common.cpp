@@ -352,7 +352,7 @@ namespace Flourish::Vulkan
         */
 
         if (ensure)
-        { FL_CRASH_ASSERT(result == VK_SUCCESS, "%s critically failed with error %d", name, result); }
+        { FL_ASSERT(result == VK_SUCCESS, "%s critically failed with error %d", name, result); }
         else
         { FL_ASSERT(result == VK_SUCCESS, "%s failed with error %d", name, result); }
         

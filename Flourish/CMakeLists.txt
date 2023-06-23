@@ -82,6 +82,29 @@ if (NOT FLOURISH_TRACY_INCLUDE_DIR STREQUAL "OFF")
   message("Flourish compiling with Tracy support")
 endif()
 
+# Link Aftermath
+if (FLOURISH_ENABLE_AFTERMATH)
+  message("Flourish compiling with Aftermath support")
+  find_library(aftermath
+    NAMES "GFSDK_Aftermath_Lib.x64"
+    PATHS "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
+  )
+  target_link_libraries(FlourishCore ${aftermath})
+  target_include_directories(
+    FlourishCore
+    PUBLIC
+    "$<BUILD_INTERFACE:$ENV{NSIGHT_AFTERMATH_SDK}/include>"
+  )
+  target_compile_definitions(
+    FlourishCore
+    PUBLIC
+    FL_HAS_AFTERMATH
+  )
+  add_custom_target(CopyAftermathLibs ALL
+      COMMAND ${CMAKE_COMMAND} -E copy $ENV{NSIGHT_AFTERMATH_SDK}/lib/x64/GFSDK_Aftermath_Lib.x64.dll ${OUTPUT_DIRECTORY}/GFSDK_Aftermath_Lib.x64.dll
+  )
+endif()
+
 # Link vulkan related libraries & copy if necessary
 if (WIN32)
   if (${CMAKE_BUILD_TYPE} MATCHES Debug)

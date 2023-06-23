@@ -4,6 +4,8 @@
 #include "Flourish/Backends/Vulkan/Util/Swapchain.h"
 #include "Flourish/Backends/Vulkan/Context.h"
 
+#include "Flourish/Backends/Vulkan/Util/Aftermath.h"
+
 namespace Flourish::Vulkan
 {
     Devices::DeviceFeatures::DeviceFeatures()
@@ -113,6 +115,18 @@ namespace Flourish::Vulkan
             portabilityFeatures.pNext = m_Features.GeneralFeatures.pNext;
             portabilityFeatures.events = true;
             createInfo.pNext = &portabilityFeatures;
+        #elif defined(FL_USE_AFTERMATH)
+            Aftermath::Initialize();
+
+            VkDeviceDiagnosticsConfigCreateInfoNV aftermathConfig{};
+            aftermathConfig.pNext = m_Features.GeneralFeatures.pNext;
+            aftermathConfig.sType = VK_STRUCTURE_TYPE_DEVICE_DIAGNOSTICS_CONFIG_CREATE_INFO_NV;
+            aftermathConfig.flags = VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_DEBUG_INFO_BIT_NV |
+                                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_RESOURCE_TRACKING_BIT_NV |
+                                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_AUTOMATIC_CHECKPOINTS_BIT_NV |
+                                    VK_DEVICE_DIAGNOSTICS_CONFIG_ENABLE_SHADER_ERROR_REPORTING_BIT_NV;
+
+            createInfo.pNext = &aftermathConfig;
         #else
             createInfo.pNext = m_Features.GeneralFeatures.pNext;
         #endif
@@ -149,6 +163,10 @@ namespace Flourish::Vulkan
         vkDestroyDevice(m_Device, nullptr);
         m_Device = nullptr;
         m_PhysicalDevice = nullptr;
+
+        #ifdef FL_USE_AFTERMATH
+            Aftermath::Shutdown();
+        #endif
     }
 
     bool Devices::CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions)
