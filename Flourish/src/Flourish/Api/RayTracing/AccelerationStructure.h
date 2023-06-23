@@ -8,6 +8,13 @@ namespace Flourish
         Scene
     };
 
+    enum class AccelerationStructureBuildFrequency
+    {
+        Once = 0,
+        Sometimes,
+        PerFrame
+    };
+
     enum class AccelerationStructurePerformanceType
     {
         FasterRuntime = 0,
@@ -19,6 +26,7 @@ namespace Flourish
     {
         float* TransformMatrix; // 4x4 column-major (64 bytes)
         const AccelerationStructure* Parent;
+        u32 CustomIndex = 0;
     };
 
     class Buffer;
@@ -44,6 +52,7 @@ namespace Flourish
     {
         AccelerationStructureType Type;
         AccelerationStructurePerformanceType PerformancePreference = AccelerationStructurePerformanceType::FasterRuntime;
+        AccelerationStructureBuildFrequency BuildFrequency = AccelerationStructureBuildFrequency::Once;
         bool AllowUpdating = false;
     };
 

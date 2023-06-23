@@ -196,6 +196,7 @@ namespace Flourish::Vulkan
                             VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
                             submitInfo.pCommandBuffers = &primaryBuf;
 
+                            Context::Queues().LockPresentQueue(true);
                             Context::Queues().LockQueue(submitData.Workload, true);
                             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                                 Context::Queues().Queue(submitData.Workload),
@@ -203,6 +204,7 @@ namespace Flourish::Vulkan
                                 nullptr
                             ), "Submission handler 2 submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
+                            Context::Queues().LockPresentQueue(false);
 
                             // Need to free buffer
                             if (!frameScope)
@@ -376,7 +378,9 @@ namespace Flourish::Vulkan
         presentInfo.pImageIndices = imageIndex;
         
         Context::Queues().LockPresentQueue(true);
+        Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
         auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+        Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
         Context::Queues().LockPresentQueue(false);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
             context->Swapchain().Recreate();

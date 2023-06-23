@@ -122,12 +122,16 @@ namespace Flourish::Vulkan
             }
             accelInfo.accelerationStructure = static_cast<const AccelerationStructure*>(buildInfo.Instances[i].Parent)->GetAccelStructure();
             instance.accelerationStructureReference = vkGetAccelerationStructureDeviceAddressKHR(Context::Devices().Device(), &accelInfo);
+            instance.instanceCustomIndex = buildInfo.Instances[i].CustomIndex;
             m_Instances.emplace_back(instance);
         }
 
+
+        auto& instanceBuffer = m_InstanceBuffers[m_WriteIndex];
         if (buildInfo.InstanceCount > 0)
         {
-            if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
+            m_WriteIndex = (m_WriteIndex + 1) % Flourish::Context::FrameBufferCount();
+            if (!instanceBuffer || instanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
             {
                 BufferCreateInfo ibCreateInfo;
                 ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
@@ -136,7 +140,7 @@ namespace Flourish::Vulkan
                 ibCreateInfo.InitialData = m_Instances.data();
                 ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
                 ibCreateInfo.ExposeGPUAddress = true;
-                m_InstanceBuffer = std::make_shared<Buffer>(
+                instanceBuffer = std::make_shared<Buffer>(
                     ibCreateInfo,
                     VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                     Buffer::MemoryDirection::CPUToGPU,
@@ -146,8 +150,8 @@ namespace Flourish::Vulkan
             }
             else
             {
-                m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
-                m_InstanceBuffer->FlushInternal(cmdBuf, false);
+                instanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
+                instanceBuffer->FlushInternal(cmdBuf, false);
             }
 
             // Ensure data is uploaded before performing build
@@ -184,7 +188,7 @@ namespace Flourish::Vulkan
         topGeom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         topGeom.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
         if (buildInfo.InstanceCount > 0)
-            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
+            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)instanceBuffer->GetBufferGPUAddress();
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
         buildInfoVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -199,6 +203,13 @@ namespace Flourish::Vulkan
         rangeInfo.transformOffset = 0;
 
         BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
+
+        // TODO: revisit this. Ideally, we can free this memory when the update is done, but
+        // the way it is set up now, we would have to rely on the assumption that the finalizer queue
+        // happens way after the work is complete. This is probably fine, but still sus.
+        // We can consider increasing finalizer values by a significant amount
+        //if (m_Info.BuildFrequency == AccelerationStructureBuildFrequency::Sometimes)
+        //    instanceBuffer.reset();
     }
 
     void AccelerationStructure::BuildInternal(
@@ -207,8 +218,13 @@ namespace Flourish::Vulkan
         VkCommandBuffer cmdBuf
     )
     {
+        FL_ASSERT(
+            !IsBuilt() || m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Once,
+            "Cannot rebuild acceleration structure that has build frequency once"
+        );
+
         // Force build if this is the first time
-        if (!m_AccelStructure)
+        if (!IsBuilt())
             buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
         bool isUpdating = buildInfo.mode == VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR;
 

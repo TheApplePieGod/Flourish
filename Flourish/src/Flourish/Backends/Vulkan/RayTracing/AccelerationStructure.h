@@ -40,10 +40,13 @@ namespace Flourish::Vulkan
         );
 
     private:
+        u32 m_WriteIndex = 0;
         VkAccelerationStructureKHR m_AccelStructure = nullptr;
         std::shared_ptr<Buffer> m_AccelBuffer;
         std::shared_ptr<Buffer> m_ScratchBuffer;
-        std::shared_ptr<Buffer> m_InstanceBuffer;
         std::vector<VkAccelerationStructureInstanceKHR> m_Instances;
+
+        // Written by the CPU so we may need one per frame
+        std::array<std::shared_ptr<Buffer>, Flourish::Context::MaxFrameBufferCount> m_InstanceBuffers;
     };
 }
