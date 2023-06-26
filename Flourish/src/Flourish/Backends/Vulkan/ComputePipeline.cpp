@@ -14,7 +14,7 @@ namespace Flourish::Vulkan
         auto shader = static_cast<Shader*>(createInfo.ComputeShader.get());
         VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
-        m_DescriptorData.Populate(&shader, 1);
+        m_DescriptorData.Populate(&shader, 1, m_Info.AccessOverrides);
         m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Compute;
 
         u32 setCount = m_DescriptorData.SetData.size();

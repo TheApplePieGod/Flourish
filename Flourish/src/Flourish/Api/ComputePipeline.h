@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Shader.h"
 
 namespace Flourish
@@ -7,6 +8,8 @@ namespace Flourish
     struct ComputePipelineCreateInfo
     {
         std::shared_ptr<Shader> ComputeShader;
+
+        std::vector<AccessFlagsOverride> AccessOverrides;
     };
 
     class ResourceSet;

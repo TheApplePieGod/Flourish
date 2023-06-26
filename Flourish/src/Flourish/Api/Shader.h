@@ -15,6 +15,7 @@ namespace Flourish
             RayIntersection = 1 << 5,
             RayClosestHit = 1 << 6,
             RayAnyHit = 1 << 7,
+            All = 255
         };
     }
     typedef ShaderTypeEnum::Value ShaderTypeFlags;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
@@ -24,7 +25,7 @@ namespace Flourish::Vulkan
         u32 TotalDynamicOffsets = 0;
         ResourceSetPipelineCompatability Compatability;
 
-        void Populate(Shader** shaders, u32 count);
+        void Populate(Shader** shaders, u32 count, const std::vector<AccessFlagsOverride>& accessOverrides);
 
         // TS
         std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, ResourceSetPipelineCompatability compatability, const ResourceSetCreateInfo& createInfo);

@@ -7,7 +7,7 @@
 
 namespace Flourish::Vulkan
 {
-    void PipelineDescriptorData::Populate(Shader** shaders, u32 count)
+    void PipelineDescriptorData::Populate(Shader** shaders, u32 count, const std::vector<AccessFlagsOverride>& accessOverrides)
     {
         TotalDynamicOffsets = 0;
         SetData.clear();
@@ -49,6 +49,19 @@ namespace Flourish::Vulkan
                 if (elem.ResourceType == ShaderResourceType::StorageBuffer || elem.ResourceType == ShaderResourceType::UniformBuffer)
                     set.DynamicOffsetCount++;
             }
+        }
+
+        // Process overrides
+        for (auto& override : accessOverrides)
+        {
+            if (override.SetIndex >= SetData.size())
+                continue;
+            auto& set = SetData[override.SetIndex];
+            if (!set.Exists)
+                continue;
+            for (auto& elem : set.ReflectionData)
+                if (elem.BindingIndex == override.BindingIndex)
+                    elem.AccessType = override.Flags;
         }
         
         // Ensure there are no duplicate binding indices within sets and sort each set

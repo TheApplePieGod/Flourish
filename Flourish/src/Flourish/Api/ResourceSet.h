@@ -11,7 +11,8 @@ namespace Flourish
             None = 0,
             Graphics = (1 << 0),
             Compute = (1 << 1),
-            RayTracing = (1 << 2)
+            RayTracing = (1 << 2),
+            All = 255
         };
     }
     typedef ResourceSetPipelineCompatabilityEnum::Value ResourceSetPipelineCompatabilityFlags;

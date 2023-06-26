@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Shader.h"
 #include "Flourish/Api/Buffer.h"
 
@@ -89,6 +90,8 @@ namespace Flourish
        
         // If empty, will try and create for all subpasses
         std::vector<u32> CompatibleSubpasses;
+
+        std::vector<AccessFlagsOverride> AccessOverrides;
     };
 
     class Texture;

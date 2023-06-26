@@ -47,7 +47,7 @@ namespace Flourish::Vulkan
         };
 
         std::array<Shader*, 2> shaders = { vertShader, fragShader };
-        m_DescriptorData.Populate(shaders.data(), shaders.size());
+        m_DescriptorData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
         m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Graphics;
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);

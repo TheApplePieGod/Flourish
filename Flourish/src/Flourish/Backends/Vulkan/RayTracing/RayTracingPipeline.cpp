@@ -58,7 +58,7 @@ namespace Flourish::Vulkan
             groups.back().closestHitShader = group.ClosestHitShader == -1 ? VK_SHADER_UNUSED_KHR : group.ClosestHitShader;
         }
 
-        m_DescriptorData.Populate(shaders.data(), shaders.size());
+        m_DescriptorData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
         m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::RayTracing;
 
         u32 setCount = m_DescriptorData.SetData.size();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Shader.h"
 
 namespace Flourish
@@ -25,6 +26,8 @@ namespace Flourish
         std::vector<std::shared_ptr<Shader>> Shaders;
         std::vector<RayTracingShaderGroup> Groups;
         u32 MaxRayRecursionDepth = 1;
+
+        std::vector<AccessFlagsOverride> AccessOverrides;
     };
 
     class ResourceSet;
