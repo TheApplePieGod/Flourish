@@ -35,13 +35,23 @@ namespace Flourish::Vulkan
             const char* requestedSource,
             shaderc_include_type type,
             const char* requestingSource,
-            size_t includeDepth)
+            size_t includeDepth) override
         {
-            std::string name(requestedSource);
+            if (includeDepth > 30)
+            {
+                FL_LOG_ERROR("Shader maximum include depth exceeded: %s", requestingSource);
+                throw std::exception();
+            }
+
+            // TODO: janky and only supports depth 1 inclusions
+            std::filesystem::path loadPath = std::filesystem::path(m_BasePath);
+            if (includeDepth > 1)
+                loadPath.append(std::filesystem::path(requestingSource).parent_path().generic_u8string());
             std::string contents = ReadFileToString(
-                std::filesystem::path(m_BasePath.data()).append(requestedSource).generic_u8string()
+                loadPath.append(requestedSource).generic_u8string()
             );
 
+            std::string name(requestedSource);
             auto container = new std::array<std::string, 2>;
             (*container)[0] = name;
             (*container)[1] = contents;

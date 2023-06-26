@@ -44,11 +44,11 @@ namespace Flourish
     #define FL_LOG_ERROR(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Error, __VA_ARGS__)
     #define FL_LOG_CRITICAL(...) ::Flourish::Logger::Log(::Flourish::LogLevel::Critical, __VA_ARGS__)
 #else
-    #define FL_LOG(...)
-    #define FL_LOG_TRACE(...)
-    #define FL_LOG_DEBUG(...)
-    #define FL_LOG_INFO(...)
-    #define FL_LOG_WARN(...)
-    #define FL_LOG_ERROR(...)
-    #define FL_LOG_CRITICAL(...)
+    #define FL_LOG(...) {}
+    #define FL_LOG_TRACE(...) {}
+    #define FL_LOG_DEBUG(...) {}
+    #define FL_LOG_INFO(...) {}
+    #define FL_LOG_WARN(...) {}
+    #define FL_LOG_ERROR(...) {}
+    #define FL_LOG_CRITICAL(...) {}
 #endif

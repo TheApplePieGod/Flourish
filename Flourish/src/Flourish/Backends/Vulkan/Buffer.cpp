@@ -62,6 +62,11 @@ namespace Flourish::Vulkan
 
         if (m_Info.CanCreateAccelerationStructure)
         {
+            FL_ASSERT(
+                Flourish::Context::FeatureTable().RayTracing,
+                "RayTracing feature must be enabled to create a buffer with acceleration structure support"
+            );
+
             usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
             m_Info.ExposeGPUAddress = true;
         }
@@ -137,7 +142,7 @@ namespace Flourish::Vulkan
         {
             FL_ASSERT(
                 Flourish::Context::FeatureTable().BufferGPUAddress,
-                "BufferGPUAddress feature must be enabled"
+                "BufferGPUAddress feature must be enabled to create a buffer with ExposeGPUAddress"
             );
             bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
@@ -235,7 +240,7 @@ namespace Flourish::Vulkan
 
     void* Buffer::GetBufferGPUAddress() const
     {
-        FL_ASSERT(m_Info.ExposeGPUAddress, "Buffer must be created with ExposeGPUAddress");
+        FL_ASSERT(m_Info.ExposeGPUAddress, "Buffer must be created with ExposeGPUAddress to query buffer address");
 
         if (m_BufferCount == 1) return (void*)m_Buffers[0].DeviceAddress;
         return (void*)m_Buffers[Flourish::Context::FrameIndex()].DeviceAddress;

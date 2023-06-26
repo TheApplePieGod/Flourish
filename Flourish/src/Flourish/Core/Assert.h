@@ -11,7 +11,7 @@
 #ifdef FL_ENABLE_ASSERTS
     #define FL_ASSERT(...) FL_EXPAND_ARGS( FL_INTERNAL_ASSERT_PICK(__VA_ARGS__)(FL_LOG_ERROR, FL_DEBUGBREAK(), __VA_ARGS__) )
 #else
-    #define FL_ASSERT(...)
+    #define FL_ASSERT(...) {}
 #endif
 
 #define FL_CRASH_ASSERT(...) FL_EXPAND_ARGS( FL_INTERNAL_ASSERT_PICK(__VA_ARGS__)(FL_LOG_CRITICAL, *(volatile int *)0 = 0, __VA_ARGS__) )
