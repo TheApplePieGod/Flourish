@@ -419,5 +419,27 @@ namespace Flourish::Vulkan
                 throw std::exception();
             }
 		}
+
+        if (resources.push_constant_buffers.size() > 0)
+        {
+		    FL_LOG_DEBUG("  Push constants:");
+            FL_ASSERT(
+                resources.push_constant_buffers.size() == 1,
+                "Cannot declare more than one push constant block in a shader"
+            );
+        }
+		for (const auto& resource : resources.push_constant_buffers)
+		{
+			const auto& bufferType = compiler->get_type(resource.base_type_id);
+			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
+			size_t memberCount = bufferType.member_types.size();
+
+            m_PushConstantReflection.Size = bufferSize;
+            m_PushConstantReflection.AccessType = m_Type;
+
+			FL_LOG_DEBUG("    %s", resource.name.c_str());
+			FL_LOG_DEBUG("      Size = %d", bufferSize);
+			FL_LOG_DEBUG("      Members = %d", memberCount);
+		}
     }
 }

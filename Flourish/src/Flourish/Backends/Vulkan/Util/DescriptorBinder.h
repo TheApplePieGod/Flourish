@@ -22,6 +22,7 @@ namespace Flourish::Vulkan
         };
 
         std::vector<SetData> SetData;
+        VkPushConstantRange PushConstantRange{};
         u32 TotalDynamicOffsets = 0;
         ResourceSetPipelineCompatability Compatability;
 
@@ -52,6 +53,7 @@ namespace Flourish::Vulkan
         { return setIndex < m_BoundData->SetData.size() && m_BoundData->SetData[setIndex].Exists; }
 
         inline u32 GetDynamicOffsetCount(u32 setIndex) const { return m_BoundData->SetData[setIndex].DynamicOffsetCount; }
+        inline auto GetBoundData() const { return m_BoundData; }
 
     private:
         std::vector<const ResourceSet*> m_BoundSets;

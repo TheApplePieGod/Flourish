@@ -13,10 +13,10 @@ namespace Flourish::Vulkan
         {}
 
         ShaderResourceType ResourceType;
-        ShaderType AccessType;
+        ShaderType AccessType = 0;
         u32 BindingIndex;
         u32 SetIndex;
-        u32 Size;
+        u32 Size = 0;
         u32 ArrayCount;
     };
 
@@ -34,6 +34,7 @@ namespace Flourish::Vulkan
         // TS
         inline VkShaderModule GetShaderModule() const { return m_ShaderModule; }
         inline const auto& GetReflectionData() const { return m_ReflectionData; }
+        inline const auto& GetPushConstantReflection() const { return m_PushConstantReflection; }
 
     private:
         void Reflect(const std::vector<u32>& compiledData);
@@ -41,5 +42,6 @@ namespace Flourish::Vulkan
     private:
         VkShaderModule m_ShaderModule = nullptr;
         std::vector<ReflectionDataElement> m_ReflectionData;
+        ReflectionDataElement m_PushConstantReflection;
     };
 }

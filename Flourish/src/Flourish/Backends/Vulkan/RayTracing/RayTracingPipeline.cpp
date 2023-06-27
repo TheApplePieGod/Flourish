@@ -71,8 +71,11 @@ namespace Flourish::Vulkan
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = setCount;
         pipelineLayoutInfo.pSetLayouts = layouts.data();
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        if (m_DescriptorData.PushConstantRange.size > 0)
+        {
+            pipelineLayoutInfo.pushConstantRangeCount = 1;
+            pipelineLayoutInfo.pPushConstantRanges = &m_DescriptorData.PushConstantRange;
+        }
         if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
             Context::Devices().Device(),
             &pipelineLayoutInfo,

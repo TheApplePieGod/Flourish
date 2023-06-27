@@ -14,6 +14,7 @@ namespace Flourish::Vulkan
 
         for (u32 i = 0; i < count; i++)
         {
+            // Descriptor bindings
             for (auto& elem : shaders[i]->GetReflectionData())
             {
                 if (SetData.size() <= elem.SetIndex)
@@ -49,6 +50,17 @@ namespace Flourish::Vulkan
                 if (elem.ResourceType == ShaderResourceType::StorageBuffer || elem.ResourceType == ShaderResourceType::UniformBuffer)
                     set.DynamicOffsetCount++;
             }
+
+            // Push constants
+            auto& push = shaders[i]->GetPushConstantReflection();
+            if (push.Size == 0)
+                continue;
+            FL_ASSERT(
+                PushConstantRange.size == 0 || push.Size == PushConstantRange.size,
+                "Push constants must be the same for all shaders in pipeline"
+            );
+            PushConstantRange.size = push.Size;
+            PushConstantRange.stageFlags |= Common::ConvertShaderAccessType(push.AccessType);
         }
 
         // Process overrides
