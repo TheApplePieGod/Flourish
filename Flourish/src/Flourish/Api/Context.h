@@ -44,6 +44,7 @@ namespace Flourish
         inline static u32 FrameBufferCount() { return s_FrameBufferCount; }
         inline static u64 FrameCount() { return s_FrameCount; }
         inline static u32 FrameIndex() { return s_FrameIndex; }
+        inline static u32 LastFrameIndex() { return s_LastFrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
         inline static const auto& FrameGraphSubmissions() { return s_GraphSubmissions; }
@@ -58,6 +59,7 @@ namespace Flourish
         inline static u32 s_FrameBufferCount = 0;
         inline static u64 s_FrameCount = 1;
         inline static u32 s_FrameIndex = 0;
+        inline static u32 s_LastFrameIndex = 0;
         inline static Flourish::FeatureTable s_FeatureTable;
         inline static std::vector<RenderGraph*> s_GraphSubmissions;
         inline static std::vector<RenderContext*> s_ContextSubmissions;

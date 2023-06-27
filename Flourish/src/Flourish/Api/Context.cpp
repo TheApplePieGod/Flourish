@@ -12,6 +12,7 @@ namespace Flourish
 
         s_ReversedZBuffer = initInfo.UseReversedZBuffer;
         s_FrameBufferCount = initInfo.FrameBufferCount;
+        s_LastFrameIndex = s_FrameBufferCount - 1;
         if (s_FrameBufferCount > MaxFrameBufferCount)
         {
             FL_LOG_WARN("Frame buffer count is limited to %d", MaxFrameBufferCount);
@@ -60,6 +61,7 @@ namespace Flourish
         s_GraphSubmissions.clear();
         s_ContextSubmissions.clear();
         s_FrameCount++;
+        s_LastFrameIndex = s_FrameIndex;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     

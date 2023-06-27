@@ -168,6 +168,7 @@ namespace Flourish::Vulkan
             if (executeData.SubmissionOrder.empty())
                 continue;
 
+            bool isFirstSubmit = true;
             u32 totalIndex = 0;
             int nextSubmit = -1;
             VkCommandBuffer primaryBuf;
@@ -195,6 +196,25 @@ namespace Flourish::Vulkan
 
                             VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
                             submitInfo.pCommandBuffers = &primaryBuf;
+
+                            // Wait on last frame to finish
+                            VkTimelineSemaphoreSubmitInfo timelineSubmitInfo = submitData.TimelineSubmitInfo;
+                            if (isFirstSubmit)
+                            {
+                                u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
+                                timelineSubmitInfo.waitSemaphoreValueCount = m_FrameWaitSemaphoreValues[lastFrameIndex].size();
+                                timelineSubmitInfo.pWaitSemaphoreValues = m_FrameWaitSemaphoreValues[lastFrameIndex].data();
+
+                                if (m_FrameWaitFlags.size() < timelineSubmitInfo.waitSemaphoreValueCount)
+                                    m_FrameWaitFlags.resize(timelineSubmitInfo.waitSemaphoreValueCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                                submitInfo.pNext = &timelineSubmitInfo;
+                                submitInfo.waitSemaphoreCount = m_FrameWaitSemaphores[lastFrameIndex].size();
+                                submitInfo.pWaitSemaphores = m_FrameWaitSemaphores[lastFrameIndex].data();
+                                submitInfo.pWaitDstStageMask = m_FrameWaitFlags.data();
+
+                                isFirstSubmit = false;
+                            }
 
                             Context::Queues().LockPresentQueue(true);
                             Context::Queues().LockQueue(submitData.Workload, true);
