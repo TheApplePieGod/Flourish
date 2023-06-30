@@ -15,7 +15,7 @@ namespace Flourish::Vulkan
 
         void BeginEncoding();
         void EndEncoding() override;
-        void GenerateMipMaps(Flourish::Texture* texture) override;
+        void GenerateMipMaps(Flourish::Texture* texture, SamplerFilter filter) override;
 
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }

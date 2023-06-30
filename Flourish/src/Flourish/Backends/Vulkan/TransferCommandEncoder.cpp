@@ -82,7 +82,7 @@ namespace Flourish::Vulkan
             mipLevel, 1,
             layerIndex, 1,
             0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             m_CommandBuffer
         );
 
@@ -102,7 +102,7 @@ namespace Flourish::Vulkan
             aspect,
             mipLevel, 1,
             layerIndex, 1,
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             m_CommandBuffer
         );

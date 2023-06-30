@@ -328,7 +328,7 @@ namespace Flourish::Vulkan
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = cmdBuf;
         CommandBufferAllocInfo allocInfo;
-        if (!buffer)
+        if (!cmdBuf)
         {
             allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Transfer, false, &cmdBuffer, 1, true);
 
@@ -356,7 +356,7 @@ namespace Flourish::Vulkan
         else
             vkCmdCopyBufferToImage(cmdBuffer, buffer, image, imageLayout, 1, &region);
 
-        if (!buffer)
+        if (!cmdBuf)
         {
             FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "ImageBufferCopy command buffer end");
             

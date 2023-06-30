@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/Texture.h"
 #include "Flourish/Api/CommandEncoder.h"
 
 namespace Flourish
@@ -9,6 +10,6 @@ namespace Flourish
     public:
         GraphicsCommandEncoder() = default;
 
-        virtual void GenerateMipMaps(Flourish::Texture* texture) = 0;
+        virtual void GenerateMipMaps(Flourish::Texture* texture, SamplerFilter filter) = 0;
     };
 }

@@ -51,13 +51,17 @@ namespace Flourish::Vulkan
         m_ParentBuffer->SubmitEncodedCommands(m_Submission);
     }
 
-    void GraphicsCommandEncoder::GenerateMipMaps(Flourish::Texture* _texture)
+    void GraphicsCommandEncoder::GenerateMipMaps(Flourish::Texture* _texture, SamplerFilter filter)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode GenerateMipMaps after encoding has ended");
         
         Texture* texture = static_cast<Texture*>(_texture);
 
         VkImageAspectFlags aspect = texture->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        FL_ASSERT(
+            filter == SamplerFilter::Nearest || !texture->IsDepthImage(),
+            "Depth images can only generate mipmaps with the nearest sampler filter"
+        );
 
         Texture::GenerateMipmaps(
             texture->GetImage(),
@@ -69,7 +73,7 @@ namespace Flourish::Vulkan
             texture->GetArrayCount(),
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_FILTER_LINEAR,
+            Common::ConvertSamplerFilter(filter),
             m_CommandBuffer
         );
         m_AnyCommandRecorded = true;
