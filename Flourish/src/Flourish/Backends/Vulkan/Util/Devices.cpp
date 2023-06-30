@@ -36,12 +36,7 @@ namespace Flourish::Vulkan
 
         // Required physical device extensions
         std::vector<const char*> deviceExtensions = {
-            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-
-            // Not supported in MVK yet
-            #if !defined(FL_PLATFORM_MACOS)
-            VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
-            #endif
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME
         };
 
         // Get devices
@@ -231,15 +226,19 @@ namespace Flourish::Vulkan
         DeviceFeatures supported;
         vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &supported.GeneralFeatures);
 
-        // Should be universal except on macos
-        if (supported.Sync2Features.synchronization2)
-            m_Features.Sync2Features.synchronization2 = true;
-
         FL_CRASH_ASSERT(
             supported.TimelineFeatures.timelineSemaphore,
             "Timeline semaphore feature is required to be supported"
         );
         m_Features.TimelineFeatures.timelineSemaphore = true;
+
+        // We probably could put this behind a feature flag and check in the DrawInstanced command,
+        // but the device support is so high it's probably unnecessary
+        FL_CRASH_ASSERT(
+            supported.GeneralFeatures.features.drawIndirectFirstInstance,
+            "DrawIndirectFirstInstance feature is required to be supported"
+        );
+        m_Features.GeneralFeatures.features.drawIndirectFirstInstance = true;
         
         if (initInfo.RequestedFeatures.SamplerAnisotropy)
         {

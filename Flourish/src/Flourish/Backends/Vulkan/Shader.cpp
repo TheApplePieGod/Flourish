@@ -86,6 +86,7 @@ namespace Flourish::Vulkan
 
         #ifdef FL_DEBUG
             options.SetOptimizationLevel(shaderc_optimization_level_zero);
+            options.SetGenerateDebugInfo();
         #else
             options.SetOptimizationLevel(shaderc_optimization_level_performance);
         #endif

@@ -259,30 +259,17 @@ namespace Flourish::Vulkan
                         "Command buffer submission type is different than specified in the graph"
                     );
 
-                    for (u32 waitEventIndex : syncInfo.WaitEvents)
+                    if (syncInfo.Barrier.ShouldBarrier)
                     {
-                        auto& eventData = executeData.EventData[waitEventIndex];
-                        #ifdef FL_PLATFORM_MACOS
-                            VkMemoryBarrier memBarrier{};
-                            memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-                            memBarrier.srcAccessMask = eventData.DepInfo.pMemoryBarriers[0].srcAccessMask;
-                            memBarrier.dstAccessMask = eventData.DepInfo.pMemoryBarriers[0].dstAccessMask;
-
-                            vkCmdWaitEvents(
-                                primaryBuf, 1,
-                                &eventData.Events[frameIndex],
-                                eventData.DepInfo.pMemoryBarriers[0].srcStageMask,
-                                eventData.DepInfo.pMemoryBarriers[0].dstStageMask,
-                                eventData.DepInfo.memoryBarrierCount, &memBarrier,
-                                0, nullptr, 0, nullptr
-                            );
-                        #else
-                            vkCmdWaitEvents2KHR(
-                                primaryBuf, 1,
-                                &eventData.Events[frameIndex],
-                                &eventData.DepInfo
-                            );
-                        #endif
+                        vkCmdPipelineBarrier(
+                            primaryBuf,
+                            syncInfo.Barrier.SrcStage,
+                            syncInfo.Barrier.DstStage,
+                            0,
+                            1, &syncInfo.Barrier.MemoryBarrier,
+                            0, nullptr,
+                            0, nullptr
+                        );
                     }
 
                     // Indicates do nothing
@@ -299,24 +286,6 @@ namespace Flourish::Vulkan
                         }
                         else
                             vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
-                    }
-
-                    if (syncInfo.WriteEvent != -1)
-                    {
-                        auto& eventData = executeData.EventData[syncInfo.WriteEvent];
-                        #ifdef FL_PLATFORM_MACOS
-                            vkCmdSetEvent(
-                                primaryBuf,
-                                eventData.Events[frameIndex],
-                                eventData.DepInfo.pMemoryBarriers[0].srcStageMask
-                            );
-                        #else
-                            vkCmdSetEvent2KHR(
-                                primaryBuf,
-                                eventData.Events[frameIndex],
-                                &eventData.DepInfo
-                            );
-                        #endif
                     }
 
                     totalIndex++;

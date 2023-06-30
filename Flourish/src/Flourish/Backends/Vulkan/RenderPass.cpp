@@ -215,21 +215,29 @@ namespace Flourish::Vulkan
             dependencies[i].sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
             dependencies[i].srcSubpass = static_cast<u32>(i - 1);
             dependencies[i].dstSubpass = static_cast<u32>(i);
-            dependencies[i].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-            dependencies[i].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            dependencies[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            // Catch-all for all color & depth attachments, could be more granular here
+            dependencies[i].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+            // Again, catch-all for color & depth attachments. This is suboptimal globally
+            // because we need the extra COLOR_ATTACHMENT and FRAGMENT_TESTS when performing
+            // CLEAR or LOAD operations. It doesnt seem like we can do this per attachment, so
+            // we could possibly just check if we do any clears or loads first
+            dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            dependencies[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; // Clear
+            dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT; // Load
+
             dependencies[i].dependencyFlags = m_RendersToSwapchain ? 0 : VK_DEPENDENCY_BY_REGION_BIT;
 
             if (i == 0)
-            {
                 dependencies[i].srcSubpass = VK_SUBPASS_EXTERNAL;
-                dependencies[i].srcAccessMask = 0;
-            }
-            if (i == subpasses.size() - 1)
+
+            // Support for subpass reads
+            if (i != subpasses.size() - 1 && subpasses.size() > 1)
             {
-                dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                dependencies[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+                dependencies[i].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
             }
         }
 
