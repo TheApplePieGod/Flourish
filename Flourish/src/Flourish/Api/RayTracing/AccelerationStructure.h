@@ -11,8 +11,8 @@ namespace Flourish
     enum class AccelerationStructureBuildFrequency
     {
         Once = 0,
-        Sometimes,
-        PerFrame
+        Rarely,
+        Often
     };
 
     enum class AccelerationStructurePerformanceType

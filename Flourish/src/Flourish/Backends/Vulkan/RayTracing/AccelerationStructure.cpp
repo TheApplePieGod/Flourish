@@ -204,12 +204,8 @@ namespace Flourish::Vulkan
 
         BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
 
-        // TODO: revisit this. Ideally, we can free this memory when the update is done, but
-        // the way it is set up now, we would have to rely on the assumption that the finalizer queue
-        // happens way after the work is complete. This is probably fine, but still sus.
-        // We can consider increasing finalizer values by a significant amount
-        //if (m_Info.BuildFrequency == AccelerationStructureBuildFrequency::Sometimes)
-        //    instanceBuffer.reset();
+        if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
+            instanceBuffer.reset();
     }
 
     void AccelerationStructure::BuildInternal(
@@ -291,9 +287,11 @@ namespace Flourish::Vulkan
         abCreateInfo.ElementCount = 1;
         abCreateInfo.Stride = buildSize.accelerationStructureSize;
 
-        // We always allocate a new buffer on build since the old buffer and structure will
-        // be cleaned up. TODO: could alternate between buffers to store
-        if (!isUpdating)
+        // Set the src BEFORE we potentially cleanup in case we need to allocate
+        // a larger buffer and update
+        buildInfo.srcAccelerationStructure = m_AccelStructure;
+
+        if (!m_AccelBuffer || m_AccelBuffer->GetAllocatedSize() < buildSize.accelerationStructureSize)
         {
             CleanupAccel();
 
@@ -308,7 +306,6 @@ namespace Flourish::Vulkan
         }
 
         // Finalize build info
-        buildInfo.srcAccelerationStructure = m_AccelStructure;
         buildInfo.dstAccelerationStructure = m_AccelStructure;
         buildInfo.scratchData.deviceAddress = scratchAddress;
 
@@ -328,9 +325,12 @@ namespace Flourish::Vulkan
             0, nullptr
         );
 
-        // Cleanup scratch buffer for builds since the update scratch is usually
-        // smaller
-        if (!isUpdating)
+        // TODO: revisit this. Ideally, we free this memory when the update is done, but
+        // the way it is set up now, we would have to rely on the assumption that the finalizer queue
+        // happens way after the work is complete. This is probably fine, but still sus.
+        // We can consider increasing finalizer values by a significant amount.
+        // We should probably also look into when freeing memory is ideal
+        if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
             m_ScratchBuffer.reset();
     }
 
