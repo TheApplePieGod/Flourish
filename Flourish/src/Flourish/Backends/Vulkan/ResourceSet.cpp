@@ -56,12 +56,8 @@ namespace Flourish::Vulkan
             m_CachedData.emplace_back();
             auto& data = m_CachedData.back();
 
-            if (compatability & ResourceSetPipelineCompatabilityFlags::RayTracing)
-            {
-                data.AccelWrites.resize(m_ParentPool->GetAccelStructCount());
-                data.Accels.resize(m_ParentPool->GetAccelStructCount());
-            }
-
+            data.AccelWrites.resize(m_ParentPool->GetAccelStructCount());
+            data.Accels.resize(m_ParentPool->GetAccelStructCount());
             data.BufferInfos.resize(m_ParentPool->GetBufferCount());
             data.ImageInfos.resize(m_ParentPool->GetImageArrayElementCount());
         }
