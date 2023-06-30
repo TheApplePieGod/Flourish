@@ -12,6 +12,7 @@ namespace Flourish::Vulkan
         {
             DeviceFeatures();
 
+            VkPhysicalDeviceRayQueryFeaturesKHR RtQueryFeatures{};
             VkPhysicalDeviceAccelerationStructureFeaturesKHR AccelFeatures{};
             VkPhysicalDeviceRayTracingPipelineFeaturesKHR RtPipelineFeatures{};
             VkPhysicalDeviceBufferDeviceAddressFeatures BufferAddrFeatures{};

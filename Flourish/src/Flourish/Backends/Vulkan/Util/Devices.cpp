@@ -10,8 +10,10 @@ namespace Flourish::Vulkan
 {
     Devices::DeviceFeatures::DeviceFeatures()
     {
+        RtQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+        //RtQueryFeatures.pNext = nullptr;
         AccelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-        //AccelFeatures.pNext = &BufferAddrFeatures;
+        AccelFeatures.pNext = &RtQueryFeatures;
         RtPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
         RtPipelineFeatures.pNext = &AccelFeatures;
         BufferAddrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
@@ -287,16 +289,20 @@ namespace Flourish::Vulkan
         {
             if (supported.GeneralFeatures.features.shaderInt64 &&
                 supported.AccelFeatures.accelerationStructure &&
+                supported.RtQueryFeatures.rayQuery &&
                 supported.RtPipelineFeatures.rayTracingPipeline &&
                 supported.BufferAddrFeatures.bufferDeviceAddress &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_QUERY_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME))
             {
                 m_Features.GeneralFeatures.features.shaderInt64 = true;
                 m_Features.AccelFeatures.accelerationStructure = true;
+                m_Features.RtQueryFeatures.rayQuery = true;
                 m_Features.RtPipelineFeatures.rayTracingPipeline = true;
                 m_Features.BufferAddrFeatures.bufferDeviceAddress = true;
+                extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
