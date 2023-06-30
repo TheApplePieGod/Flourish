@@ -39,16 +39,24 @@ namespace Flourish::Vulkan
     GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
-        auto vertShader = static_cast<Shader*>(createInfo.VertexShader.get());
-        auto fragShader = static_cast<Shader*>(createInfo.FragmentShader.get());
+        auto vertShader = static_cast<Shader*>(createInfo.VertexShader.Shader.get());
+        auto fragShader = static_cast<Shader*>(createInfo.FragmentShader.Shader.get());
         VkPipelineShaderStageCreateInfo shaderStages[] = {
             vertShader->DefineShaderStage(),
             fragShader->DefineShaderStage()
         };
 
+        // Populate descriptor data
         std::array<Shader*, 2> shaders = { vertShader, fragShader };
         m_DescriptorData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
         m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Graphics;
+
+        // Populate specialization constants
+        std::array<std::vector<SpecializationConstant>, 2> specs = { m_Info.VertexShader.Specializations, m_Info.FragmentShader.Specializations };
+        PipelineSpecializationHelper specHelper;
+        specHelper.Populate(shaders.data(), specs.data(), shaders.size());
+        shaderStages[0].pSpecializationInfo = &specHelper.SpecInfos[0];
+        shaderStages[1].pSpecializationInfo = &specHelper.SpecInfos[1];
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
         auto attributeDescriptions = GenerateVertexAttributeDescriptions(createInfo.VertexLayout.GetElements());

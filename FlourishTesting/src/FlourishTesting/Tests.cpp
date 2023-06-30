@@ -353,12 +353,12 @@ namespace FlourishTesting
         )";
         auto objectVertShader = Flourish::Shader::Create(shaderCreateInfo);
 
-        compCreateInfo.ComputeShader = computeShader;
+        compCreateInfo.Shader = { computeShader };
         m_ComputePipeline = Flourish::ComputePipeline::Create(compCreateInfo);
         
         // Render context primary pipeline
-        gpCreateInfo.VertexShader = simpleVertShader;
-        gpCreateInfo.FragmentShader = imageFragShader;
+        gpCreateInfo.VertexShader = { simpleVertShader };
+        gpCreateInfo.FragmentShader = { imageFragShader };
         gpCreateInfo.VertexInput = true;
         gpCreateInfo.VertexTopology = Flourish::VertexTopology::TriangleList;
         gpCreateInfo.VertexLayout = m_VertexLayout;
@@ -369,7 +369,7 @@ namespace FlourishTesting
 
         m_SimplePassNoDepth->CreatePipeline("simple_image", gpCreateInfo);
 
-        gpCreateInfo.VertexShader = objectVertShader;
+        gpCreateInfo.VertexShader = { objectVertShader };
         auto objectPipeline = m_SimplePassNoDepth->CreatePipeline("object_image", gpCreateInfo);
 
         Flourish::ResourceSetCreateInfo descCreateInfo;

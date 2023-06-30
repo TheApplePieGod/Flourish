@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Context.h"
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"

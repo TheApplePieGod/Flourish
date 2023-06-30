@@ -23,7 +23,7 @@ namespace Flourish
 
     struct RayTracingPipelineCreateInfo
     {
-        std::vector<std::shared_ptr<Shader>> Shaders;
+        std::vector<PipelineShader> Shaders;
         std::vector<RayTracingShaderGroup> Groups;
         u32 MaxRayRecursionDepth = 1;
 

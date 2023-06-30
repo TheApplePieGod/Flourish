@@ -22,14 +22,23 @@ namespace Flourish::Vulkan
         };
 
         std::vector<SetData> SetData;
-        VkPushConstantRange PushConstantRange{};
         u32 TotalDynamicOffsets = 0;
         ResourceSetPipelineCompatability Compatability;
+        VkPushConstantRange PushConstantRange{};
 
         void Populate(Shader** shaders, u32 count, const std::vector<AccessFlagsOverride>& accessOverrides);
 
         // TS
         std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, ResourceSetPipelineCompatability compatability, const ResourceSetCreateInfo& createInfo);
+    };
+
+    struct PipelineSpecializationHelper
+    {
+        std::vector<u8> SpecData;
+        std::vector<VkSpecializationInfo> SpecInfos;
+        std::vector<VkSpecializationMapEntry> MapEntries;
+
+        void Populate(Shader** shaders, std::vector<SpecializationConstant>* specs, u32 count);
     };
 
     class ResourceSet;

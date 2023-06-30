@@ -113,6 +113,45 @@ namespace Flourish::Vulkan
         return std::make_shared<ResourceSet>(createInfo, compatability, data.Pool);
     }
 
+    void PipelineSpecializationHelper::Populate(Shader** shaders, std::vector<SpecializationConstant>* specs, u32 count)
+    {
+        // Gather initial sizes 
+        u32 dataSize = 0;
+        u32 mapSize = 0;
+        for (u32 i = 0; i < count; i++)
+        {
+            dataSize += shaders[i]->GetTotalSpecializationSize();
+            mapSize += specs[i].size();
+        }
+        SpecData.resize(dataSize);
+        MapEntries.reserve(mapSize);
+
+        u32 dataOffset = 0;
+        for (u32 i = 0; i < count; i++)
+        {
+            auto& specInfo = SpecInfos.emplace_back();
+            specInfo.mapEntryCount = specs[i].size();
+            specInfo.pMapEntries = MapEntries.data() + MapEntries.size();
+            specInfo.dataSize = dataSize;
+            specInfo.pData = SpecData.data();
+            for (auto& spec : specs[i])
+            {
+                FL_ASSERT(
+                    shaders[i]->CheckSpecializationCompatability(spec),
+                    "Passing specialization incompatible with shader to pipeline"
+                );
+
+                auto& mapEntry = MapEntries.emplace_back();
+                mapEntry.constantID = spec.ConstantId;
+                mapEntry.offset = dataOffset;
+                mapEntry.size = 4; // All supported types are 4 bytes
+                
+                memcpy(SpecData.data() + dataOffset, &spec.Data, mapEntry.size);
+                dataOffset += mapEntry.size;
+            }
+        }
+    }
+
     void DescriptorBinder::Reset()
     {
         m_BoundData = nullptr;

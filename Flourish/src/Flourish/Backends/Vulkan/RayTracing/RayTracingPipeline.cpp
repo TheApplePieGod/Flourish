@@ -13,14 +13,21 @@ namespace Flourish::Vulkan
     {
         std::vector<VkPipelineShaderStageCreateInfo> stages;
         std::vector<Shader*> shaders;
+        std::vector<std::vector<SpecializationConstant>> specs;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
         for (auto& _shader : m_Info.Shaders)
         {
-            auto shader = static_cast<Shader*>(_shader.get());
+            auto shader = static_cast<Shader*>(_shader.Shader.get());
             stages.emplace_back(shader->DefineShaderStage());
             shaders.emplace_back(shader);
         };
+
+        // Populate specialization constants
+        PipelineSpecializationHelper specHelper;
+        specHelper.Populate(shaders.data(), specs.data(), shaders.size());
+        for (u32 i = 0; i < stages.size(); i++)
+            stages[i].pSpecializationInfo = &specHelper.SpecInfos[i]; 
 
         for (auto& group : m_Info.Groups)
         {

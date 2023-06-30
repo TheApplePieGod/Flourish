@@ -204,6 +204,14 @@ namespace Flourish::Vulkan
         return shaderStageInfo;
     }
 
+    bool Shader::CheckSpecializationCompatability(const SpecializationConstant& spec)
+    {
+        for (auto& trueSpec : m_SpecializationReflection)
+            if (trueSpec.ConstantId == spec.ConstantId && trueSpec.Type == spec.Type)
+                return true;
+        return false;
+    }
+
     void Shader::Reflect(const std::vector<u32>& compiledData)
     {
         m_ReflectionData.clear();
@@ -239,12 +247,43 @@ namespace Flourish::Vulkan
         FL_LOG_DEBUG("    %d storage images", resources.storage_images.size());
         FL_LOG_DEBUG("    %d subpass inputs", resources.subpass_inputs.size());
 
-        u32 maxSets = Context::Devices().PhysicalDeviceProperties().limits.maxBoundDescriptorSets;
+        /*
+         * Reflect specialization constants
+         */
+
+        auto specConstants = compiler->get_specialization_constants();
+        for (auto& constant : specConstants)
+        {
+            m_SpecializationReflection.emplace_back();
+
+            auto& constantVal = compiler->get_constant(constant.id);
+            auto& type = compiler->get_type(constantVal.constant_type);
+
+            m_SpecializationReflection.back().ConstantId = constant.constant_id;
+
+            switch (type.basetype)
+            {
+                default:
+                {
+                    FL_LOG_ERROR("Shader has unsupported specialization constant data type");
+                    throw std::exception();
+                }
+                case spirv_cross::SPIRType::Int: { m_SpecializationReflection.back().Type = SpecializationConstantType::Int; } break;
+                case spirv_cross::SPIRType::UInt: { m_SpecializationReflection.back().Type = SpecializationConstantType::UInt; } break;
+                case spirv_cross::SPIRType::Float: { m_SpecializationReflection.back().Type = SpecializationConstantType::Float; } break;
+                case spirv_cross::SPIRType::Boolean: { m_SpecializationReflection.back().Type = SpecializationConstantType::Bool; } break;
+            }
+
+            // All supported types are 4 bytes
+            m_TotalSpecializationSize += 4;
+        }
 
         /*
+         * Reflect shader resources
          * TODO: Clean this up
          */
 
+        u32 maxSets = Context::Devices().PhysicalDeviceProperties().limits.maxBoundDescriptorSets;
         if (resources.uniform_buffers.size() > 0)
 		    FL_LOG_DEBUG("  Uniform buffers:");
 		for (const auto& resource : resources.uniform_buffers)

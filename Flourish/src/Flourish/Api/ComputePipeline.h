@@ -7,7 +7,7 @@ namespace Flourish
 {
     struct ComputePipelineCreateInfo
     {
-        std::shared_ptr<Shader> ComputeShader;
+        PipelineShader Shader;
 
         std::vector<AccessFlagsOverride> AccessOverrides;
     };
@@ -20,7 +20,7 @@ namespace Flourish
         ComputePipeline(const ComputePipelineCreateInfo& createInfo)
             : m_Info(createInfo)
         {
-            FL_ASSERT(createInfo.ComputeShader, "Must specify a compute shader asset");
+            FL_ASSERT(createInfo.Shader.Shader, "Must specify a compute shader asset");
         }
         virtual ~ComputePipeline() = default;
         
