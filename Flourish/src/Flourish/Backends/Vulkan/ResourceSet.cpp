@@ -158,7 +158,8 @@ namespace Flourish::Vulkan
         FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
 
         ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
-        ValidateBinding(bindingIndex, bufferType, buffer, 0);
+        if (!ValidateBinding(bindingIndex, bufferType, buffer, 0))
+            return;
 
         if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_DynamicData)) && buffer->GetUsage() == BufferUsageType::Dynamic)
         {
@@ -188,7 +189,9 @@ namespace Flourish::Vulkan
                 ? ShaderResourceType::StorageTexture
                 : ShaderResourceType::Texture;
         
-        ValidateBinding(bindingIndex, texType, texture, arrayIndex);
+        if (!ValidateBinding(bindingIndex, texType, texture, arrayIndex))
+            return;
+
         FL_ASSERT(
             m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
             "Attempting to bind a texture to a storage image binding that does not have the compute flag set"
@@ -219,7 +222,9 @@ namespace Flourish::Vulkan
                 ? ShaderResourceType::StorageTexture
                 : ShaderResourceType::Texture;
 
-        ValidateBinding(bindingIndex, texType, texture, arrayIndex);
+        if (!ValidateBinding(bindingIndex, texType, texture, arrayIndex))
+            return;
+
         FL_ASSERT(
             m_ParentPool->GetBindingType(bindingIndex) != ShaderResourceType::StorageTexture || texType == ShaderResourceType::StorageTexture,
             "Attempting to bind a texture to a storage image binding that does not have the compute flag set"
@@ -247,7 +252,8 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
-        ValidateBinding(bindingIndex, ShaderResourceType::SubpassInput, &attachment, 0);
+        if (!ValidateBinding(bindingIndex, ShaderResourceType::SubpassInput, &attachment, 0))
+            return;
         
         VkImageView attView = static_cast<const Framebuffer*>(framebuffer)->GetAttachmentImageView(attachment);
 
@@ -266,7 +272,8 @@ namespace Flourish::Vulkan
 
         FL_ASSERT(accelStruct->IsBuilt(), "Must build AccelerationStructure before binding");
         
-        ValidateBinding(bindingIndex, ShaderResourceType::AccelerationStructure, accelStruct, 0);
+        if (!ValidateBinding(bindingIndex, ShaderResourceType::AccelerationStructure, accelStruct, 0))
+            return;
         
         VkAccelerationStructureKHR accel = static_cast<const AccelerationStructure*>(accelStruct)->GetAccelStructure();
 
@@ -293,32 +300,46 @@ namespace Flourish::Vulkan
         m_Allocations[Flourish::Context::FrameIndex()] = list.Sets[list.FreeIndex++];
     }
 
-    // TODO: might want to disable this in release?
-    void ResourceSet::ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource, u32 arrayIndex)
+    // Assert in debug, but silently fail in release
+    // TODO: option to disable completely
+    bool ResourceSet::ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource, u32 arrayIndex)
     {
+        FL_ASSERT(
+            resource != nullptr,
+            "Cannot bind a null resource to a resource set"
+        );
         if (resource == nullptr)
-        {
-            FL_LOG_ERROR("Cannot bind a null resource to a resource set");
-            throw std::exception();
-        }
+            return false;
 
-        if (!m_ParentPool->DoesBindingExist(bindingIndex))
-        {
-            FL_LOG_ERROR("Attempting to update resource binding %d that doesn't exist in the set", bindingIndex);
-            throw std::exception();
-        }
+        bool bindingExists = m_ParentPool->DoesBindingExist(bindingIndex);
+        FL_ASSERT(
+            bindingExists,
+            "Attempting to update resource binding %d that doesn't exist in the set",
+            bindingIndex
+        );
+        if (!bindingExists)
+            return false;
 
-        if (!m_ParentPool->IsResourceCorrectType(bindingIndex, resourceType))
-        {
-            FL_LOG_ERROR("Attempting to bind a resource that does not match the bind index type");
-            throw std::exception();
-        }
+        bool correctType = m_ParentPool->IsResourceCorrectType(bindingIndex, resourceType);
+        FL_ASSERT(
+            correctType,
+            "Attempting to bind a resource to %d that does not match the bind index type",
+            bindingIndex
+        );
+        if (!correctType)
+            return false;
 
-        if (m_ParentPool->GetBindingData()[bindingIndex].ArrayCount <= arrayIndex)
-        {
-            FL_LOG_ERROR("Attempting to bind a resource with an out of range arrayIndex");
-            throw std::exception();
-        }
+        bool withinArray = arrayIndex < m_ParentPool->GetBindingData()[bindingIndex].ArrayCount;
+        FL_ASSERT(
+            withinArray,
+            "Attempting to bind a resource to %d with an out of range arrayIndex %d",
+            bindingIndex,
+            arrayIndex
+        );
+        if (!withinArray)
+            return false;
+
+        return true;
     }
 
     void ResourceSet::UpdateBinding(

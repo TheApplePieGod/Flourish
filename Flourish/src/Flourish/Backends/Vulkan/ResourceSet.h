@@ -63,7 +63,7 @@ namespace Flourish::Vulkan
 
     private:
         void SwapNextAllocation();
-        void ValidateBinding(
+        bool ValidateBinding(
             u32 bindingIndex,
             ShaderResourceType resourceType,
             const void* resource,
