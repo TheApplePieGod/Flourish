@@ -89,6 +89,7 @@ namespace Flourish::Vulkan
         layoutInfo.pNext = &flags;
         layoutInfo.bindingCount = static_cast<u32>(bindings.size());
         layoutInfo.pBindings = bindings.data();
+        layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
         if(!FL_VK_CHECK_RESULT(vkCreateDescriptorSetLayout(
             Context::Devices().Device(),
@@ -216,7 +217,8 @@ namespace Flourish::Vulkan
         poolInfo.poolSizeCount = static_cast<u32>(m_CachedPoolSizes.size());
         poolInfo.pPoolSizes = m_CachedPoolSizes.data();
         poolInfo.maxSets = MaxSetsPerPool;
-        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
+                         VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
         VkDescriptorPool pool;
         FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(
