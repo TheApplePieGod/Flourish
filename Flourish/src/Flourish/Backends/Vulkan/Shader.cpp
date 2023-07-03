@@ -120,6 +120,10 @@ namespace Flourish::Vulkan
             case ShaderTypeFlags::RayAnyHit: { shaderKind = shaderc_glsl_anyhit_shader; } break;
         }
 
+        // Inject macro definitions for certain enabled features
+        if (Flourish::Context::FeatureTable().RayTracing)
+            options.AddMacroDefinition("FLOURISH_RAY_TRACING");
+
         shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
             baseSource.data(),
             shaderKind,
