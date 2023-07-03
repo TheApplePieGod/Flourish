@@ -126,6 +126,20 @@ namespace Flourish::Vulkan
         SpecData.resize(dataSize);
         MapEntries.reserve(mapSize);
 
+        FL_ASSERT(
+            mapSize == 0 || dataSize > 0,
+            "Attempting to specialize constants but shader has none"
+        );
+
+        if (mapSize > 0)
+        {
+            FL_LOG_WARN(
+                "Specializing %d constants with a total size of %d",
+                mapSize,
+                dataSize
+            );
+        }
+
         u32 dataOffset = 0;
         for (u32 i = 0; i < count; i++)
         {

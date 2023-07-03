@@ -16,7 +16,7 @@ namespace Flourish
         xcb_connection_t* Connection;
         xcb_window_t Window;
         #else
-        void* NSView;
+        void* CAMetalLayer;
         #endif
         u32 Width;
         u32 Height;

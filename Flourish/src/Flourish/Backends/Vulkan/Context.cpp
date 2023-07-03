@@ -3,6 +3,10 @@
 
 #include "Flourish/Backends/Vulkan/RenderContext.h"
 
+#ifdef FL_PLATFORM_MACOS
+    #include "MoltenVK/mvk_config.h"
+#endif
+
 namespace Flourish::Vulkan
 {
     static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback(
@@ -113,7 +117,6 @@ namespace Flourish::Vulkan
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
             #elif defined (FL_PLATFORM_MACOS)
-                "VK_MVK_macos_surface",
                 "VK_EXT_metal_surface"
             #endif
         };
@@ -179,7 +182,7 @@ namespace Flourish::Vulkan
         FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance), "Vulkan create instance");
 
         // Load all instance functions
-        volkLoadInstance(s_Instance);
+        volkLoadInstanceOnly(s_Instance);
 
         #if FL_DEBUG
             // Setup debug messenger
@@ -205,6 +208,33 @@ namespace Flourish::Vulkan
                     FL_LOG_WARN("Unable to initialize vulkan debug utilities") ;
             }   
         #endif
+
+        // Enable metal argument buffers. For now, this is mandatory because we haven't provided a way
+        // for the user to know that the limits of descriptor indexing are. This is fine
+        // for now since argument buffers are supported in osx >= 11.0
+        // https://github.com/KhronosGroup/MoltenVK/issues/1610
+        #ifdef FL_PLATFORM_MACOS
+            FL_LOG_DEBUG("Configuring MoltenVK");
+
+            // For some reason, vkGetInstanceProcAddr does not work with the config functions, so we
+            // must load them manually
+            // https://github.com/KhronosGroup/MoltenVK/issues/1817
+            auto libMoltenVK = dlopen("libMoltenVK.dylib", RTLD_LAZY);
+
+            auto getMvkConfig = (PFN_vkGetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkGetMoltenVKConfigurationMVK");
+            FL_CRASH_ASSERT(getMvkConfig, "MoltenVK configuration function not found");
+
+            MVKConfiguration mvkConfig;
+            size_t mvkConfigSize = sizeof(mvkConfig);
+            getMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
+            mvkConfig.useMetalArgumentBuffers = MVKUseMetalArgumentBuffers::MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS_ALWAYS;
+
+            auto setMvkConfig = (PFN_vkSetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkSetMoltenVKConfigurationMVK");
+            FL_CRASH_ASSERT(setMvkConfig, "MoltenVK configuration function not found");
+            setMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
+        #endif
+
+        FL_LOG_TRACE("Instance setup complete");
     }
 
     void Context::SetupAllocator()

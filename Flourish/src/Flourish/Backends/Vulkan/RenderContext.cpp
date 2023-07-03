@@ -36,11 +36,11 @@ namespace Flourish::Vulkan
 
             auto result = vkCreateXcbSurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
         #else
-            VkMacOSSurfaceCreateInfoMVK surfaceInfo{};
-            surfaceInfo.sType = VK_STRUCTURE_TYPE_MACOS_SURFACE_CREATE_INFO_MVK;
-            surfaceInfo.pView = createInfo.NSView;
+            VkMetalSurfaceCreateInfoEXT surfaceInfo{};
+            surfaceInfo.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+            surfaceInfo.pLayer = createInfo.CAMetalLayer;
 
-            auto result = vkCreateMacOSSurfaceMVK(instance, &surfaceInfo, nullptr, &m_Surface);
+            auto result = vkCreateMetalSurfaceEXT(instance, &surfaceInfo, nullptr, &m_Surface);
         #endif
 
         if (!m_Surface)

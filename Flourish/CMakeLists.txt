@@ -31,6 +31,7 @@ if (APPLE)
     FlourishCore
     PUBLIC
     "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/macOS/include>"
+    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/MoltenVK/include>"
   )
 else()
   target_include_directories(

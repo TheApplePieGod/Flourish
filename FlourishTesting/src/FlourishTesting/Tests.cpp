@@ -220,8 +220,8 @@ namespace FlourishTesting
             contextCreateInfo.Instance = instance;
             contextCreateInfo.Window = window;
         #elif defined(FL_PLATFORM_MACOS)
-            void* view = MacOS::CreateWindowAndGetView((int)contextCreateInfo.Width, (int)contextCreateInfo.Height);
-            contextCreateInfo.NSView = view;
+            void* layer = MacOS::CreateWindowAndGetLayer((int)contextCreateInfo.Width, (int)contextCreateInfo.Height);
+            contextCreateInfo.CAMetalLayer = layer;
         #endif
         m_RenderContext = Flourish::RenderContext::Create(contextCreateInfo);
         
