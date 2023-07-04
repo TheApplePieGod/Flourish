@@ -21,6 +21,7 @@ namespace Flourish::Vulkan
             auto shader = static_cast<Shader*>(_shader.Shader.get());
             stages.emplace_back(shader->DefineShaderStage());
             shaders.emplace_back(shader);
+            specs.emplace_back(_shader.Specializations);
         };
 
         // Populate specialization constants
