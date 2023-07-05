@@ -6,8 +6,27 @@
 
 namespace Flourish::Vulkan
 {
-    void Swapchain::Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface)
+    #ifdef FL_PLATFORM_WINDOWS
+    // https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
+    bool IsFullscreen(HWND windowHandle)
     {
+        MONITORINFO monitorInfo{};
+        monitorInfo.cbSize = sizeof(MONITORINFO);
+        GetMonitorInfo(MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST), &monitorInfo);
+
+        RECT windowRect;
+        GetWindowRect(windowHandle, &windowRect);
+
+        return windowRect.left == monitorInfo.rcMonitor.left
+            && windowRect.right == monitorInfo.rcMonitor.right
+            && windowRect.top == monitorInfo.rcMonitor.top
+            && windowRect.bottom == monitorInfo.rcMonitor.bottom;
+    }
+    #endif
+
+    void Swapchain::Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface, void* windowHandle)
+    {
+        m_WindowHandle = windowHandle;
         m_Surface = surface;
         m_CurrentWidth = createInfo.Width;
         m_CurrentHeight = createInfo.Height;
@@ -212,6 +231,23 @@ namespace Flourish::Vulkan
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = m_Swapchain;
 
+        // Fullscreen exclusive info on windows
+        #ifdef FL_PLATFORM_WINDOWS
+            u32 isFull = IsFullscreen((HWND)m_WindowHandle);
+
+            VkSurfaceFullScreenExclusiveWin32InfoEXT win32ExclusiveInfo{};
+            win32ExclusiveInfo.sType = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT;
+            win32ExclusiveInfo.hmonitor = MonitorFromWindow((HWND)m_WindowHandle, MONITOR_DEFAULTTONEAREST);
+
+            VkSurfaceFullScreenExclusiveInfoEXT exclusiveInfo{};
+            exclusiveInfo.sType = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT;
+            exclusiveInfo.pNext = &win32ExclusiveInfo;
+            exclusiveInfo.fullScreenExclusive = isFull ? VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT : VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
+
+            if (Context::Devices().SupportsFullScreenExclusive())
+                createInfo.pNext = &exclusiveInfo;
+        #endif
+
         u32 queueIndices[] = { Context::Queues().QueueIndex(GPUWorkloadType::Graphics), Context::Queues().PresentQueueIndex() };
         if (queueIndices[0] != queueIndices[1])
         {
@@ -229,6 +265,14 @@ namespace Flourish::Vulkan
         if (m_Swapchain)
             CleanupSwapchain();
         m_Swapchain = newSwapchain;
+
+        // Acquire fullscreen exclusive
+        // TODO: borderless mode
+        #ifdef FL_PLATFORM_WINDOWS
+            if (Context::Devices().SupportsFullScreenExclusive() &&
+                exclusiveInfo.fullScreenExclusive == VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT)
+                vkAcquireFullScreenExclusiveModeEXT(Context::Devices().Device(), m_Swapchain);
+        #endif
 
         // Load images
         std::vector<VkImage> chainImages;

@@ -6,6 +6,10 @@
 
 #ifdef FL_USE_GLFW
 #include "GLFW/glfw3.h"
+#ifdef FL_PLATFORM_WINDOWS
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include "GLFW/glfw3native.h"
+#endif
 #endif
 
 namespace Flourish::Vulkan
@@ -17,14 +21,20 @@ namespace Flourish::Vulkan
         auto instance = Context::Instance();
 
         // Create the surface
+        void* windowHandle = nullptr;
         #ifdef FL_USE_GLFW
             auto result = glfwCreateWindowSurface(instance, createInfo.Window, nullptr, &m_Surface);
+            #ifdef FL_PLATFORM_WINDOWS
+                windowHandle = glfwGetWin32Window(createInfo.Window);
+            #endif
         #elif defined(FL_PLATFORM_WINDOWS)
             VkWin32SurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
             surfaceInfo.pNext = nullptr;
             surfaceInfo.hinstance = createInfo.Instance;
             surfaceInfo.hwnd = createInfo.Window;
+
+            windowHandle = createInfo.Window;
 
             auto result = vkCreateWin32SurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
         #elif defined(FL_PLATFORM_LINUX)
@@ -49,7 +59,7 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
-        m_Swapchain.Initialize(createInfo, m_Surface);
+        m_Swapchain.Initialize(createInfo, m_Surface, windowHandle);
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
         {

@@ -33,6 +33,7 @@ namespace Flourish::Vulkan
         inline const auto& PhysicalDeviceProperties() const { return m_PhysicalDeviceProperties; }
         inline const auto& RayTracingProperties() const { return m_RayTracingProperties; }
         inline const auto& AccelStructureProperties() const { return m_AccelStructureProperties; }
+        inline bool SupportsFullScreenExclusive() const { return m_FullScreenExclusive; }
 
     private:
         bool CheckDeviceCompatability(VkPhysicalDevice device, const std::vector<const char*>& extensions);
@@ -51,5 +52,6 @@ namespace Flourish::Vulkan
         VkSampleCountFlagBits m_DeviceMaxSampleCount;
         VkDevice m_Device;
         DeviceFeatures m_Features;
+        bool m_FullScreenExclusive = false;
     };
 }

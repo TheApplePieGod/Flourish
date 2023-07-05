@@ -214,10 +214,16 @@ namespace Flourish::Vulkan
             if (Common::SupportsExtension(m_SupportedExtensions, "VK_KHR_portability_subset"))
                 extensions.push_back("VK_KHR_portability_subset");
         #endif
+
+        #ifdef FL_PLATFORM_WINDOWS
+            if (Common::SupportsExtension(m_SupportedExtensions, "VK_EXT_full_screen_exclusive"))
+                extensions.push_back("VK_EXT_full_screen_exclusive");
+            m_FullScreenExclusive = true;
+        #endif
         
         #ifdef FL_DEBUG
-        if (Common::SupportsExtension(m_SupportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
-            extensions.push_back("VK_NV_device_diagnostic_checkpoints");
+            if (Common::SupportsExtension(m_SupportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
+                extensions.push_back("VK_NV_device_diagnostic_checkpoints");
         #endif
     }
 
