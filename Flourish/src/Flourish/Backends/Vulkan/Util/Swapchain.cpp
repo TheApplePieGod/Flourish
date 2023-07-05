@@ -160,6 +160,8 @@ namespace Flourish::Vulkan
 
     void Swapchain::RecreateSwapchain()
     {
+        FL_PROFILE_FUNCTION();
+
         m_Valid = false;
 
         auto device = Context::Devices().Device();

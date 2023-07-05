@@ -88,6 +88,8 @@ namespace Flourish::Vulkan
 
     bool RenderContext::Validate()
     {
+        FL_PROFILE_FUNCTION();
+
         if (!m_Swapchain.IsValid())
             m_Swapchain.RecreateImmediate();
         return m_Swapchain.IsValid();

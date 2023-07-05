@@ -41,6 +41,8 @@ namespace Flourish
 
     void Context::BeginFrame()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot begin frame, context has not been initialized");
 
         switch (s_BackendType)
@@ -51,6 +53,8 @@ namespace Flourish
     
     void Context::EndFrame()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot end frame, context has not been initialized");
 
         switch (s_BackendType)
