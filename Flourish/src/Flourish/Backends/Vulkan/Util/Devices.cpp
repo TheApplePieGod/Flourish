@@ -216,9 +216,13 @@ namespace Flourish::Vulkan
         #endif
 
         #ifdef FL_PLATFORM_WINDOWS
-            if (Common::SupportsExtension(m_SupportedExtensions, "VK_EXT_full_screen_exclusive"))
+            if (Common::SupportsExtension(m_SupportedExtensions, "VK_EXT_full_screen_exclusive") &&
+                Common::SupportsExtension(m_SupportedExtensions, "VK_KHR_get_surface_capabilities2"))
+            {
                 extensions.push_back("VK_EXT_full_screen_exclusive");
-            m_FullScreenExclusive = true;
+                extensions.push_back("VK_KHR_get_surface_capabilities2");
+                m_FullScreenExclusive = true;
+            }
         #endif
         
         #ifdef FL_DEBUG
