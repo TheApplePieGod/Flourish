@@ -18,7 +18,7 @@ namespace Flourish::Vulkan
 {
     void GpuCrashDumpCallback(const void* gpuCrashDump, const uint32_t gpuCrashDumpSize, void* pUserData)
     {
-        FL_LOG_ERROR("GPU crash dump callback called");
+        FL_LOG_DEBUG("GPU crash dump callback called");
 
         /*
         GFSDK_Aftermath_GpuCrashDump_Decoder decoder = {};
@@ -59,17 +59,28 @@ namespace Flourish::Vulkan
         const std::string crashDumpFileName = baseFileName + ".nv-gpudmp";
         std::ofstream dumpFile(crashDumpFileName, std::ios::out | std::ios::binary);
         if (dumpFile)
-        {
             dumpFile.write((const char*)gpuCrashDump, gpuCrashDumpSize);
-            dumpFile.close();
-        }
     }
 
     void ShaderDebugInfoCallback(const void* pShaderDebugInfo, const uint32_t shaderDebugInfoSize, void* pUserData)
     {
+        FL_LOG_DEBUG("Shader debug info callback called");
 
+        // Get shader debug information identifier
+        GFSDK_Aftermath_ShaderDebugInfoIdentifier identifier{};
+        FL_AFTERMATH_CHECK_RESULT(GFSDK_Aftermath_GetShaderDebugInfoIdentifier(
+            GFSDK_Aftermath_Version_API,
+            pShaderDebugInfo,
+            shaderDebugInfoSize,
+            &identifier
+        ), "Aftermath shader debug info");
+
+        // Write to file for later in-depth analysis of crash dumps with Nsight Graphics
+        const std::string filePath = "shader-" + std::to_string(identifier.id[0]) + std::to_string(identifier.id[1]) + ".nvdbg";
+        std::ofstream debugFile(filePath, std::ios::out | std::ios::binary);
+        if (debugFile)
+            debugFile.write((const char*)pShaderDebugInfo, shaderDebugInfoSize);
     }
-
 
     void CrashDumpDescriptionCallback(PFN_GFSDK_Aftermath_AddGpuCrashDumpDescription addDescription, void* pUserData)
     {
@@ -85,7 +96,7 @@ namespace Flourish::Vulkan
             GFSDK_Aftermath_GpuCrashDumpWatchedApiFlags_Vulkan,
             GFSDK_Aftermath_GpuCrashDumpFeatureFlags_DeferDebugInfoCallbacks,
             GpuCrashDumpCallback,
-            nullptr,
+            ShaderDebugInfoCallback,
             nullptr,
             nullptr,
             nullptr
