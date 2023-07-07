@@ -43,14 +43,28 @@ namespace Flourish::Vulkan
     void AccelerationStructure::RebuildNodeInternal(const AccelerationStructureNodeBuildInfo& buildInfo, VkCommandBuffer cmdBuf)
     {
         FL_ASSERT(
-            buildInfo.VertexBuffer->CanCreateAccelerationStructure() && buildInfo.IndexBuffer->CanCreateAccelerationStructure(),
-            "Vertex and index buffers must be created with CanCreateAccelerationStructure"
-        );
-
-        FL_ASSERT(
             m_Info.Type == Flourish::AccelerationStructureType::Node,
             "Type must be Node to call BuildNode"
         );
+
+        if (buildInfo.AABBBuffer)
+        {
+            FL_ASSERT(
+                !buildInfo.VertexBuffer && !buildInfo.IndexBuffer,
+                "Acceleration structure rebuild cannot include both vertex/index buffers and AABB buffer"
+            );
+            FL_ASSERT(
+                buildInfo.AABBBuffer->CanCreateAccelerationStructure(),
+                "AABB buffer must be created with CanCreateAccelerationStructure"
+            );
+        }
+        else
+        {
+            FL_ASSERT(
+                buildInfo.VertexBuffer->CanCreateAccelerationStructure() && buildInfo.IndexBuffer->CanCreateAccelerationStructure(),
+                "Vertex and index buffers must be created with CanCreateAccelerationStructure"
+            );
+        }
 
         // TODO HERE
         // - triangle topology only
@@ -59,30 +73,52 @@ namespace Flourish::Vulkan
         // - index format
         // - transform data
 
-        VkDeviceAddress vertexAddress = (VkDeviceAddress)buildInfo.VertexBuffer->GetBufferGPUAddress();
-        VkDeviceAddress indexAddress = (VkDeviceAddress)buildInfo.IndexBuffer->GetBufferGPUAddress();
-
-        uint32_t maxPrimitiveCount = buildInfo.IndexBuffer->GetAllocatedCount() / 3;
-        VkAccelerationStructureGeometryTrianglesDataKHR triangleGeom{};
-        triangleGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-        triangleGeom.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-        triangleGeom.vertexData.deviceAddress = vertexAddress;
-        triangleGeom.vertexStride = buildInfo.VertexBuffer->GetStride();
-        triangleGeom.indexType = VK_INDEX_TYPE_UINT32;
-        triangleGeom.indexData.deviceAddress = indexAddress;
-        triangleGeom.maxVertex = buildInfo.VertexBuffer->GetAllocatedCount();
-
         VkAccelerationStructureGeometryKHR asGeom{};
         asGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-        asGeom.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
         asGeom.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
-        asGeom.geometry.triangles = triangleGeom;
 
         VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
         rangeInfo.firstVertex = 0;
-        rangeInfo.primitiveCount = maxPrimitiveCount;
         rangeInfo.primitiveOffset = 0;
         rangeInfo.transformOffset = 0;
+
+        VkAccelerationStructureGeometryTrianglesDataKHR triangleGeom{};
+        VkAccelerationStructureGeometryAabbsDataKHR aabbGeom{};
+        if (buildInfo.AABBBuffer)
+        {
+            FL_ASSERT(
+                buildInfo.AABBBuffer->GetStride() == 24,
+                "AABB buffer must have exactly 24 byte stride"
+            );
+
+            aabbGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR;
+            aabbGeom.data.deviceAddress = (VkDeviceAddress)buildInfo.AABBBuffer->GetBufferGPUAddress();
+            aabbGeom.stride = 24; // min & max
+
+            asGeom.geometryType = VK_GEOMETRY_TYPE_AABBS_KHR;
+            asGeom.geometry.aabbs = aabbGeom;
+
+            rangeInfo.primitiveCount = buildInfo.AABBBuffer->GetAllocatedCount();
+        }
+        else
+        {
+            VkDeviceAddress vertexAddress = (VkDeviceAddress)buildInfo.VertexBuffer->GetBufferGPUAddress();
+            VkDeviceAddress indexAddress = (VkDeviceAddress)buildInfo.IndexBuffer->GetBufferGPUAddress();
+
+            triangleGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+            triangleGeom.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+            triangleGeom.vertexData.deviceAddress = vertexAddress;
+            triangleGeom.vertexStride = buildInfo.VertexBuffer->GetStride();
+            triangleGeom.indexType = VK_INDEX_TYPE_UINT32;
+            triangleGeom.indexData.deviceAddress = indexAddress;
+            triangleGeom.maxVertex = buildInfo.VertexBuffer->GetAllocatedCount();
+
+            asGeom.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+            asGeom.geometry.triangles = triangleGeom;
+
+            u32 maxPrimitiveCount = buildInfo.IndexBuffer->GetAllocatedCount() / 3;
+            rangeInfo.primitiveCount = maxPrimitiveCount;
+        }
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
         buildInfoVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;

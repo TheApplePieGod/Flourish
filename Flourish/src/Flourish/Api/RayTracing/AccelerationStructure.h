@@ -32,8 +32,11 @@ namespace Flourish
     class Buffer;
     struct AccelerationStructureNodeBuildInfo
     {
-        Buffer* VertexBuffer;
-        Buffer* IndexBuffer;
+        Buffer* VertexBuffer = nullptr;
+        Buffer* IndexBuffer = nullptr;
+
+        Buffer* AABBBuffer = nullptr;
+
         bool TryUpdate = false;
         bool AsyncCompletion = false;
         std::function<void()> CompletionCallback = nullptr;
