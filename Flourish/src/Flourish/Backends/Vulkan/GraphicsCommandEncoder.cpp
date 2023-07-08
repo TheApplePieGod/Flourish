@@ -54,6 +54,7 @@ namespace Flourish::Vulkan
     void GraphicsCommandEncoder::GenerateMipMaps(Flourish::Texture* _texture, SamplerFilter filter)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode GenerateMipMaps after encoding has ended");
+        FL_ASSERT(_texture->GetUsageType() & TextureUsageFlags::Transfer, "Texture must be created with transfer flag to generate mipmaps");
         
         Texture* texture = static_cast<Texture*>(_texture);
 
@@ -76,6 +77,88 @@ namespace Flourish::Vulkan
             Common::ConvertSamplerFilter(filter),
             m_CommandBuffer
         );
+        m_AnyCommandRecorded = true;
+    }
+
+    void GraphicsCommandEncoder::BlitTexture(Flourish::Texture* _src, Flourish::Texture* _dst, u32 srcLayerIndex, u32 srcMipLevel, u32 dstLayerIndex, u32 dstMipLevel)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode CopyTextureToBuffer after encoding has ended");
+        FL_ASSERT(_src->GetUsageType() & TextureUsageFlags::Transfer, "Texture src must be created with transfer flag to perform blit");
+        FL_ASSERT(_dst->GetUsageType() & TextureUsageFlags::Transfer, "Texture dst must be created with transfer flag to perform blit");
+        FL_ASSERT(_src->GetWidth() == _dst->GetWidth(), "Src and dst images must have same width to blit");
+        FL_ASSERT(_src->GetHeight() == _dst->GetHeight(), "Src and dst images must have same height to blit");
+        
+        Texture* src = static_cast<Texture*>(_src);
+        Texture* dst = static_cast<Texture*>(_dst);
+        
+        VkImageLayout srcLayout = (src->GetUsageType() & TextureUsageFlags::Compute) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageLayout dstLayout = (src->GetUsageType() & TextureUsageFlags::Compute) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageAspectFlags srcAspect = src->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        VkImageAspectFlags dstAspect = dst->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+        Texture::TransitionImageLayout(
+            src->GetImage(),
+            srcLayout,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            srcAspect,
+            srcMipLevel, 1,
+            srcLayerIndex, 1,
+            0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            m_CommandBuffer
+        );
+        Texture::TransitionImageLayout(
+            dst->GetImage(),
+            dstLayout,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            dstAspect,
+            dstMipLevel, 1,
+            dstLayerIndex, 1,
+            0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            m_CommandBuffer
+        );
+
+        Texture::Blit(
+            src->GetImage(),
+            Common::ConvertColorFormat(src->GetColorFormat()),
+            srcAspect,
+            srcMipLevel,
+            srcLayerIndex,
+            dst->GetImage(),
+            Common::ConvertColorFormat(dst->GetColorFormat()),
+            dstAspect,
+            dstMipLevel,
+            dstLayerIndex,
+            src->GetWidth(),
+            src->GetHeight(),
+            VK_FILTER_NEAREST, // Assumed for a copy
+            m_CommandBuffer
+        );
+
+        Texture::TransitionImageLayout(
+            dst->GetImage(),
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            dstLayout,
+            dstAspect,
+            dstMipLevel, 1,
+            dstLayerIndex, 1,
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            m_CommandBuffer
+        );
+        Texture::TransitionImageLayout(
+            src->GetImage(),
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            srcLayout,
+            srcAspect,
+            srcMipLevel, 1,
+            srcLayerIndex, 1,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            m_CommandBuffer
+        );
+
         m_AnyCommandRecorded = true;
     }
 }

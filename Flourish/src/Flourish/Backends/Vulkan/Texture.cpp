@@ -33,9 +33,7 @@ namespace Flourish::Vulkan
                 imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
             else
                 imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-            // Transfer is for mipmap generation
-            imageInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            imageInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
         }
         if (m_IsStorageImage)
             imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -377,6 +375,69 @@ namespace Flourish::Vulkan
         return m_Images[frameIndex].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
+    void Texture::Blit(
+        VkImage srcImage,
+        VkFormat srcFormat,
+        VkImageAspectFlags srcAspect,
+        u32 srcMip,
+        u32 srcLayer,
+        VkImage dstImage,
+        VkFormat dstFormat,
+        VkImageAspectFlags dstAspect,
+        u32 dstMip,
+        u32 dstLayer,
+        u32 width,
+        u32 height,
+        VkFilter sampleFilter,
+        VkCommandBuffer buffer)
+    {
+        // Create and start command buffer if it wasn't passed in
+        VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
+        if (!buffer)
+        {
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
+
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            beginInfo.pInheritanceInfo = nullptr;
+
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "Blit command buffer begin");
+        }
+
+        VkImageBlit blit{};
+        blit.srcOffsets[0] = { 0, 0, 0 };
+        blit.srcOffsets[1] = { (int)width, (int)height, 1 };
+        blit.srcSubresource.aspectMask = srcAspect;
+        blit.srcSubresource.mipLevel = srcMip;
+        blit.srcSubresource.baseArrayLayer = srcLayer;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = { 0, 0, 0 };
+        blit.dstOffsets[1] = { (int)width, (int)height, 1 };
+        blit.dstSubresource.aspectMask = dstAspect;
+        blit.dstSubresource.mipLevel = dstMip;
+        blit.dstSubresource.baseArrayLayer = dstLayer;
+        blit.dstSubresource.layerCount = 1;
+
+        vkCmdBlitImage(cmdBuffer,
+            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blit,
+            sampleFilter
+        );
+        
+        if (!buffer)
+        {
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "Blit command buffer end");
+
+            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, allocInfo]()
+            {
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+            }, "Blit command free");
+        }
+    }
+
     void Texture::GenerateMipmaps(
         VkImage image,
         VkFormat imageFormat,
@@ -404,10 +465,6 @@ namespace Flourish::Vulkan
 
             FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "GenerateMipmaps command buffer begin");
         }
-
-        // Check if image format supports linear blitting
-        VkFormatProperties formatProperties;
-        vkGetPhysicalDeviceFormatProperties(Context::Devices().PhysicalDevice(), imageFormat, &formatProperties);
         
         // Expects image to be in TRANSFER_DST_OPTIMAL before proceeding
         if (initialLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
@@ -566,9 +623,9 @@ namespace Flourish::Vulkan
         barrier.srcAccessMask = srcAccessMask;
         barrier.dstAccessMask = dstAccessMask;
         barrier.subresourceRange.aspectMask = imageAspect;
-        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.baseMipLevel = baseMip;
         barrier.subresourceRange.levelCount = mipLevels;
-        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.baseArrayLayer = baseLayer;
         barrier.subresourceRange.layerCount = layerCount;
         
         vkCmdPipelineBarrier(

@@ -55,6 +55,26 @@ namespace Flourish::Vulkan
             VkFilter sampleFilter,
             VkCommandBuffer buffer = nullptr
         );
+
+        // Must transtion srcImage to TRANSFER_SRC and dstImage to TRANSFER_DST
+        static void Blit(
+            VkImage srcImage,
+            VkFormat srcFormat,
+            VkImageAspectFlags srcAspect,
+            u32 srcMip,
+            u32 srcLayer,
+            VkImage dstImage,
+            VkFormat dstFormat,
+            VkImageAspectFlags dstAspect,
+            u32 dstMip,
+            u32 dstLayer,
+            u32 width,
+            u32 height,
+            VkFilter sampleFilter,
+            VkCommandBuffer buffer = nullptr
+        );
+
+        // Can transition image to TRANSFER_DST, will happen automatically
         static void TransitionImageLayout(
             VkImage image,
             VkImageLayout oldLayout,

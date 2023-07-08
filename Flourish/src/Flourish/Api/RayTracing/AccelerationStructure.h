@@ -24,7 +24,7 @@ namespace Flourish
     class AccelerationStructure;
     struct AccelerationStructureInstance
     {
-        float* TransformMatrix; // 4x4 column-major (64 bytes)
+        const float* TransformMatrix; // 4x4 column-major (64 bytes)
         const AccelerationStructure* Parent;
         u32 CustomIndex = 0;
     };
