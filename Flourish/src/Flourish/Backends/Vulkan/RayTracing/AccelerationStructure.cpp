@@ -75,7 +75,8 @@ namespace Flourish::Vulkan
 
         VkAccelerationStructureGeometryKHR asGeom{};
         asGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
-        asGeom.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+        asGeom.flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+        asGeom.flags = buildInfo.Opaque ? VK_GEOMETRY_OPAQUE_BIT_KHR : VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
 
         VkAccelerationStructureBuildRangeInfoKHR rangeInfo;
         rangeInfo.firstVertex = 0;
@@ -141,12 +142,29 @@ namespace Flourish::Vulkan
         m_Instances.reserve(buildInfo.InstanceCount);
         VkAccelerationStructureInstanceKHR instance{};
         instance.mask = 0xFF;
-        instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+
         instance.instanceShaderBindingTableRecordOffset = 0; // Revisit this / parameterize?
         VkAccelerationStructureDeviceAddressInfoKHR accelInfo{};
         accelInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
         for (u32 i = 0; i < buildInfo.InstanceCount; i++)
         {
+            auto& buildInstance = buildInfo.Instances[i];
+
+            FL_ASSERT(
+                (buildInstance.Settings & (
+                    AccelerationStructureInstanceSettingsFlags::ForceOpaque |
+                    AccelerationStructureInstanceSettingsFlags::ForceNoOpaque
+                )) != (
+                    AccelerationStructureInstanceSettingsFlags::ForceOpaque |
+                    AccelerationStructureInstanceSettingsFlags::ForceNoOpaque
+                ),
+                "Cannot set both force opaque and force no opaque acceleration structure instance"
+            );
+
+            instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+            instance.flags |= ((buildInstance.Settings & AccelerationStructureInstanceSettingsFlags::ForceOpaque) > 0) * VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+            instance.flags |= ((buildInstance.Settings & AccelerationStructureInstanceSettingsFlags::ForceNoOpaque) > 0) * VK_GEOMETRY_INSTANCE_FORCE_NO_OPAQUE_BIT_KHR;
+
             // Convert 4x4 col -> 3x4 row major
             // SIMD?
             u32 srcIdx = 0;
@@ -154,11 +172,11 @@ namespace Flourish::Vulkan
             {
                 if ((srcIdx + 1) % 4 == 0)
                     srcIdx++;
-                instance.transform.matrix[dstIdx % 3][dstIdx / 3] = buildInfo.Instances[i].TransformMatrix[srcIdx++];
+                instance.transform.matrix[dstIdx % 3][dstIdx / 3] = buildInstance.TransformMatrix[srcIdx++];
             }
-            accelInfo.accelerationStructure = static_cast<const AccelerationStructure*>(buildInfo.Instances[i].Parent)->GetAccelStructure();
+            accelInfo.accelerationStructure = static_cast<const AccelerationStructure*>(buildInstance.Parent)->GetAccelStructure();
             instance.accelerationStructureReference = vkGetAccelerationStructureDeviceAddressKHR(Context::Devices().Device(), &accelInfo);
-            instance.instanceCustomIndex = buildInfo.Instances[i].CustomIndex;
+            instance.instanceCustomIndex = buildInstance.CustomIndex;
             m_Instances.emplace_back(instance);
         }
 

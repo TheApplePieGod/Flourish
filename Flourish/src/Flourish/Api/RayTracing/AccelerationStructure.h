@@ -2,6 +2,17 @@
 
 namespace Flourish
 {
+    namespace AccelerationStructureInstanceSettingsEnum
+    {
+        enum Value : u8
+        {
+            ForceOpaque = (1 << 0),
+            ForceNoOpaque = (1 << 1)
+        };
+    }
+    typedef AccelerationStructureInstanceSettingsEnum::Value AccelerationStructureInstanceSettingsFlags;
+    typedef u8 AccelerationStructureInstanceSettings;
+
     enum class AccelerationStructureType
     {
         Node = 0,
@@ -27,6 +38,7 @@ namespace Flourish
         const float* TransformMatrix; // 4x4 column-major (64 bytes)
         const AccelerationStructure* Parent;
         u32 CustomIndex = 0;
+        AccelerationStructureInstanceSettings Settings = 0;
     };
 
     class Buffer;
@@ -37,6 +49,7 @@ namespace Flourish
 
         Buffer* AABBBuffer = nullptr;
 
+        bool Opaque = true;
         bool TryUpdate = false;
         bool AsyncCompletion = false;
         std::function<void()> CompletionCallback = nullptr;
