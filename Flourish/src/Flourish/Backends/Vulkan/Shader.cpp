@@ -5,7 +5,7 @@
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 #include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "shaderc/shaderc.hpp"
-#include "spirv_cross/spirv_glsl.hpp"
+#include "spirv_cross/spirv_cross_c.h"
 
 namespace Flourish::Vulkan
 {
@@ -222,14 +222,44 @@ namespace Flourish::Vulkan
 
         u32 size = compiledData.size();
 
-        // For some reason, compiler needs to be heap allocated because otherwise it causes
-        // a crash on macos
-        auto compiler = std::make_unique<spirv_cross::Compiler>(compiledData.data(), compiledData.size());
+        // Create context
+        spvc_context context = nullptr;
+        spvc_context_create(&context);
         
-        // Again on macos something is broken, so we need to zero out these struct members otherwise it crashes
-		spirv_cross::ShaderResources resources = compiler->get_shader_resources();
-        memset(&resources.builtin_inputs, 0, sizeof(resources.builtin_inputs));
-        memset(&resources.builtin_outputs, 0, sizeof(resources.builtin_outputs));
+        // Parse spirv
+        spvc_parsed_ir ir = nullptr;
+        spvc_context_parse_spirv(context, compiledData.data(), compiledData.size(), &ir);
+
+        // Create compiler
+        spvc_compiler compiler = nullptr;
+        spvc_context_create_compiler(context, SPVC_BACKEND_GLSL, ir, SPVC_CAPTURE_MODE_TAKE_OWNERSHIP, &compiler);
+
+        // Get resources
+        spvc_resources resources = nullptr;
+        spvc_compiler_create_shader_resources(compiler, &resources);
+
+        // Reflect
+        const spvc_reflected_resource* uniforms = nullptr;
+        size_t uniformsCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, &uniforms, &uniformsCount);
+        const spvc_reflected_resource* storages = nullptr;
+        size_t storagesCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, &storages, &storagesCount);
+        const spvc_reflected_resource* sampledImages = nullptr;
+        size_t sampledImagesCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, &sampledImages, &sampledImagesCount);
+        const spvc_reflected_resource* storageImages = nullptr;
+        size_t storageImagesCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_STORAGE_IMAGE, &storageImages, &storageImagesCount);
+        const spvc_reflected_resource* subpassInputs = nullptr;
+        size_t subpassInputsCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_SUBPASS_INPUT, &subpassInputs, &subpassInputsCount);
+        const spvc_reflected_resource* accelStructs = nullptr;
+        size_t accelStructsCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_ACCELERATION_STRUCTURE, &accelStructs, &accelStructsCount);
+        const spvc_reflected_resource* pushConstants = nullptr;
+        size_t pushConstantsCount = 0;
+        spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_PUSH_CONSTANT, &pushConstants, &pushConstantsCount);
 
         const char* typeString = "";
         switch (m_Type)
@@ -245,37 +275,44 @@ namespace Flourish::Vulkan
         }
 
 		FL_LOG_DEBUG("GLSL %s shader", typeString);
-		FL_LOG_DEBUG("    %d uniform buffers", resources.uniform_buffers.size());
-        FL_LOG_DEBUG("    %d storage buffers", resources.storage_buffers.size());
-		FL_LOG_DEBUG("    %d sampled images", resources.sampled_images.size());
-        FL_LOG_DEBUG("    %d storage images", resources.storage_images.size());
-        FL_LOG_DEBUG("    %d subpass inputs", resources.subpass_inputs.size());
+		FL_LOG_DEBUG("    %d uniform buffers", uniformsCount);
+        FL_LOG_DEBUG("    %d storage buffers", storagesCount);
+		FL_LOG_DEBUG("    %d sampled images", sampledImagesCount);
+        FL_LOG_DEBUG("    %d storage images", storageImagesCount);
+        FL_LOG_DEBUG("    %d subpass inputs", subpassInputsCount);
+        FL_LOG_DEBUG("    %d acceleration structs", accelStructsCount);
 
         /*
          * Reflect specialization constants
          */
 
-        auto specConstants = compiler->get_specialization_constants();
-        for (auto& constant : specConstants)
+        const spvc_specialization_constant* specConstants = nullptr;
+        size_t specConstantsCount = 0;
+        spvc_compiler_get_specialization_constants(compiler, &specConstants, &specConstantsCount);
+        for (size_t i = 0; i < specConstantsCount; i++)
         {
             m_SpecializationReflection.emplace_back();
 
-            auto& constantVal = compiler->get_constant(constant.id);
-            auto& type = compiler->get_type(constantVal.constant_type);
+            auto handle = spvc_compiler_get_constant_handle(compiler, specConstants[i].id);
+            auto typeId = spvc_constant_get_type(handle);
+            auto type = spvc_compiler_get_type_handle(compiler, typeId);
+            auto baseType = spvc_type_get_basetype(type);
 
-            m_SpecializationReflection.back().ConstantId = constant.constant_id;
+            m_SpecializationReflection.back().ConstantId = specConstants[i].constant_id;
 
-            switch (type.basetype)
+            switch (baseType)
             {
                 default:
                 {
                     FL_LOG_ERROR("Shader has unsupported specialization constant data type");
+                    spvc_context_destroy(context);
                     throw std::exception();
+                    return;
                 }
-                case spirv_cross::SPIRType::Int: { m_SpecializationReflection.back().Type = SpecializationConstantType::Int; } break;
-                case spirv_cross::SPIRType::UInt: { m_SpecializationReflection.back().Type = SpecializationConstantType::UInt; } break;
-                case spirv_cross::SPIRType::Float: { m_SpecializationReflection.back().Type = SpecializationConstantType::Float; } break;
-                case spirv_cross::SPIRType::Boolean: { m_SpecializationReflection.back().Type = SpecializationConstantType::Bool; } break;
+                case SPVC_BASETYPE_INT32: { m_SpecializationReflection.back().Type = SpecializationConstantType::Int; } break;
+                case SPVC_BASETYPE_UINT32: { m_SpecializationReflection.back().Type = SpecializationConstantType::UInt; } break;
+                case SPVC_BASETYPE_FP32: { m_SpecializationReflection.back().Type = SpecializationConstantType::Float; } break;
+                case SPVC_BASETYPE_BOOLEAN: { m_SpecializationReflection.back().Type = SpecializationConstantType::Bool; } break;
             }
 
             // All supported types are 4 bytes
@@ -288,15 +325,16 @@ namespace Flourish::Vulkan
          */
 
         u32 maxSets = Context::Devices().PhysicalDeviceProperties().limits.maxBoundDescriptorSets;
-        if (resources.uniform_buffers.size() > 0)
+        if (uniformsCount)
 		    FL_LOG_DEBUG("  Uniform buffers:");
-		for (const auto& resource : resources.uniform_buffers)
+		for (size_t i = 0; i < uniformsCount; i++)
 		{
-			const auto& bufferType = compiler->get_type(resource.base_type_id);
-			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
-			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
-			size_t memberCount = bufferType.member_types.size();
+            auto bufferType = spvc_compiler_get_type_handle(compiler, uniforms[i].base_type_id);
+            size_t bufferSize = 0;
+            spvc_compiler_get_declared_struct_size(compiler, bufferType, &bufferSize);
+            u32 binding = spvc_compiler_get_decoration(compiler, uniforms[i].id, SpvDecorationBinding);
+            u32 set = spvc_compiler_get_decoration(compiler, uniforms[i].id, SpvDecorationDescriptorSet);
+            u32 memberCount = spvc_type_get_num_member_types(bufferType);
 
             m_ReflectionData.emplace_back(
                 ShaderResourceType::UniformBuffer,
@@ -306,7 +344,7 @@ namespace Flourish::Vulkan
                 (u32)bufferSize, 1
             );
 
-			FL_LOG_DEBUG("    %s", resource.name.c_str());
+			FL_LOG_DEBUG("    %s", uniforms[i].name);
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -314,20 +352,23 @@ namespace Flourish::Vulkan
 
             if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on uniform %s", maxSets, set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on uniform %s", maxSets, set, uniforms[i].name);
+                spvc_context_destroy(context);
                 throw std::exception();
+                return;
             }
 		}
 
-        if (resources.storage_buffers.size() > 0)
+        if (storagesCount)
 		    FL_LOG_DEBUG("  Storage buffers:");
-		for (const auto& resource : resources.storage_buffers)
+		for (size_t i = 0; i < storagesCount; i++)
 		{
-			const auto& bufferType = compiler->get_type(resource.base_type_id);
-			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
-			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
-			size_t memberCount = bufferType.member_types.size();
+            auto bufferType = spvc_compiler_get_type_handle(compiler, storages[i].base_type_id);
+            size_t bufferSize = 0;
+            spvc_compiler_get_declared_struct_size(compiler, bufferType, &bufferSize);
+            u32 binding = spvc_compiler_get_decoration(compiler, storages[i].id, SpvDecorationBinding);
+            u32 set = spvc_compiler_get_decoration(compiler, storages[i].id, SpvDecorationDescriptorSet);
+            u32 memberCount = spvc_type_get_num_member_types(bufferType);
 
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageBuffer,
@@ -337,7 +378,7 @@ namespace Flourish::Vulkan
                 (u32)bufferSize, 1
             );
 
-			FL_LOG_DEBUG("    %s", resource.name.c_str());
+			FL_LOG_DEBUG("    %s", storages[i].name);
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
@@ -345,19 +386,22 @@ namespace Flourish::Vulkan
 
             if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on storage %s", maxSets, set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on storage %s", maxSets, set, storages[i].name);
+                spvc_context_destroy(context);
                 throw std::exception();
+                return;
             }
 		}
 
-        if (resources.sampled_images.size() > 0)
+        if (sampledImagesCount)
 		    FL_LOG_DEBUG("  Sampled Images:");
-		for (const auto& resource : resources.sampled_images)
+		for (size_t i = 0; i < sampledImagesCount; i++)
 		{
-            const auto& imageType = compiler->get_type(resource.type_id);
-			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
-            u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
+            auto imageType = spvc_compiler_get_type_handle(compiler, sampledImages[i].type_id);
+            u32 binding = spvc_compiler_get_decoration(compiler, sampledImages[i].id, SpvDecorationBinding);
+            u32 set = spvc_compiler_get_decoration(compiler, sampledImages[i].id, SpvDecorationDescriptorSet);
+            u32 arrayDimension = spvc_type_get_num_array_dimensions(imageType);
+            u32 arrayCount = arrayDimension == 0 ? 1 : spvc_type_get_array_dimension(imageType, 0);
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::Texture,
@@ -367,28 +411,29 @@ namespace Flourish::Vulkan
                 arrayCount
             );
 
-			FL_LOG_DEBUG("    Image (%s)", resource.name.c_str());
+			FL_LOG_DEBUG("    Image (%s)", sampledImages[i].name);
             FL_LOG_DEBUG("      ArrayCount = %d", arrayCount);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
             if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on sampler %s", maxSets, set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on sampler %s", maxSets, set, sampledImages[i].name);
+                spvc_context_destroy(context);
                 throw std::exception();
+                return;
             }
 		}
 
-        if (resources.storage_images.size() > 0)
+        if (storageImagesCount)
 		    FL_LOG_DEBUG("  Storage Images:");
-		for (const auto& resource : resources.storage_images)
+		for (size_t i = 0; i < storageImagesCount; i++)
 		{
-            const auto& imageType = compiler->get_type(resource.type_id);
-			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
-            u32 arrayCount = imageType.array.empty() ? 1 : imageType.array[0];
-            if (imageType.image.dim == spv::Dim::DimCube)
-                arrayCount *= 6;
+            auto imageType = spvc_compiler_get_type_handle(compiler, storageImages[i].type_id);
+            u32 binding = spvc_compiler_get_decoration(compiler, storageImages[i].id, SpvDecorationBinding);
+            u32 set = spvc_compiler_get_decoration(compiler, storageImages[i].id, SpvDecorationDescriptorSet);
+            u32 arrayDimension = spvc_type_get_num_array_dimensions(imageType);
+            u32 arrayCount = arrayDimension == 0 ? 1 : spvc_type_get_array_dimension(imageType, 0);
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageTexture,
@@ -398,26 +443,27 @@ namespace Flourish::Vulkan
                 arrayCount
             );
 
-			FL_LOG_DEBUG("    StorageImage (%s)", resource.name.c_str());
+			FL_LOG_DEBUG("    StorageImage (%s)", storageImages[i].name);
             FL_LOG_DEBUG("      ArrayCount = %d", arrayCount);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
             if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on image %s", maxSets, set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on image %s", maxSets, set, storageImages[i].name);
+                spvc_context_destroy(context);
                 throw std::exception();
+                return;
             }
 		}
 
-        if (resources.subpass_inputs.size() > 0)
+        if (subpassInputsCount)
 		    FL_LOG_DEBUG("  Subpass Inputs:");
-		for (const auto& resource : resources.subpass_inputs)
+		for (size_t i = 0; i < subpassInputsCount; i++)
 		{
-            const auto& subpassType = compiler->get_type(resource.type_id);
-			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
-            u32 attachmentIndex = compiler->get_decoration(resource.id, spv::DecorationInputAttachmentIndex);
+            u32 binding = spvc_compiler_get_decoration(compiler, subpassInputs[i].id, SpvDecorationBinding);
+            u32 set = spvc_compiler_get_decoration(compiler, subpassInputs[i].id, SpvDecorationDescriptorSet);
+            u32 attachmentIndex = spvc_compiler_get_decoration(compiler, subpassInputs[i].id, SpvDecorationInputAttachmentIndex);
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::SubpassInput,
@@ -426,25 +472,26 @@ namespace Flourish::Vulkan
                 set, 0, 1
             );
 
-			FL_LOG_DEBUG("    Input (%s)", resource.name.c_str());
+			FL_LOG_DEBUG("    Input (%s)", subpassInputs[i].name);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
             FL_LOG_DEBUG("      AttachmentIndex = %d", attachmentIndex);
 
             if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on subpass %s", maxSets, set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on subpass %s", maxSets, set, subpassInputs[i].name);
+                spvc_context_destroy(context);
                 throw std::exception();
+                return;
             }
 		}
 
-        if (resources.acceleration_structures.size() > 0)
+        if (accelStructsCount)
 		    FL_LOG_DEBUG("  Acceleration Structures:");
-		for (const auto& resource : resources.acceleration_structures)
+		for (size_t i = 0; i < accelStructsCount; i++)
 		{
-            const auto& accelType = compiler->get_type(resource.type_id);
-			u32 binding = compiler->get_decoration(resource.id, spv::DecorationBinding);
-            u32 set = compiler->get_decoration(resource.id, spv::DecorationDescriptorSet);
+            u32 binding = spvc_compiler_get_decoration(compiler, accelStructs[i].id, SpvDecorationBinding);
+            u32 set = spvc_compiler_get_decoration(compiler, accelStructs[i].id, SpvDecorationDescriptorSet);
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::AccelerationStructure,
@@ -453,37 +500,42 @@ namespace Flourish::Vulkan
                 set, 0, 1
             );
 
-			FL_LOG_DEBUG("    Accel Struct (%s)", resource.name.c_str());
+			FL_LOG_DEBUG("    Accel Struct (%s)", accelStructs[i].name);
             FL_LOG_DEBUG("      Set = %d", set);
 			FL_LOG_DEBUG("      Binding = %d", binding);
 
             if (set >= maxSets)
             {
-                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on accel struct %s", maxSets, set, resource.name.c_str());
+                FL_LOG_ERROR("Failed to initialize shader, the 'set' qualifier must be less than %d but is %d on accel struct %s", maxSets, set, accelStructs[i].name);
+                spvc_context_destroy(context);
                 throw std::exception();
+                return;
             }
 		}
 
-        if (resources.push_constant_buffers.size() > 0)
+        if (pushConstantsCount)
         {
 		    FL_LOG_DEBUG("  Push constants:");
             FL_ASSERT(
-                resources.push_constant_buffers.size() == 1,
+                pushConstantsCount == 1,
                 "Cannot declare more than one push constant block in a shader"
             );
         }
-		for (const auto& resource : resources.push_constant_buffers)
+		for (size_t i = 0; i < pushConstantsCount; i++)
 		{
-			const auto& bufferType = compiler->get_type(resource.base_type_id);
-			size_t bufferSize = compiler->get_declared_struct_size(bufferType);
-			size_t memberCount = bufferType.member_types.size();
+            auto bufferType = spvc_compiler_get_type_handle(compiler, pushConstants[i].base_type_id);
+            size_t bufferSize = 0;
+            spvc_compiler_get_declared_struct_size(compiler, bufferType, &bufferSize);
+            u32 memberCount = spvc_type_get_num_member_types(bufferType);
 
             m_PushConstantReflection.Size = bufferSize;
             m_PushConstantReflection.AccessType = m_Type;
 
-			FL_LOG_DEBUG("    %s", resource.name.c_str());
+			FL_LOG_DEBUG("    %s", pushConstants[i].name);
 			FL_LOG_DEBUG("      Size = %d", bufferSize);
 			FL_LOG_DEBUG("      Members = %d", memberCount);
 		}
+
+        spvc_context_destroy(context);
     }
 }

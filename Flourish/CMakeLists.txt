@@ -108,27 +108,20 @@ endif()
 
 # Link vulkan related libraries & copy if necessary
 if (WIN32)
-  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    set(DEBUG_LIB_EXTRAS "d")
-  endif()
   find_library(shaderc
     NAMES "shaderc_shared"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
-  find_library(spirvcore${DEBUG_LIB_EXTRAS}
-    NAMES "spirv-cross-core${DEBUG_LIB_EXTRAS}"
+  find_library(spirvcore
+    NAMES "spirv-cross-c-shared"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
-  target_link_libraries(FlourishCore ${spirvcore${DEBUG_LIB_EXTRAS}})
-  find_library(spirvglsl
-    NAMES "spirv-cross-glsl"
-    PATHS "$ENV{VULKAN_SDK}/lib"
-  )
-  target_link_libraries(FlourishCore ${spirvglsl})
+  target_link_libraries(FlourishCore ${spirvcore})
 
   add_custom_target(CopyVulkanLibs ALL
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/shaderc_shared.dll ${OUTPUT_DIRECTORY}/shaderc_shared.dll
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/spirv-cross-c-shared.dll ${OUTPUT_DIRECTORY}/spirv-cross-c-shared.dll
   )
 elseif(APPLE)
   find_library(shaderc
@@ -137,15 +130,9 @@ elseif(APPLE)
   )
   target_link_libraries(FlourishCore ${shaderc})
   find_library(spirvcore
-    NAMES "libspirv-cross-core.a"
+    NAMES "libspirv-cross-c.a"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
-  target_link_libraries(FlourishCore ${spirvcore})
-  find_library(spirvglsl
-    NAMES "libspirv-cross-glsl.a"
-    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
-  )
-  target_link_libraries(FlourishCore ${sprivglsl})
 
   add_custom_target(CopyVulkanLibs ALL
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
