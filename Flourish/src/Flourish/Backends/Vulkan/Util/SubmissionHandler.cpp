@@ -79,8 +79,6 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::ProcessPushSubmission(Flourish::RenderGraph* graph, std::function<void()> callback)
     {
-        std::vector<CommandBufferEncoderSubmission> submissionsToFree;
-
         /*
         for (auto& list : buffers)
         {
@@ -105,14 +103,10 @@ namespace Flourish::Vulkan
             &values
         );
         
-        Context::FinalizerQueue().PushAsync([callback, submissionsToFree]()
-        {
-            for (auto& submission : submissionsToFree)
-                Context::Commands().FreeBuffers(submission.AllocInfo, submission.Buffers.data(), submission.Buffers.size());
+        if (!callback)
+            return;
 
-            if (callback)
-                callback();
-        }, semaphores.data(), values.data(), semaphores.size(), "Push submission finalizer");
+        Context::FinalizerQueue().PushAsync(callback, semaphores.data(), values.data(), semaphores.size(), "Push submission finalizer");
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
@@ -226,7 +220,7 @@ namespace Flourish::Vulkan
                             Context::Queues().LockQueue(submitData.Workload, false);
                             Context::Queues().LockPresentQueue(false);
 
-                            // Need to free buffer
+                            // Need to free primary buffer
                             if (!frameScope)
                             {
                                 Context::FinalizerQueue().PushAsync([lastAlloc, primaryBuf]()
@@ -286,6 +280,22 @@ namespace Flourish::Vulkan
                         }
                         else
                             vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
+
+                        // Free submitted buffers
+                        if (!frameScope)
+                        {
+                            auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
+                            auto& submitInfo = submitData.SubmitInfos[frameIndex];
+
+                            Context::FinalizerQueue().PushAsync([submission]()
+                            {
+                                Context::Commands().FreeBuffers(
+                                    submission.AllocInfo,
+                                    submission.Buffers.data(),
+                                    submission.Buffers.size()
+                                );
+                            }, submitInfo.pSignalSemaphores, &submitData.SignalSemaphoreValue, 1);
+                        }
                     }
 
                     totalIndex++;
