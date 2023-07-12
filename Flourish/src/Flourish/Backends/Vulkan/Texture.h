@@ -115,9 +115,11 @@ namespace Flourish::Vulkan
         VkFormat m_Format;
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
-        u32* m_ReadyState = nullptr;
         bool m_IsDepthImage = false;
         bool m_IsStorageImage = false;
+
+        // TODO: remove this and use an upload system like buffers 
+        std::shared_ptr<bool> m_IsReady = nullptr;
     
     private:
         #ifdef FL_USE_IMGUI

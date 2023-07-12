@@ -13,7 +13,7 @@ namespace Flourish::Vulkan
     Texture::Texture(const TextureCreateInfo& createInfo)
         : Flourish::Texture(createInfo)
     {
-        m_ReadyState = new u32();
+        m_IsReady = std::make_shared<bool>(false);
         m_IsDepthImage = m_Info.Format == ColorFormat::Depth;
         m_Format = Common::ConvertColorFormat(m_Info.Format);
         m_IsStorageImage = m_Info.Usage & TextureUsageFlags::Compute;
@@ -244,14 +244,15 @@ namespace Flourish::Vulkan
 
         if (m_Info.AsyncCreation)
         {
-            auto readyState = m_ReadyState;
+            std::weak_ptr<bool> ready = m_IsReady;
             auto callback = m_Info.CreationCallback;
             Context::Queues().PushCommand(
                 GPUWorkloadType::Graphics, 
                 cmdBuffer,
                 [=]()
                 {
-                    *readyState += 1;
+                    if (auto readyPtr = ready.lock())
+                        *readyPtr = true;
                     if (callback)
                         callback();
                     Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
@@ -264,7 +265,7 @@ namespace Flourish::Vulkan
         else
         {
             Context::Queues().ExecuteCommand(GPUWorkloadType::Graphics, cmdBuffer);
-            *m_ReadyState += 1;
+            *m_IsReady = true;
             if (m_Info.CreationCallback)
                 m_Info.CreationCallback();
             Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
@@ -293,12 +294,8 @@ namespace Flourish::Vulkan
         auto imageCount = m_ImageCount;
         auto sampler = m_Sampler;
         auto images = m_Images;
-        auto readyState = m_ReadyState;
         Context::FinalizerQueue().Push([=]()
         {
-            if (readyState)
-                delete readyState;
-
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < imageCount; frame++)
             {
@@ -327,7 +324,7 @@ namespace Flourish::Vulkan
 
     bool Texture::IsReady() const
     {
-        return *m_ReadyState == 1;
+        return *m_IsReady;
     }
 
     #ifdef FL_USE_IMGUI
