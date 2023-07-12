@@ -11,18 +11,11 @@ namespace Flourish::Vulkan
         int LastWriteIndex = -1;
         int LastWriteWorkloadIndex = -1;
         GPUWorkloadType LastWriteWorkload;
-        std::array<bool, 3> WorkloadsWaited{};
-        std::array<VkEvent, Flourish::Context::MaxFrameBufferCount> WriteEvents{};
-    };
-
-    struct SubmissionEventData
-    {
-        std::array<VkEvent, Flourish::Context::MaxFrameBufferCount> Events;
-        VkDependencyInfo DepInfo;
     };
 
     struct SubmissionSubmitInfo
     {
+        std::vector<int> WaitingWorkloads;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> WaitSemaphores;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
         u64 SignalSemaphoreValue;
@@ -33,18 +26,24 @@ namespace Flourish::Vulkan
         bool IsCompletion = true;
     };
 
+    struct SubmissionBarrier
+    {
+        bool ShouldBarrier = false;
+        VkMemoryBarrier MemoryBarrier{};
+        VkPipelineStageFlags SrcStage = 0;
+        VkPipelineStageFlags DstStage = 0;
+    };
+
     struct SubmissionSyncInfo
     {
         int SubmitDataIndex = -1;
-        int WriteEvent = -1;
-        std::vector<int> WaitEvents;
+        SubmissionBarrier Barrier;
     };
 
     struct GraphExecuteData
     {
         std::vector<u64> SubmissionOrder;
         std::vector<SubmissionSyncInfo> SubmissionSyncs;
-        std::vector<SubmissionEventData> EventData;
         std::vector<SubmissionSubmitInfo> SubmitData;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> CompletionSemaphores;
 
@@ -74,7 +73,6 @@ namespace Flourish::Vulkan
         u64 m_LastBuildFrame = 0;
         std::array<int, 3> m_LastWaitWrites;
         std::vector<VkSemaphore> m_AllSemaphores;
-        std::vector<VkEvent> m_AllEvents;
 
         // All resources that matter when syncing (aka writes)
         std::unordered_map<u64, ResourceSyncInfo> m_AllResources;

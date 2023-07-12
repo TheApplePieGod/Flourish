@@ -8,37 +8,25 @@
 
 namespace Flourish::Vulkan
 {
-    const VkDependencyInfo GENERIC_DEP_INFO = {
-        VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        nullptr,
-        0, 1
+    const SubmissionBarrier GRAPHICS_BARRIER = {
+        true,
+        { VK_STRUCTURE_TYPE_MEMORY_BARRIER },
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT
     };
 
-    const VkMemoryBarrier2 GRAPHICS_MEM_BARRIER = {
-        VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-        nullptr,
-        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-        VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-        VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+    const SubmissionBarrier COMPUTE_BARRIER = {
+        true,
+        { VK_STRUCTURE_TYPE_MEMORY_BARRIER },
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR
     };
 
-    const VkMemoryBarrier2 COMPUTE_MEM_BARRIER = {
-        VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-        nullptr,
-        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_SHADER_WRITE_BIT,
-        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_SHADER_READ_BIT
-    };
-
-    const VkMemoryBarrier2 TRANSFER_MEM_BARRIER = {
-        VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-        nullptr,
-        VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-        VK_ACCESS_2_TRANSFER_WRITE_BIT,
-        VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-        VK_ACCESS_2_TRANSFER_READ_BIT
+    const SubmissionBarrier TRANSFER_BARRIER = {
+        true,
+        { VK_STRUCTURE_TYPE_MEMORY_BARRIER },
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT
     };
 
     RenderGraph::RenderGraph(const RenderGraphCreateInfo& createInfo)
@@ -51,13 +39,10 @@ namespace Flourish::Vulkan
     RenderGraph::~RenderGraph()
     {
         auto semaphores = m_AllSemaphores;
-        auto events = m_AllEvents;
         Context::FinalizerQueue().Push([=]()
         {
             for (VkSemaphore sem : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), sem, nullptr);
-            for (VkEvent event : events)
-                vkDestroyEvent(Context::Devices().Device(), event, nullptr);
         }, "RenderGraph free");
     }
 
@@ -68,7 +53,6 @@ namespace Flourish::Vulkan
         m_LastWaitWrites = { -1, -1, -1 };
         m_ExecuteData.SubmissionOrder.clear();
         m_ExecuteData.SubmissionSyncs.clear();
-        m_ExecuteData.EventData.clear();
         m_ExecuteData.SubmitData.clear();
         m_TemporarySubmissionOrder.clear();
         m_AllResources.clear();
@@ -153,6 +137,8 @@ namespace Flourish::Vulkan
                     currentWorkloadType = submitData.Workload;
                 }
 
+                auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
+                auto& workloadSync = m_ExecuteData.SubmissionSyncs[currentWorkloadIndex];
                 for (u64 read : submission.ReadResources)
                 {
                     auto resource = m_AllResources.find(read);
@@ -161,40 +147,37 @@ namespace Flourish::Vulkan
                     auto& resourceInfo = resource->second;
                     if (resourceInfo.LastWriteIndex == -1)
                         continue;
-                    if (resourceInfo.WorkloadsWaited[(u32)submission.WorkloadType])
-                        continue;
 
-                    resourceInfo.WorkloadsWaited[(u32)submission.WorkloadType] = true;
-
-                    auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
-                    auto& workloadSync = m_ExecuteData.SubmissionSyncs[currentWorkloadIndex];
                     if (resourceInfo.LastWriteWorkload == submission.WorkloadType)
                     {
-                        // If the write occured before the previous event, we don't have to wait again
+                        // If the write occured before the previous wait, we don't have to wait again
                         // because the event existing implies a read that occured before this one
                         if (resourceInfo.LastWriteIndex > m_LastWaitWrites[(u32)submission.WorkloadType])
                         {
-                            u32 eventDataIndex = m_ExecuteData.EventData.size();
-                            m_ExecuteData.EventData.push_back({ resourceInfo.WriteEvents, GENERIC_DEP_INFO });
-
+                            // Since we process reads first, always initialize the barrier
                             switch (submission.WorkloadType)
                             {
                                 case GPUWorkloadType::Graphics:
-                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &GRAPHICS_MEM_BARRIER; } break;
+                                {
+                                    currentSync.Barrier = GRAPHICS_BARRIER;
+                                    currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                                    currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+                                } break;
                                 case GPUWorkloadType::Compute:
-                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &COMPUTE_MEM_BARRIER; } break;
+                                {
+                                    currentSync.Barrier = COMPUTE_BARRIER;
+                                    currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+                                    currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+                                } break;
                                 case GPUWorkloadType::Transfer:
-                                { m_ExecuteData.EventData.back().DepInfo.pMemoryBarriers = &TRANSFER_MEM_BARRIER; } break;
+                                {
+                                    currentSync.Barrier = TRANSFER_BARRIER;
+                                    currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                                    currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                                } break;
                             }
 
-                            currentSync.WaitEvents.emplace_back(eventDataIndex);
                             m_LastWaitWrites[(u32)submission.WorkloadType] = resourceInfo.LastWriteIndex;
-
-                            // Write only on the last time we wrote which will sync all writes before
-                            // Should always only signal one event
-                            auto& lastWriteSync = m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteIndex];
-                            FL_ASSERT(lastWriteSync.WriteEvent == -1);
-                            lastWriteSync.WriteEvent = eventDataIndex;
                         }
                     }
                     else
@@ -203,59 +186,82 @@ namespace Flourish::Vulkan
                         // on the one where the write occured
                         // This also implies that currentWorkloadIndex != lastWorkloadIndex != -1
 
-                        auto& fromSubmit = m_ExecuteData.SubmitData[m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex];
+                        // Check if we are already waiting on the from workload
+                        int fromSubmitIndex = m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex;
                         auto& toSubmit = m_ExecuteData.SubmitData[workloadSync.SubmitDataIndex];
-
-                        fromSubmit.IsCompletion = false;
-
-                        // We want to wait on the stage of the current workload since we before the
-                        // execution of the stage
-                        VkPipelineStageFlags waitFlags;
-                        switch (submission.WorkloadType)
+                        if (std::find(toSubmit.WaitingWorkloads.begin(), toSubmit.WaitingWorkloads.end(), fromSubmitIndex) == toSubmit.WaitingWorkloads.end())
                         {
-                            case GPUWorkloadType::Graphics:
-                            { waitFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT; } break;
-                            case GPUWorkloadType::Compute:
-                            { waitFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT; } break;
-                            case GPUWorkloadType::Transfer:
-                            { waitFlags = VK_PIPELINE_STAGE_TRANSFER_BIT; } break;
-                        }
+                            auto& fromSubmit = m_ExecuteData.SubmitData[fromSubmitIndex];
+                            fromSubmit.IsCompletion = false;
 
-                        toSubmit.WaitStageFlags.emplace_back(waitFlags);
-                        toSubmit.TimelineSubmitInfo.waitSemaphoreValueCount++;
-                        for (u32 i = 0; i < m_SyncObjectCount; i++)
-                        {
-                            toSubmit.WaitSemaphores[i].emplace_back(fromSubmit.SignalSemaphores[i]);
-                            toSubmit.SubmitInfos[i].waitSemaphoreCount++;
+                            // We want to wait on the stage of the current workload since we before the
+                            // execution of the stage
+                            VkPipelineStageFlags waitFlags;
+                            switch (submission.WorkloadType)
+                            {
+                                case GPUWorkloadType::Graphics:
+                                { waitFlags = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT; } break;
+                                case GPUWorkloadType::Compute:
+                                { waitFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT; } break;
+                                case GPUWorkloadType::Transfer:
+                                { waitFlags = VK_PIPELINE_STAGE_TRANSFER_BIT; } break;
+                            }
 
-                            // Ensure pointers stay valid
-                            toSubmit.SubmitInfos[i].pWaitSemaphores = toSubmit.WaitSemaphores[i].data();
-                            toSubmit.SubmitInfos[i].pWaitDstStageMask = toSubmit.WaitStageFlags.data();
+                            toSubmit.WaitingWorkloads.emplace_back(fromSubmitIndex);
+                            toSubmit.WaitStageFlags.emplace_back(waitFlags);
+                            toSubmit.TimelineSubmitInfo.waitSemaphoreValueCount++;
+                            for (u32 i = 0; i < m_SyncObjectCount; i++)
+                            {
+                                toSubmit.WaitSemaphores[i].emplace_back(fromSubmit.SignalSemaphores[i]);
+                                toSubmit.SubmitInfos[i].waitSemaphoreCount++;
+
+                                // Ensure pointers stay valid
+                                toSubmit.SubmitInfos[i].pWaitSemaphores = toSubmit.WaitSemaphores[i].data();
+                                toSubmit.SubmitInfos[i].pWaitDstStageMask = toSubmit.WaitStageFlags.data();
+                            }
+                            if (toSubmit.WaitSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
+                                m_ExecuteData.WaitSemaphoreValues.emplace_back();
                         }
-                        if (toSubmit.WaitSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
-                            m_ExecuteData.WaitSemaphoreValues.emplace_back();
                     }
                 }
 
                 for (u64 write : submission.WriteResources)
                 {
-                    // We can lazy insert once we see a write because the resouce only
-                    // matters after the first write
-                    auto& resource = m_AllResources[write];
-                    if (resource.LastWriteIndex == -1)
+                    auto& resourceInfo = m_AllResources[write];
+
+                    // Always do a write -> write sync if we are on the same workload
+                    if (resourceInfo.LastWriteIndex != -1 && resourceInfo.LastWriteWorkload == submission.WorkloadType)
                     {
-                        for (u32 i = 0; i < m_SyncObjectCount; i++)
+                        // Need to initialize barrier if a read has not also occured
+                        switch (submission.WorkloadType)
                         {
-                            if (eventIndex >= m_AllEvents.size())
-                                m_AllEvents.emplace_back(Synchronization::CreateEvent());
-                            resource.WriteEvents[i] = m_AllEvents[eventIndex++];
+                            case GPUWorkloadType::Graphics:
+                            {
+                                if (!currentSync.Barrier.ShouldBarrier)
+                                    currentSync.Barrier = GRAPHICS_BARRIER;
+                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                                currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                            } break;
+                            case GPUWorkloadType::Compute:
+                            {
+                                if (!currentSync.Barrier.ShouldBarrier)
+                                    currentSync.Barrier = COMPUTE_BARRIER;
+                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
+                                currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
+                            } break;
+                            case GPUWorkloadType::Transfer:
+                            {
+                                if (!currentSync.Barrier.ShouldBarrier)
+                                    currentSync.Barrier = TRANSFER_BARRIER;
+                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+                                currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+                            } break;
                         }
                     }
 
-                    resource.LastWriteIndex = totalIndex;
-                    resource.LastWriteWorkloadIndex = currentWorkloadIndex;
-                    resource.LastWriteWorkload = currentWorkloadType;
-                    resource.WorkloadsWaited = {};
+                    resourceInfo.LastWriteIndex = totalIndex;
+                    resourceInfo.LastWriteWorkloadIndex = currentWorkloadIndex;
+                    resourceInfo.LastWriteWorkload = currentWorkloadType;
                 }
 
                 totalIndex++;

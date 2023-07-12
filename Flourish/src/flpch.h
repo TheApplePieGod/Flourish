@@ -16,6 +16,10 @@
     #define FL_PROFILE_FUNCTION()
 #endif
 
+#if defined(FL_HAS_AFTERMATH) && defined(FL_DEBUG)
+    #define FL_USE_AFTERMATH
+#endif
+
 #include <string>
 #include <vector>
 #include <array>
@@ -37,4 +41,6 @@
 
 #ifdef FL_PLATFORM_WINDOWS
 	#include <Windows.h>
+#else
+    #include <dlfcn.h>
 #endif

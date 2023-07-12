@@ -23,9 +23,7 @@ namespace Flourish
     class ResourceSetAllocator
     {
     public:
-        ResourceSetAllocator(const ResourceSetAllocatorCreateInfo& createInfo)
-            : m_Info(createInfo)
-        {}
+        ResourceSetAllocator(const ResourceSetAllocatorCreateInfo& createInfo);
         virtual ~ResourceSetAllocator() = default;
 
         // TS

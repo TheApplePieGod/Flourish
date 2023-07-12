@@ -1,12 +1,15 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Shader.h"
 
 namespace Flourish
 {
     struct ComputePipelineCreateInfo
     {
-        std::shared_ptr<Shader> ComputeShader;
+        PipelineShader Shader;
+
+        std::vector<AccessFlagsOverride> AccessOverrides;
     };
 
     class ResourceSet;
@@ -17,7 +20,7 @@ namespace Flourish
         ComputePipeline(const ComputePipelineCreateInfo& createInfo)
             : m_Info(createInfo)
         {
-            FL_ASSERT(createInfo.ComputeShader, "Must specify a compute shader asset");
+            FL_ASSERT(createInfo.Shader.Shader, "Must specify a compute shader asset");
         }
         virtual ~ComputePipeline() = default;
         
@@ -25,8 +28,6 @@ namespace Flourish
         // NOTE: Try to keep binding & set indices as low as possible
         virtual std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo) = 0;
 
-        inline const Shader* GetComputeShader() const { return m_Info.ComputeShader.get(); }
-        
     public:
         // TS
         static std::shared_ptr<ComputePipeline> Create(const ComputePipelineCreateInfo& createInfo);

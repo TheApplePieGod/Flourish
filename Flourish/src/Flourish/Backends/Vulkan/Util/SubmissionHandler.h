@@ -22,9 +22,10 @@ namespace Flourish::Vulkan
         void ProcessExecuteSubmission(Flourish::RenderGraph* graph);
         
     public:
-        static void ProcessSubmission(
+        void ProcessSubmission(
             Flourish::RenderGraph* const* graphs,
             u32 graphCount,
+            bool frameScope,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
         );
@@ -43,6 +44,7 @@ namespace Flourish::Vulkan
     private:
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
         std::array<std::vector<u64>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphoreValues;
+        std::vector<VkPipelineStageFlags> m_FrameWaitFlags;
         std::vector<VkPipelineStageFlags> m_RenderContextWaitFlags;
     };
 }

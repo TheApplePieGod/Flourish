@@ -5,6 +5,10 @@
 
 namespace Flourish
 {
+    ResourceSetAllocator::ResourceSetAllocator(const ResourceSetAllocatorCreateInfo& createInfo)
+        : m_Info(createInfo)
+    {}
+
     std::shared_ptr<ResourceSetAllocator> ResourceSetAllocator::Create(const ResourceSetAllocatorCreateInfo& createInfo)
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a ResourceSetAllocator");

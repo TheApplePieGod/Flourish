@@ -15,7 +15,8 @@ namespace Flourish::Vulkan
 
         void BeginEncoding();
         void EndEncoding() override;
-        void GenerateMipMaps(Flourish::Texture* texture) override;
+        void GenerateMipMaps(Flourish::Texture* texture, SamplerFilter filter) override;
+        void BlitTexture(Flourish::Texture* src, Flourish::Texture* dst, u32 srcLayerIndex, u32 srcMipLevel, u32 dstLayerIndex, u32 dstMipLevel) override;
 
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }

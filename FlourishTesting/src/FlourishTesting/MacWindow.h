@@ -3,5 +3,5 @@
 struct MacOS
 {
     static void PollEvents();
-    static void* CreateWindowAndGetView(int width, int height);
+    static void* CreateWindowAndGetLayer(int width, int height);
 };

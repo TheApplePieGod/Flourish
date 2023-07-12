@@ -12,6 +12,7 @@ namespace Flourish
 
         s_ReversedZBuffer = initInfo.UseReversedZBuffer;
         s_FrameBufferCount = initInfo.FrameBufferCount;
+        s_LastFrameIndex = s_FrameBufferCount - 1;
         if (s_FrameBufferCount > MaxFrameBufferCount)
         {
             FL_LOG_WARN("Frame buffer count is limited to %d", MaxFrameBufferCount);
@@ -40,6 +41,8 @@ namespace Flourish
 
     void Context::BeginFrame()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot begin frame, context has not been initialized");
 
         switch (s_BackendType)
@@ -50,6 +53,8 @@ namespace Flourish
     
     void Context::EndFrame()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(s_BackendType != BackendType::None, "Cannot end frame, context has not been initialized");
 
         switch (s_BackendType)
@@ -60,6 +65,7 @@ namespace Flourish
         s_GraphSubmissions.clear();
         s_ContextSubmissions.clear();
         s_FrameCount++;
+        s_LastFrameIndex = s_FrameIndex;
         s_FrameIndex = (s_FrameIndex + 1) % FrameBufferCount();
     }
     

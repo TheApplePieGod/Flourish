@@ -77,7 +77,7 @@ namespace Flourish
         virtual void Build() = 0;
 
         // TS
-        inline bool IsBuild() const { return m_Built; }
+        inline bool IsBuilt() const { return m_Built; }
         inline const RenderGraphNode& GetNode(u64 id) const { return m_Nodes.at(id); }
         inline const auto& GetNodes() const { return m_Nodes; }
         inline RenderGraphUsageType GetUsage() const { return m_Info.Usage; }

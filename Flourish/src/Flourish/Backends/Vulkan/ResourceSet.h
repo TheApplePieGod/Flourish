@@ -20,14 +20,17 @@ namespace Flourish::Vulkan
         void BindTexture(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 arrayIndex = 0) override;
         void BindTextureLayer(u32 bindingIndex, const std::shared_ptr<Flourish::Texture>& texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex = 0) override;
         void BindSubpassInput(u32 bindingIndex, const std::shared_ptr<Flourish::Framebuffer>& framebuffer, SubpassAttachment attachment) override;
+        void BindAccelerationStructure(u32 bindingIndex, const std::shared_ptr<Flourish::AccelerationStructure>& accelStruct) override;
         void BindBuffer(u32 bindingIndex, const Flourish::Buffer* buffer, u32 bufferOffset, u32 elementCount) override;
         void BindTexture(u32 bindingIndex, const Flourish::Texture* texture, u32 arrayIndex = 0) override;
         void BindTextureLayer(u32 bindingIndex, const Flourish::Texture* texture, u32 layerIndex, u32 mipLevel, u32 arrayIndex = 0) override;
         void BindSubpassInput(u32 bindingIndex, const Flourish::Framebuffer* framebuffer, SubpassAttachment attachment) override;
+        void BindAccelerationStructure(u32 bindingIndex, const Flourish::AccelerationStructure* accelStruct) override;
         void FlushBindings() override;
 
         // TS
         VkDescriptorSet GetSet() const;
+        VkDescriptorSet GetSet(u32 frameIndex) const;
         
         // TS
         inline const DescriptorPool* GetParentPool() const { return m_ParentPool.get(); }
@@ -38,16 +41,18 @@ namespace Flourish::Vulkan
             std::shared_ptr<Flourish::Buffer> Buffer;
             std::shared_ptr<Flourish::Texture> Texture;
             std::shared_ptr<Flourish::Framebuffer> Framebuffer;
+            std::shared_ptr<Flourish::AccelerationStructure> AccelStruct;
 
             void Clear();
         };
 
         struct CachedData
         {
-            u32 WritesReadyCount = 0;
             std::vector<VkWriteDescriptorSet> DescriptorWrites;
             std::vector<VkDescriptorBufferInfo> BufferInfos;
             std::vector<VkDescriptorImageInfo> ImageInfos;
+            std::vector<VkAccelerationStructureKHR> Accels;
+            std::vector<VkWriteDescriptorSetAccelerationStructureKHR> AccelWrites;
         };
 
         struct SetList
@@ -58,7 +63,12 @@ namespace Flourish::Vulkan
 
     private:
         void SwapNextAllocation();
-        void ValidateBinding(u32 bindingIndex, ShaderResourceType resourceType, const void* resource);
+        bool ValidateBinding(
+            u32 bindingIndex,
+            ShaderResourceType resourceType,
+            const void* resource,
+            u32 arrayIndex
+        );
         void UpdateBinding(
             u32 bindingIndex,
             ShaderResourceType resourceType,

@@ -41,6 +41,7 @@ namespace Flourish
     {
         ColorFormat Format;
         AttachmentInitialization Initialization = AttachmentInitialization::Clear;
+        bool SupportComputeImages = false;
     };
 
     struct DepthAttachmentSpec

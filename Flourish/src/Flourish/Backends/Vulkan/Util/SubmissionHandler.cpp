@@ -61,6 +61,7 @@ namespace Flourish::Vulkan
         ProcessSubmission(
             Flourish::Context::FrameGraphSubmissions().data(),
             Flourish::Context::FrameGraphSubmissions().size(),
+            true,
             &frameSems,
             &frameVals
         );
@@ -78,8 +79,6 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::ProcessPushSubmission(Flourish::RenderGraph* graph, std::function<void()> callback)
     {
-        std::vector<CommandBufferEncoderSubmission> submissionsToFree;
-
         /*
         for (auto& list : buffers)
         {
@@ -99,19 +98,15 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1,
+            &graph, 1, false,
             &semaphores,
             &values
         );
         
-        Context::FinalizerQueue().PushAsync([callback, submissionsToFree]()
-        {
-            for (auto& submission : submissionsToFree)
-                Context::Commands().FreeBuffers(submission.AllocInfo, submission.Buffers.data(), submission.Buffers.size());
+        if (!callback)
+            return;
 
-            if (callback)
-                callback();
-        }, &semaphores,  &values, "Push submission finalizer");
+        Context::FinalizerQueue().PushAsync(callback, semaphores.data(), values.data(), semaphores.size(), "Push submission finalizer");
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
@@ -120,7 +115,7 @@ namespace Flourish::Vulkan
         std::vector<u64> values;
 
         ProcessSubmission(
-            &graph, 1,
+            &graph, 1, false,
             &semaphores,
             &values
         );
@@ -137,6 +132,7 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessSubmission(
         Flourish::RenderGraph* const* graphs,
         u32 graphCount,
+        bool frameScope,
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
@@ -149,7 +145,9 @@ namespace Flourish::Vulkan
         for (u32 graphIdx = 0; graphIdx < graphCount; graphIdx++)
         {
             auto graph = static_cast<RenderGraph*>(graphs[graphIdx]);
+            FL_ASSERT(graph->IsBuilt(), "Cannot submit non-built graph");
             graph->PrepareForSubmission();
+
             auto& executeData = graph->GetExecutionData();
             u32 frameIndex = graph->GetUsage() == RenderGraphUsageType::PerFrame ? Flourish::Context::FrameIndex() : 0;
 
@@ -164,9 +162,11 @@ namespace Flourish::Vulkan
             if (executeData.SubmissionOrder.empty())
                 continue;
 
+            bool isFirstSubmit = true;
             u32 totalIndex = 0;
             int nextSubmit = -1;
             VkCommandBuffer primaryBuf;
+            CommandBufferAllocInfo lastAlloc;
             for (u32 orderIndex = 0; orderIndex <= executeData.SubmissionOrder.size(); orderIndex++)
             {
                 bool finalIteration = orderIndex == executeData.SubmissionOrder.size();
@@ -191,6 +191,26 @@ namespace Flourish::Vulkan
                             VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
                             submitInfo.pCommandBuffers = &primaryBuf;
 
+                            // Wait on last frame to finish
+                            VkTimelineSemaphoreSubmitInfo timelineSubmitInfo = submitData.TimelineSubmitInfo;
+                            if (isFirstSubmit)
+                            {
+                                u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
+                                timelineSubmitInfo.waitSemaphoreValueCount = m_FrameWaitSemaphoreValues[lastFrameIndex].size();
+                                timelineSubmitInfo.pWaitSemaphoreValues = m_FrameWaitSemaphoreValues[lastFrameIndex].data();
+
+                                if (m_FrameWaitFlags.size() < timelineSubmitInfo.waitSemaphoreValueCount)
+                                    m_FrameWaitFlags.resize(timelineSubmitInfo.waitSemaphoreValueCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                                submitInfo.pNext = &timelineSubmitInfo;
+                                submitInfo.waitSemaphoreCount = m_FrameWaitSemaphores[lastFrameIndex].size();
+                                submitInfo.pWaitSemaphores = m_FrameWaitSemaphores[lastFrameIndex].data();
+                                submitInfo.pWaitDstStageMask = m_FrameWaitFlags.data();
+
+                                isFirstSubmit = false;
+                            }
+
+                            Context::Queues().LockPresentQueue(true);
                             Context::Queues().LockQueue(submitData.Workload, true);
                             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                                 Context::Queues().Queue(submitData.Workload),
@@ -198,16 +218,26 @@ namespace Flourish::Vulkan
                                 nullptr
                             ), "Submission handler 2 submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
+                            Context::Queues().LockPresentQueue(false);
+
+                            // Need to free primary buffer
+                            if (!frameScope)
+                            {
+                                Context::FinalizerQueue().PushAsync([lastAlloc, primaryBuf]()
+                                {
+                                    Context::Commands().FreeBuffer(lastAlloc, primaryBuf);
+                                }, submitInfo.pSignalSemaphores, &submitData.SignalSemaphoreValue, 1);
+                            }
                         }
 
                         if (finalIteration)
                             break;
 
-                        Context::Commands().AllocateBuffers(
+                        lastAlloc = Context::Commands().AllocateBuffers(
                             submissions[subIndex].AllocInfo.WorkloadType,
                             false,
                             &primaryBuf, 1,
-                            false
+                            !frameScope
                         );   
                         
                         vkBeginCommandBuffer(primaryBuf, &cmdBeginInfo);
@@ -223,30 +253,17 @@ namespace Flourish::Vulkan
                         "Command buffer submission type is different than specified in the graph"
                     );
 
-                    for (u32 waitEventIndex : syncInfo.WaitEvents)
+                    if (syncInfo.Barrier.ShouldBarrier)
                     {
-                        auto& eventData = executeData.EventData[waitEventIndex];
-                        #ifdef FL_PLATFORM_MACOS
-                            VkMemoryBarrier memBarrier{};
-                            memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-                            memBarrier.srcAccessMask = eventData.DepInfo.pMemoryBarriers[0].srcAccessMask;
-                            memBarrier.dstAccessMask = eventData.DepInfo.pMemoryBarriers[0].dstAccessMask;
-
-                            vkCmdWaitEvents(
-                                primaryBuf, 1,
-                                &eventData.Events[frameIndex],
-                                eventData.DepInfo.pMemoryBarriers[0].srcStageMask,
-                                eventData.DepInfo.pMemoryBarriers[0].dstStageMask,
-                                1, &memBarrier,
-                                0, nullptr, 0, nullptr
-                            );
-                        #else
-                            vkCmdWaitEvents2KHR(
-                                primaryBuf, 1,
-                                &eventData.Events[frameIndex],
-                                &eventData.DepInfo
-                            );
-                        #endif
+                        vkCmdPipelineBarrier(
+                            primaryBuf,
+                            syncInfo.Barrier.SrcStage,
+                            syncInfo.Barrier.DstStage,
+                            0,
+                            1, &syncInfo.Barrier.MemoryBarrier,
+                            0, nullptr,
+                            0, nullptr
+                        );
                     }
 
                     // Indicates do nothing
@@ -263,24 +280,22 @@ namespace Flourish::Vulkan
                         }
                         else
                             vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
-                    }
 
-                    if (syncInfo.WriteEvent != -1)
-                    {
-                        auto& eventData = executeData.EventData[syncInfo.WriteEvent];
-                        #ifdef FL_PLATFORM_MACOS
-                            vkCmdSetEvent(
-                                primaryBuf,
-                                eventData.Events[frameIndex],
-                                eventData.DepInfo.pMemoryBarriers[0].srcStageMask
-                            );
-                        #else
-                            vkCmdSetEvent2KHR(
-                                primaryBuf,
-                                eventData.Events[frameIndex],
-                                &eventData.DepInfo
-                            );
-                        #endif
+                        // Free submitted buffers
+                        if (!frameScope)
+                        {
+                            auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
+                            auto& submitInfo = submitData.SubmitInfos[frameIndex];
+
+                            Context::FinalizerQueue().PushAsync([submission]()
+                            {
+                                Context::Commands().FreeBuffers(
+                                    submission.AllocInfo,
+                                    submission.Buffers.data(),
+                                    submission.Buffers.size()
+                                );
+                            }, submitInfo.pSignalSemaphores, &submitData.SignalSemaphoreValue, 1);
+                        }
                     }
 
                     totalIndex++;
@@ -362,7 +377,9 @@ namespace Flourish::Vulkan
         presentInfo.pImageIndices = imageIndex;
         
         Context::Queues().LockPresentQueue(true);
+        Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
         auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
+        Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
         Context::Queues().LockPresentQueue(false);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
             context->Swapchain().Recreate();

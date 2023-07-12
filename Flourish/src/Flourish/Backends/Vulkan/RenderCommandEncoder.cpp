@@ -292,6 +292,25 @@ namespace Flourish::Vulkan
         );
     }
 
+    void RenderCommandEncoder::PushConstants(u32 offset, u32 size, const void* data)
+    {
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must bind a pipeline before pushing constants");
+        FL_ASSERT(
+            size <= m_DescriptorBinder.GetBoundData()->PushConstantRange.size,
+            "Push constant size out of range"
+        );
+
+        VkPipelineLayout layout = m_BoundPipeline->GetLayout();
+        vkCmdPushConstants(
+            m_CurrentCommandBuffer,
+            layout,
+            m_DescriptorBinder.GetBoundData()->PushConstantRange.stageFlags,
+            offset,
+            size,
+            data
+        );
+    }
+
     void RenderCommandEncoder::InitializeSubpass()
     {
         m_CurrentCommandBuffer = m_Submission.Buffers[m_SubpassIndex];

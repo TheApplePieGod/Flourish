@@ -11,11 +11,16 @@ namespace Flourish::Vulkan
     ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo& createInfo)
         : Flourish::ComputePipeline(createInfo)
     {
-        auto shader = static_cast<Shader*>(createInfo.ComputeShader.get());
+        auto shader = static_cast<Shader*>(m_Info.Shader.Shader.get());
         VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
-        m_DescriptorData.Populate(&shader, 1);
+        m_DescriptorData.Populate(&shader, 1, m_Info.AccessOverrides);
         m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Compute;
+
+        // Populate specialization constants
+        PipelineSpecializationHelper specHelper;
+        specHelper.Populate(&shader, &m_Info.Shader.Specializations, 1);
+        shaderStage.pSpecializationInfo = &specHelper.SpecInfos[0];
 
         u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
@@ -27,8 +32,11 @@ namespace Flourish::Vulkan
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = setCount;
         pipelineLayoutInfo.pSetLayouts = layouts.data();
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        if (m_DescriptorData.PushConstantRange.size > 0)
+        {
+            pipelineLayoutInfo.pushConstantRangeCount = 1;
+            pipelineLayoutInfo.pPushConstantRanges = &m_DescriptorData.PushConstantRange;
+        }
         if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
             Context::Devices().Device(),
             &pipelineLayoutInfo,

@@ -13,12 +13,21 @@ namespace Flourish::Vulkan
         // Reflection data will give us sorted binding indexes so we can make some shortcuts here
         // Create the descriptor set layout and cache the associated pool sizes
         std::vector<VkDescriptorSetLayoutBinding> bindings;
+        std::vector<VkDescriptorBindingFlags> bindingFlags;
         std::unordered_map<VkDescriptorType, u32> descriptorCounts;
         u32 lastBindingIndex = 0;
         for (auto& element : reflectionData)
         {
             BindingData bindingData{};
             bindingData.Exists = true;
+
+            FL_ASSERT(element.ArrayCount > 0, "Element must not have an unspecified array size");
+            /*
+            FL_ASSERT(
+                element.ArrayCount > 0 || Flourish::Context::FeatureTable().BindlessShaderResources,
+                "ArrayCount must not be zero unless BindlessShaderResources is enabled"
+            );
+            */
 
             while (element.BindingIndex - lastBindingIndex > 1)
             {
@@ -29,27 +38,28 @@ namespace Flourish::Vulkan
             VkDescriptorSetLayoutBinding binding{};
             binding.binding = element.BindingIndex;
             binding.descriptorType = Common::ConvertShaderResourceType(element.ResourceType);
-            binding.descriptorCount = 1;//element.ArrayCount;
+            binding.descriptorCount = element.ArrayCount;
             binding.stageFlags = Common::ConvertShaderAccessType(element.AccessType);
             binding.pImmutableSamplers = nullptr;
             bindings.emplace_back(binding);
 
-            descriptorCounts[binding.descriptorType] += element.ArrayCount * MaxSetsPerPool;
+            bindingData.Type = binding.descriptorType;
+            bindingData.ArrayCount = binding.descriptorCount;
 
-            // Populated the cached descriptor writes for updating new sets
-            VkWriteDescriptorSet descriptorWrite{};
-            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrite.dstBinding = element.BindingIndex;
-            descriptorWrite.dstArrayElement = 0;
-            descriptorWrite.descriptorType = binding.descriptorType;
-            descriptorWrite.descriptorCount = 1;//element.ArrayCount;
+            // TODO: this really is unnecessary on all bindings. We should have some
+            // sort of preprocess in the shader that detects this intent
+            VkDescriptorBindingFlags flags = 0;
+            if (Flourish::Context::FeatureTable().PartiallyBoundResourceSets)
+                flags |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+            if (element.ArrayCount == 0)
+                flags |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+            bindingFlags.emplace_back(flags);
 
-            // TODO: ensure buffers are not in an array?
+            descriptorCounts[binding.descriptorType] += binding.descriptorCount * MaxSetsPerPool;
 
-            bindingData.DescriptorWriteMapping = m_CachedDescriptorWrites.size(); 
-            m_CachedDescriptorWrites.emplace_back(descriptorWrite);
-
-            // Populate the dynamic offset info if applicable
+            // Populate cache information
+            if (element.ResourceType == ShaderResourceType::AccelerationStructure)
+                bindingData.AccelArrayIndex = m_AccelStructCount++;
             if (element.ResourceType == ShaderResourceType::UniformBuffer ||
                 element.ResourceType == ShaderResourceType::StorageBuffer)
                 bindingData.BufferArrayIndex = m_BufferCount++;
@@ -69,10 +79,17 @@ namespace Flourish::Vulkan
         if (descriptorCounts.empty())
             return;
 
+        VkDescriptorSetLayoutBindingFlagsCreateInfo flags{};
+        flags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        flags.bindingCount = bindings.size();
+        flags.pBindingFlags = bindingFlags.data();
+
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.pNext = &flags;
         layoutInfo.bindingCount = static_cast<u32>(bindings.size());
         layoutInfo.pBindings = bindings.data();
+        layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
         if(!FL_VK_CHECK_RESULT(vkCreateDescriptorSetLayout(
             Context::Devices().Device(),
@@ -163,7 +180,7 @@ namespace Flourish::Vulkan
     {
         // Some leniency when checking images
         // TODO: define this more concretely because it feels hacky
-        auto actualType = m_CachedDescriptorWrites[m_Bindings[bindingIndex].DescriptorWriteMapping].descriptorType;
+        auto actualType = m_Bindings[bindingIndex].Type;
         return (
             Common::ConvertShaderResourceType(resourceType) == actualType ||
             (resourceType == ShaderResourceType::Texture && actualType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) ||
@@ -185,10 +202,8 @@ namespace Flourish::Vulkan
         {
             if (l[i].Exists != r[i].Exists)
                 return false;
-            const auto& mapl = m_CachedDescriptorWrites[l[i].DescriptorWriteMapping];
-            const auto& mapr = other->m_CachedDescriptorWrites[r[i].DescriptorWriteMapping];
-            if (mapl.descriptorType != mapr.descriptorType ||
-                mapl.descriptorCount != mapr.descriptorCount)
+            if (l[i].Type != r[i].Type ||
+                l[i].ArrayCount != r[i].ArrayCount)
                 return false;
         }
 
@@ -202,7 +217,8 @@ namespace Flourish::Vulkan
         poolInfo.poolSizeCount = static_cast<u32>(m_CachedPoolSizes.size());
         poolInfo.pPoolSizes = m_CachedPoolSizes.data();
         poolInfo.maxSets = MaxSetsPerPool;
-        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
+                         VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
 
         VkDescriptorPool pool;
         FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(

@@ -133,6 +133,7 @@ namespace Flourish
         Uniform, Storage, Vertex, Index, Pixel, Indirect
     };
 
+    class TransferCommandEncoder;
     struct BufferCreateInfo
     {
         BufferType Type;
@@ -142,6 +143,13 @@ namespace Flourish
         u32 ElementCount = 0;
         void* InitialData = nullptr;
         u32 InitialDataSize = 0; // Bytes
+        bool CanCreateAccelerationStructure = false;
+        bool ExposeGPUAddress = false;
+
+        // Only used when populating initial data
+        // TODO: this is more of a temporary solution, a better one would be to
+        // always defer the initial data upload
+        TransferCommandEncoder* UploadEncoder = nullptr;
     };
 
     class Buffer
@@ -154,8 +162,8 @@ namespace Flourish
         void SetElements(const void* data, u32 elementCount, u32 elementOffset);
         virtual void SetBytes(const void* data, u32 byteCount, u32 byteOffset) = 0;
         virtual void ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const = 0;
-        
         virtual void Flush(bool immediate = false) = 0;
+        virtual void* GetBufferGPUAddress() const = 0;
 
         // TS
         inline u64 GetId() const { return m_Id; }
@@ -165,6 +173,7 @@ namespace Flourish
         inline u32 GetStride() const { return m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride; }
         inline u32 GetAllocatedSize() const { return m_Info.ElementCount * GetStride(); }
         inline u32 GetAllocatedCount() const { return m_Info.ElementCount; }
+        inline bool CanCreateAccelerationStructure() const { return m_Info.CanCreateAccelerationStructure; }
 
     public:
         // TS

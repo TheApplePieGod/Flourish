@@ -66,11 +66,12 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode CopyTextureToBuffer after encoding has ended");
         FL_ASSERT(_buffer->GetType() == BufferType::Pixel, "Only pixel buffers may be the targets of CopyTextureToBuffer");
+        FL_ASSERT(_texture->GetUsageType() & TextureUsageFlags::Transfer, "Texture must be created with transfer flag to perform transfers");
         
         Texture* texture = static_cast<Texture*>(_texture);
         Buffer* buffer = static_cast<Buffer*>(_buffer);
         
-        VkImageLayout startingLayout = texture->GetUsageType() == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageLayout startingLayout = (texture->GetUsageType() & TextureUsageFlags::Compute) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         VkImageAspectFlags aspect = texture->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
         Texture::TransitionImageLayout(
@@ -81,7 +82,7 @@ namespace Flourish::Vulkan
             mipLevel, 1,
             layerIndex, 1,
             0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             m_CommandBuffer
         );
 
@@ -101,7 +102,7 @@ namespace Flourish::Vulkan
             aspect,
             mipLevel, 1,
             layerIndex, 1,
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             m_CommandBuffer
         );
@@ -111,11 +112,12 @@ namespace Flourish::Vulkan
     void TransferCommandEncoder::CopyBufferToTexture(Flourish::Texture* _texture, Flourish::Buffer* _buffer, u32 layerIndex, u32 mipLevel)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode CopyBufferToTexture after encoding has ended");
+        FL_ASSERT(_texture->GetUsageType() & TextureUsageFlags::Transfer, "Texture must be created with transfer flag to perform transfers");
         
         Texture* texture = static_cast<Texture*>(_texture);
         Buffer* buffer = static_cast<Buffer*>(_buffer);
 
-        VkImageLayout startingLayout = texture->GetUsageType() == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkImageLayout startingLayout = (texture->GetUsageType() & TextureUsageFlags::Compute) ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         VkImageAspectFlags aspect = texture->IsDepthImage() ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
         Texture::TransitionImageLayout(

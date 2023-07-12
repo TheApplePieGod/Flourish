@@ -7,13 +7,14 @@
 
 namespace Flourish::Vulkan
 {
-    void PipelineDescriptorData::Populate(Shader** shaders, u32 count)
+    void PipelineDescriptorData::Populate(Shader** shaders, u32 count, const std::vector<AccessFlagsOverride>& accessOverrides)
     {
         TotalDynamicOffsets = 0;
         SetData.clear();
 
         for (u32 i = 0; i < count; i++)
         {
+            // Descriptor bindings
             for (auto& elem : shaders[i]->GetReflectionData())
             {
                 if (SetData.size() <= elem.SetIndex)
@@ -49,6 +50,30 @@ namespace Flourish::Vulkan
                 if (elem.ResourceType == ShaderResourceType::StorageBuffer || elem.ResourceType == ShaderResourceType::UniformBuffer)
                     set.DynamicOffsetCount++;
             }
+
+            // Push constants
+            auto& push = shaders[i]->GetPushConstantReflection();
+            if (push.Size == 0)
+                continue;
+            FL_ASSERT(
+                PushConstantRange.size == 0 || push.Size == PushConstantRange.size,
+                "Push constants must be the same for all shaders in pipeline"
+            );
+            PushConstantRange.size = push.Size;
+            PushConstantRange.stageFlags |= Common::ConvertShaderAccessType(push.AccessType);
+        }
+
+        // Process overrides
+        for (auto& override : accessOverrides)
+        {
+            if (override.SetIndex >= SetData.size())
+                continue;
+            auto& set = SetData[override.SetIndex];
+            if (!set.Exists)
+                continue;
+            for (auto& elem : set.ReflectionData)
+                if (elem.BindingIndex == override.BindingIndex)
+                    elem.AccessType = override.Flags;
         }
         
         // Ensure there are no duplicate binding indices within sets and sort each set
@@ -86,6 +111,59 @@ namespace Flourish::Vulkan
 
         auto& data = SetData[setIndex];
         return std::make_shared<ResourceSet>(createInfo, compatability, data.Pool);
+    }
+
+    void PipelineSpecializationHelper::Populate(Shader** shaders, std::vector<SpecializationConstant>* specs, u32 count)
+    {
+        // Gather initial sizes 
+        u32 dataSize = 0;
+        u32 mapSize = 0;
+        for (u32 i = 0; i < count; i++)
+        {
+            dataSize += shaders[i]->GetTotalSpecializationSize();
+            mapSize += specs[i].size();
+        }
+        SpecData.resize(dataSize);
+        MapEntries.reserve(mapSize);
+
+        FL_ASSERT(
+            mapSize == 0 || dataSize > 0,
+            "Attempting to specialize constants but shader has none"
+        );
+
+        if (mapSize > 0)
+        {
+            FL_LOG_WARN(
+                "Specializing %d constants with a total size of %d",
+                mapSize,
+                dataSize
+            );
+        }
+
+        u32 dataOffset = 0;
+        for (u32 i = 0; i < count; i++)
+        {
+            auto& specInfo = SpecInfos.emplace_back();
+            specInfo.mapEntryCount = specs[i].size();
+            specInfo.pMapEntries = MapEntries.data() + MapEntries.size();
+            specInfo.dataSize = dataSize;
+            specInfo.pData = SpecData.data();
+            for (auto& spec : specs[i])
+            {
+                FL_ASSERT(
+                    shaders[i]->CheckSpecializationCompatability(spec),
+                    "Passing specialization incompatible with shader to pipeline"
+                );
+
+                auto& mapEntry = MapEntries.emplace_back();
+                mapEntry.constantID = spec.ConstantId;
+                mapEntry.offset = dataOffset;
+                mapEntry.size = 4; // All supported types are 4 bytes
+                
+                memcpy(SpecData.data() + dataOffset, &spec.Data, mapEntry.size);
+                dataOffset += mapEntry.size;
+            }
+        }
     }
 
     void DescriptorBinder::Reset()

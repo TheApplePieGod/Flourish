@@ -9,7 +9,13 @@ namespace Flourish
             None = 0,
             Vertex = 1 << 0,
             Fragment = 1 << 1,
-            Compute = 1 << 2
+            Compute = 1 << 2,
+            RayGen = 1 << 3,
+            RayMiss = 1 << 4,
+            RayIntersection = 1 << 5,
+            RayClosestHit = 1 << 6,
+            RayAnyHit = 1 << 7,
+            All = 255
         };
     }
     typedef ShaderTypeEnum::Value ShaderTypeFlags;
@@ -18,7 +24,12 @@ namespace Flourish
     enum class ShaderResourceType
     {
         None = 0,
-        UniformBuffer, StorageBuffer, Texture, StorageTexture, SubpassInput
+        UniformBuffer,
+        StorageBuffer,
+        Texture,
+        StorageTexture,
+        SubpassInput,
+        AccelerationStructure
     };
 
     struct ShaderCreateInfo
@@ -35,6 +46,9 @@ namespace Flourish
             : m_Type(createInfo.Type)
         {}
         virtual ~Shader() = default;
+
+        // TS
+        inline ShaderType GetType() const { return m_Type; }
 
     public:
         // TS

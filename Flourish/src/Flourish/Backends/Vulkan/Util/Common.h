@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Context.h"
 #include "Flourish/Api/RenderPass.h"
 #include "Flourish/Api/Texture.h"
+#include "Flourish/Api/RayTracing/AccelerationStructure.h"
 #include "volk/volk.h"
 #include "vk_mem_alloc.h"
 
@@ -28,6 +30,8 @@ namespace Flourish::Vulkan
         static VkFilter ConvertSamplerFilter(SamplerFilter filter);
         static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
         static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);
+        static VkAccelerationStructureTypeKHR ConvertAccelerationStructureType(AccelerationStructureType type);
+        static VkBuildAccelerationStructureFlagsKHR ConvertAccelerationStructurePerformanceType(AccelerationStructurePerformanceType type);
 
         static bool CheckResult(VkResult result, bool ensure, const char* name);
     };

@@ -198,6 +198,7 @@ namespace Flourish::Vulkan
             case ShaderResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             case ShaderResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
             case ShaderResourceType::SubpassInput: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+            case ShaderResourceType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         }
 
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -214,6 +215,7 @@ namespace Flourish::Vulkan
             case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return ShaderResourceType::UniformBuffer;
             case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return ShaderResourceType::StorageBuffer;
             case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return ShaderResourceType::SubpassInput;
+            case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: return ShaderResourceType::AccelerationStructure;
         }
 
         return ShaderResourceType::None;
@@ -225,6 +227,11 @@ namespace Flourish::Vulkan
         result |= ((type & ShaderTypeFlags::Vertex) > 0) * VK_SHADER_STAGE_VERTEX_BIT;
         result |= ((type & ShaderTypeFlags::Fragment) > 0) * VK_SHADER_STAGE_FRAGMENT_BIT;
         result |= ((type & ShaderTypeFlags::Compute) > 0) * VK_SHADER_STAGE_COMPUTE_BIT;
+        result |= ((type & ShaderTypeFlags::RayGen) > 0) * VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayMiss) > 0) * VK_SHADER_STAGE_MISS_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayIntersection) > 0) * VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayClosestHit) > 0) * VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayAnyHit) > 0) * VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
         return result;
     }
 
@@ -309,6 +316,32 @@ namespace Flourish::Vulkan
         return VK_SAMPLER_REDUCTION_MODE_MAX_ENUM;
     }
 
+    VkAccelerationStructureTypeKHR Common::ConvertAccelerationStructureType(AccelerationStructureType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AccelerationStructureType"); } break;
+            case AccelerationStructureType::Node: return VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            case AccelerationStructureType::Scene: return VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+        }
+
+        return VK_ACCELERATION_STRUCTURE_TYPE_MAX_ENUM_KHR;
+    }
+
+    VkBuildAccelerationStructureFlagsKHR Common::ConvertAccelerationStructurePerformanceType(AccelerationStructurePerformanceType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AccelerationStructurePerformanceType"); } break;
+            case AccelerationStructurePerformanceType::FasterRuntime: return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+            case AccelerationStructurePerformanceType::FasterBuilds: return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+        }
+
+        return VK_BUILD_ACCELERATION_STRUCTURE_FLAG_BITS_MAX_ENUM_KHR;
+    }
+
     bool Common::CheckResult(VkResult result, bool ensure, const char* name)
     {
         /*
@@ -319,7 +352,7 @@ namespace Flourish::Vulkan
         */
 
         if (ensure)
-        { FL_CRASH_ASSERT(result == VK_SUCCESS, "%s critically failed with error %d", name, result); }
+        { FL_ASSERT(result == VK_SUCCESS, "%s critically failed with error %d", name, result); }
         else
         { FL_ASSERT(result == VK_SUCCESS, "%s failed with error %d", name, result); }
         

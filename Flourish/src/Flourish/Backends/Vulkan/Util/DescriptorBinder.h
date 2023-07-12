@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 
@@ -23,11 +24,21 @@ namespace Flourish::Vulkan
         std::vector<SetData> SetData;
         u32 TotalDynamicOffsets = 0;
         ResourceSetPipelineCompatability Compatability;
+        VkPushConstantRange PushConstantRange{};
 
-        void Populate(Shader** shaders, u32 count);
+        void Populate(Shader** shaders, u32 count, const std::vector<AccessFlagsOverride>& accessOverrides);
 
         // TS
         std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, ResourceSetPipelineCompatability compatability, const ResourceSetCreateInfo& createInfo);
+    };
+
+    struct PipelineSpecializationHelper
+    {
+        std::vector<u8> SpecData;
+        std::vector<VkSpecializationInfo> SpecInfos;
+        std::vector<VkSpecializationMapEntry> MapEntries;
+
+        void Populate(Shader** shaders, std::vector<SpecializationConstant>* specs, u32 count);
     };
 
     class ResourceSet;
@@ -51,6 +62,7 @@ namespace Flourish::Vulkan
         { return setIndex < m_BoundData->SetData.size() && m_BoundData->SetData[setIndex].Exists; }
 
         inline u32 GetDynamicOffsetCount(u32 setIndex) const { return m_BoundData->SetData[setIndex].DynamicOffsetCount; }
+        inline auto GetBoundData() const { return m_BoundData; }
 
     private:
         std::vector<const ResourceSet*> m_BoundSets;

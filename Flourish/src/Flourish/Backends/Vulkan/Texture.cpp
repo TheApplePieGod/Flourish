@@ -13,9 +13,10 @@ namespace Flourish::Vulkan
     Texture::Texture(const TextureCreateInfo& createInfo)
         : Flourish::Texture(createInfo)
     {
-        m_ReadyState = new u32();
+        m_IsReady = std::make_shared<bool>(false);
         m_IsDepthImage = m_Info.Format == ColorFormat::Depth;
         m_Format = Common::ConvertColorFormat(m_Info.Format);
+        m_IsStorageImage = m_Info.Usage & TextureUsageFlags::Compute;
 
         // Populate initial image info
         bool hasInitialData = m_Info.InitialData && m_Info.InitialDataSize > 0;
@@ -26,17 +27,17 @@ namespace Flourish::Vulkan
         imageInfo.format = m_Format;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
-        if (m_Info.Usage == TextureUsageType::RenderTarget)
+        if (m_Info.Usage & TextureUsageFlags::Graphics)
         {
             if (m_IsDepthImage)
                 imageInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
             else
                 imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-            imageInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            imageInfo.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
         }
-        else if (m_Info.Usage == TextureUsageType::ComputeTarget)
+        if (m_IsStorageImage)
             imageInfo.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        if (hasInitialData)
+        if (hasInitialData || m_Info.Usage & TextureUsageFlags::Transfer)
             imageInfo.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -175,7 +176,7 @@ namespace Flourish::Vulkan
                     imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
                         m_Sampler,
                         layerView,
-                        m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                        m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                     ));
                     s_ImGuiMutex.unlock();
                     #endif
@@ -217,7 +218,7 @@ namespace Flourish::Vulkan
                     m_MipLevels,
                     m_Info.ArrayCount,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     VK_FILTER_LINEAR,
                     cmdBuffer
                 );
@@ -227,7 +228,7 @@ namespace Flourish::Vulkan
                 TransitionImageLayout(
                     imageData.Image,
                     currentLayout,
-                    m_Info.Usage == TextureUsageType::ComputeTarget ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     aspect,
                     0, m_MipLevels,
                     0, m_Info.ArrayCount,
@@ -243,14 +244,15 @@ namespace Flourish::Vulkan
 
         if (m_Info.AsyncCreation)
         {
-            auto readyState = m_ReadyState;
+            std::weak_ptr<bool> ready = m_IsReady;
             auto callback = m_Info.CreationCallback;
             Context::Queues().PushCommand(
                 GPUWorkloadType::Graphics, 
                 cmdBuffer,
                 [=]()
                 {
-                    *readyState += 1;
+                    if (auto readyPtr = ready.lock())
+                        *readyPtr = true;
                     if (callback)
                         callback();
                     Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
@@ -263,7 +265,7 @@ namespace Flourish::Vulkan
         else
         {
             Context::Queues().ExecuteCommand(GPUWorkloadType::Graphics, cmdBuffer);
-            *m_ReadyState += 1;
+            *m_IsReady = true;
             if (m_Info.CreationCallback)
                 m_Info.CreationCallback();
             Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
@@ -292,12 +294,8 @@ namespace Flourish::Vulkan
         auto imageCount = m_ImageCount;
         auto sampler = m_Sampler;
         auto images = m_Images;
-        auto readyState = m_ReadyState;
         Context::FinalizerQueue().Push([=]()
         {
-            if (readyState)
-                delete readyState;
-
             auto device = Context::Devices().Device();
             for (u32 frame = 0; frame < imageCount; frame++)
             {
@@ -326,7 +324,7 @@ namespace Flourish::Vulkan
 
     bool Texture::IsReady() const
     {
-        return *m_ReadyState == 1;
+        return *m_IsReady;
     }
 
     #ifdef FL_USE_IMGUI
@@ -374,6 +372,69 @@ namespace Flourish::Vulkan
         return m_Images[frameIndex].SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
+    void Texture::Blit(
+        VkImage srcImage,
+        VkFormat srcFormat,
+        VkImageAspectFlags srcAspect,
+        u32 srcMip,
+        u32 srcLayer,
+        VkImage dstImage,
+        VkFormat dstFormat,
+        VkImageAspectFlags dstAspect,
+        u32 dstMip,
+        u32 dstLayer,
+        u32 width,
+        u32 height,
+        VkFilter sampleFilter,
+        VkCommandBuffer buffer)
+    {
+        // Create and start command buffer if it wasn't passed in
+        VkCommandBuffer cmdBuffer = buffer;
+        CommandBufferAllocInfo allocInfo;
+        if (!buffer)
+        {
+            allocInfo = Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &cmdBuffer, 1, true);
+
+            VkCommandBufferBeginInfo beginInfo{};
+            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            beginInfo.pInheritanceInfo = nullptr;
+
+            FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "Blit command buffer begin");
+        }
+
+        VkImageBlit blit{};
+        blit.srcOffsets[0] = { 0, 0, 0 };
+        blit.srcOffsets[1] = { (int)width, (int)height, 1 };
+        blit.srcSubresource.aspectMask = srcAspect;
+        blit.srcSubresource.mipLevel = srcMip;
+        blit.srcSubresource.baseArrayLayer = srcLayer;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = { 0, 0, 0 };
+        blit.dstOffsets[1] = { (int)width, (int)height, 1 };
+        blit.dstSubresource.aspectMask = dstAspect;
+        blit.dstSubresource.mipLevel = dstMip;
+        blit.dstSubresource.baseArrayLayer = dstLayer;
+        blit.dstSubresource.layerCount = 1;
+
+        vkCmdBlitImage(cmdBuffer,
+            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blit,
+            sampleFilter
+        );
+        
+        if (!buffer)
+        {
+            FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuffer), "Blit command buffer end");
+
+            Context::Queues().PushCommand(GPUWorkloadType::Graphics, cmdBuffer, [cmdBuffer, allocInfo]()
+            {
+                Context::Commands().FreeBuffer(allocInfo, cmdBuffer);
+            }, "Blit command free");
+        }
+    }
+
     void Texture::GenerateMipmaps(
         VkImage image,
         VkFormat imageFormat,
@@ -401,10 +462,6 @@ namespace Flourish::Vulkan
 
             FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "GenerateMipmaps command buffer begin");
         }
-
-        // Check if image format supports linear blitting
-        VkFormatProperties formatProperties;
-        vkGetPhysicalDeviceFormatProperties(Context::Devices().PhysicalDevice(), imageFormat, &formatProperties);
         
         // Expects image to be in TRANSFER_DST_OPTIMAL before proceeding
         if (initialLayout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
@@ -416,8 +473,10 @@ namespace Flourish::Vulkan
                 imageAspect,
                 0, mipLevels,
                 0, layerCount,
+                // TODO: this won't work for post-compute writes, probably need
+                // a layout manager in each texture
                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_MEMORY_READ_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+                VK_ACCESS_MEMORY_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 buffer
             );
         }
@@ -477,7 +536,7 @@ namespace Flourish::Vulkan
                 barrier.subresourceRange.baseMipLevel = i;
                 barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
                 barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-                barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
                 barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
                 vkCmdPipelineBarrier(cmdBuffer,
@@ -561,9 +620,9 @@ namespace Flourish::Vulkan
         barrier.srcAccessMask = srcAccessMask;
         barrier.dstAccessMask = dstAccessMask;
         barrier.subresourceRange.aspectMask = imageAspect;
-        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.baseMipLevel = baseMip;
         barrier.subresourceRange.levelCount = mipLevels;
-        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.baseArrayLayer = baseLayer;
         barrier.subresourceRange.layerCount = layerCount;
         
         vkCmdPipelineBarrier(

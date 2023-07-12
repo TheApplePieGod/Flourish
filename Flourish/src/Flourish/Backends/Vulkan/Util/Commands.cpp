@@ -199,29 +199,29 @@ namespace Flourish::Vulkan
                 bufferCount,
                 buffers
             );
+            return;
         }
+
         // We can also free directly if the allocated pool is not currently in use. We can do this because we know the pool
         // is not allowed to be written to once a thread is no longer claiming it
-        else if (!allocInfo.PersistentPools->InUse)
+        allocInfo.PersistentPools->Mutex.lock();
+        if (!allocInfo.PersistentPools->InUse)
         {
-            allocInfo.PersistentPools->Mutex.lock();
             vkFreeCommandBuffers(
                 Context::Devices().Device(),
                 allocInfo.PersistentPools->Pools[(u32)allocInfo.WorkloadType],
                 bufferCount,
                 buffers
             );
-            allocInfo.PersistentPools->Mutex.unlock();            
         }
         // Otherwise we can add the buffers to the active persistent pool so that they can be freed by the thread that is currently
         // using it
         else
         {
-            allocInfo.PersistentPools->Mutex.lock();
             for (u32 i = 0; i < bufferCount; i++)
                 allocInfo.PersistentPools->PushBufferToFree(allocInfo.WorkloadType, buffers[i]);
-            allocInfo.PersistentPools->Mutex.unlock();
         }
+        allocInfo.PersistentPools->Mutex.unlock();
     }
 
     void Commands::FreeBuffer(const CommandBufferAllocInfo& allocInfo, VkCommandBuffer buffer)

@@ -21,11 +21,15 @@ namespace Flourish::Vulkan
 
         // TODO: depth resolve (https://github.com/KhronosGroup/Vulkan-Samples/blob/master/samples/performance/msaa/msaa_tutorial.md)
         // Create all depth attachment descriptions
+        bool depthLoad = false;
         for (auto& attachment : createInfo.DepthAttachments)
         {
             FL_ASSERT(attachment.Format == ColorFormat::Depth, "Depth attachment must be created with the depth format");
 
             VkFormat colorFormat = Common::ConvertColorFormat(attachment.Format);
+
+            if (attachment.Initialization == AttachmentInitialization::Preserve)
+                depthLoad = true;
 
             VkAttachmentDescription2 depthAttachment{};
             depthAttachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
@@ -57,10 +61,15 @@ namespace Flourish::Vulkan
         }
 
         // Create all color attachment descriptions
+        bool colorLoad = false;
         for (auto& attachment : createInfo.ColorAttachments)
         {
             VkFormat colorFormat = Common::ConvertColorFormat(attachment.Format);
 
+            if (attachment.Initialization == AttachmentInitialization::Preserve)
+                colorLoad = true;
+
+            VkImageLayout initLayout = attachment.SupportComputeImages ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             VkAttachmentDescription2 colorAttachment{};
             colorAttachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
             colorAttachment.format = colorFormat;
@@ -69,8 +78,8 @@ namespace Flourish::Vulkan
             colorAttachment.storeOp = m_UseResolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
             colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            colorAttachment.initialLayout = attachment.Initialization == AttachmentInitialization::Preserve ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
-            colorAttachment.finalLayout = m_UseResolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            colorAttachment.initialLayout = attachment.Initialization == AttachmentInitialization::Preserve ? initLayout : VK_IMAGE_LAYOUT_UNDEFINED;
+            colorAttachment.finalLayout = m_UseResolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : initLayout;
             if (m_RendersToSwapchain)
                 colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             attachmentDescriptions.emplace_back(colorAttachment);
@@ -125,6 +134,10 @@ namespace Flourish::Vulkan
 
             u32 inputAttachmentCount = 0;
             u32 outputAttachmentCount = 0;
+            u32 inputColorCount = 0;
+            u32 inputDepthCount = 0;
+            u32 outputColorCount = 0;
+            u32 outputDepthCount = 0;
             for (u32 j = 0; j < createInfo.Subpasses[i].InputAttachments.size(); j++)
             {
                 auto& attachment = createInfo.Subpasses[i].InputAttachments[j];
@@ -136,9 +149,12 @@ namespace Flourish::Vulkan
                         m_UseResolve
                             ? colorAttachmentStartIndex + (attachment.AttachmentIndex * 2) + 1
                             : colorAttachmentStartIndex + attachment.AttachmentIndex,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        m_Info.ColorAttachments[attachment.AttachmentIndex].SupportComputeImages
+                            ? VK_IMAGE_LAYOUT_GENERAL
+                            : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                         VK_IMAGE_ASPECT_COLOR_BIT
                     });
+                    inputColorCount++;
                 }
                 else
                 {
@@ -151,6 +167,7 @@ namespace Flourish::Vulkan
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                         VK_IMAGE_ASPECT_DEPTH_BIT                        
                     });
+                    inputDepthCount++;
                 }
                 inputAttachmentCount++;
             }
@@ -171,6 +188,7 @@ namespace Flourish::Vulkan
                         depthAttachmentResolveDescs[i].stencilResolveMode = VK_RESOLVE_MODE_MAX_BIT;
                         depthAttachmentResolveDescs[i].pDepthStencilResolveAttachment = &depthAttachmentResolveRefs[i];
                     }
+                    outputDepthCount++;
                 }
                 else
                 {
@@ -192,6 +210,7 @@ namespace Flourish::Vulkan
                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
                     });
                     outputAttachmentCount++;
+                    outputColorCount++;
                 }
             }
 
@@ -212,21 +231,53 @@ namespace Flourish::Vulkan
             dependencies[i].sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
             dependencies[i].srcSubpass = static_cast<u32>(i - 1);
             dependencies[i].dstSubpass = static_cast<u32>(i);
+
+            // This needs to be not zero otherwise we get a validation error
             dependencies[i].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            dependencies[i].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-            dependencies[i].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-            dependencies[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+            // Could be more granular here by checking load attachments by subpass
+            dependencies[i].srcAccessMask = 0;
+            if (inputColorCount > 0)
+            {
+                dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                dependencies[i].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            }
+            if (inputDepthCount > 0)
+            {
+                dependencies[i].srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                dependencies[i].srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            }
+            
+            dependencies[i].dstAccessMask = 0;
+            dependencies[i].dstStageMask = 0;
+
+            if (outputColorCount > 0)
+            {
+                dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            }
+            if (outputDepthCount > 0)
+            {
+                dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+                dependencies[i].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            }
+
+            if (colorLoad)
+                dependencies[i].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+            if (depthLoad)
+                dependencies[i].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+
             dependencies[i].dependencyFlags = m_RendersToSwapchain ? 0 : VK_DEPENDENCY_BY_REGION_BIT;
 
             if (i == 0)
-            {
                 dependencies[i].srcSubpass = VK_SUBPASS_EXTERNAL;
-                dependencies[i].srcAccessMask = 0;
-            }
-            if (i == subpasses.size() - 1)
+
+            // Support for subpass reads. Could again be more granular by checking if this
+            // ever gets used as a read, etc.
+            if (i != subpasses.size() - 1 && subpasses.size() > 1)
             {
-                dependencies[i].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-                dependencies[i].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                dependencies[i].dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+                dependencies[i].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
             }
         }
 

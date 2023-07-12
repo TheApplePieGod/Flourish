@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Flourish/Api/PipelineCommon.h"
 #include "Flourish/Api/Shader.h"
 #include "Flourish/Api/Buffer.h"
 
@@ -73,8 +74,8 @@ namespace Flourish
 
     struct GraphicsPipelineCreateInfo
     {
-        std::shared_ptr<Shader> VertexShader;
-        std::shared_ptr<Shader> FragmentShader;
+        PipelineShader VertexShader;
+        PipelineShader FragmentShader;
 
         bool VertexInput;
         VertexTopology VertexTopology;
@@ -89,6 +90,8 @@ namespace Flourish
        
         // If empty, will try and create for all subpasses
         std::vector<u32> CompatibleSubpasses;
+
+        std::vector<AccessFlagsOverride> AccessOverrides;
     };
 
     class Texture;
@@ -100,7 +103,7 @@ namespace Flourish
         GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
             : m_Info(createInfo)
         {
-            FL_ASSERT(createInfo.VertexShader && createInfo.FragmentShader, "Must specify both vertex and fragment shaders");
+            FL_ASSERT(createInfo.VertexShader.Shader && createInfo.FragmentShader.Shader, "Must specify both vertex and fragment shaders");
         }
         virtual ~GraphicsPipeline() = default;
 
@@ -109,8 +112,8 @@ namespace Flourish
         virtual std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo) = 0;
         
         // TS
-        inline Shader* GetVertexShader() const { return m_Info.VertexShader.get(); }
-        inline Shader* GetFragmentShader() const { return m_Info.FragmentShader.get(); }
+        inline Shader* GetVertexShader() const { return m_Info.VertexShader.Shader.get(); }
+        inline Shader* GetFragmentShader() const { return m_Info.FragmentShader.Shader.get(); }
         inline VertexTopology GetVertexTopology() const { return m_Info.VertexTopology; }
         inline CullMode GetCullMode() const { return m_Info.CullMode; }
         inline WindingOrder GetWindingOrder() const { return m_Info.WindingOrder; }

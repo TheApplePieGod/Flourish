@@ -9,7 +9,6 @@ namespace Flourish
     Texture::Texture(const TextureCreateInfo& createInfo)
         : m_Info(createInfo)
     {
-        FL_ASSERT(createInfo.Usage != TextureUsageType::None, "Must define usage when creating texture");
         m_Channels = ColorFormatComponentCount(createInfo.Format);
         m_Id = Context::GetNextId();
     }

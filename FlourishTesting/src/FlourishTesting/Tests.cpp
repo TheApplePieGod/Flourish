@@ -77,7 +77,7 @@ namespace FlourishTesting
             jobs.push_back(std::async(std::launch::async, [&]()
             {
                 auto encoder = m_CommandBuffers[objectCount]->EncodeComputeCommands();
-                encoder->BindPipeline(m_ComputePipeline.get());
+                encoder->BindComputePipeline(m_ComputePipeline.get());
                 encoder->BindResourceSet(m_ObjectDescriptorSet.get(), 0);
                 encoder->FlushResourceSet(0);
                 encoder->Dispatch(objectCount, 1, 1);
@@ -117,7 +117,7 @@ namespace FlourishTesting
         for (auto& job : jobs)
             job.wait();
 
-        if (!m_RenderGraph->IsBuild())
+        if (!m_RenderGraph->IsBuilt())
         {
             // Objects
             for (u32 i = 0; i < objectCount; i++)
@@ -196,7 +196,7 @@ namespace FlourishTesting
         frameEncoder->Draw(3, 0, 1, 0);
         frameEncoder->EndEncoding();
 
-        if (!m_RenderGraph->IsBuild())
+        if (!m_RenderGraph->IsBuilt())
         {
             m_RenderGraph->ConstructNewNode(m_CommandBuffers[0].get())
                 .AddEncoderNode(Flourish::GPUWorkloadType::Graphics)
@@ -220,8 +220,8 @@ namespace FlourishTesting
             contextCreateInfo.Instance = instance;
             contextCreateInfo.Window = window;
         #elif defined(FL_PLATFORM_MACOS)
-            void* view = MacOS::CreateWindowAndGetView((int)contextCreateInfo.Width, (int)contextCreateInfo.Height);
-            contextCreateInfo.NSView = view;
+            void* layer = MacOS::CreateWindowAndGetLayer((int)contextCreateInfo.Width, (int)contextCreateInfo.Height);
+            contextCreateInfo.CAMetalLayer = layer;
         #endif
         m_RenderContext = Flourish::RenderContext::Create(contextCreateInfo);
         
@@ -353,12 +353,12 @@ namespace FlourishTesting
         )";
         auto objectVertShader = Flourish::Shader::Create(shaderCreateInfo);
 
-        compCreateInfo.ComputeShader = computeShader;
+        compCreateInfo.Shader = { computeShader };
         m_ComputePipeline = Flourish::ComputePipeline::Create(compCreateInfo);
         
         // Render context primary pipeline
-        gpCreateInfo.VertexShader = simpleVertShader;
-        gpCreateInfo.FragmentShader = imageFragShader;
+        gpCreateInfo.VertexShader = { simpleVertShader };
+        gpCreateInfo.FragmentShader = { imageFragShader };
         gpCreateInfo.VertexInput = true;
         gpCreateInfo.VertexTopology = Flourish::VertexTopology::TriangleList;
         gpCreateInfo.VertexLayout = m_VertexLayout;
@@ -369,7 +369,7 @@ namespace FlourishTesting
 
         m_SimplePassNoDepth->CreatePipeline("simple_image", gpCreateInfo);
 
-        gpCreateInfo.VertexShader = objectVertShader;
+        gpCreateInfo.VertexShader = { objectVertShader };
         auto objectPipeline = m_SimplePassNoDepth->CreatePipeline("object_image", gpCreateInfo);
 
         Flourish::ResourceSetCreateInfo descCreateInfo;
@@ -466,7 +466,7 @@ namespace FlourishTesting
         texCreateInfo.Width = static_cast<u32>(imageWidth);
         texCreateInfo.Height = static_cast<u32>(imageHeight);
         texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
-        texCreateInfo.Usage = Flourish::TextureUsageType::Readonly;
+        texCreateInfo.Usage = Flourish::TextureUsageFlags::Readonly;
         texCreateInfo.AsyncCreation = true;
         if (imagePixels)
         {
@@ -497,7 +497,7 @@ namespace FlourishTesting
         texCreateInfo.Height = m_ScreenHeight;
         texCreateInfo.MipCount = 1;
         texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
-        texCreateInfo.Usage = Flourish::TextureUsageType::RenderTarget;
+        texCreateInfo.Usage = Flourish::TextureUsageFlags::Graphics;
         texCreateInfo.Writability = Flourish::TextureWritability::PerFrame;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         texCreateInfo.InitialData = nullptr;
