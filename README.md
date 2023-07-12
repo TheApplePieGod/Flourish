@@ -18,6 +18,23 @@ Flourish is a cross-platform 3D rendering library. It is designed to allow both 
 
 This library was written to replace the internal one used in the [Heart](https://github.com/TheApplePieGod/Heart) game engine. It is a work in progress, but it is currently has numerous features.
 
+## Features
+
+- Render graph based GPU execution model
+    - Build graphs once or dynamically
+    - Define dependencies between work and resources
+- Sync or async GPU work execution 
+- Multithreaded GPU command recording and submission
+- Automatic optimizations for frame-based rendering
+- Double and triple buffering support
+- Queryable features depending on user hardware
+    - ALPHA support for hardware-accelerated ray tracing
+    - (Partial) bindless descriptor model
+- In-app GLSL shader compilation and reflection
+- Automatic lifetime management for most resources
+- Sync or async data uploads to and from the GPU 
+
+
 # Getting Started
 
 Setting up Flourish is relatively simple, and it utilizes CMake and git submodules. 
@@ -26,13 +43,12 @@ Setting up Flourish is relatively simple, and it utilizes CMake and git submodul
 
 - Compiler using C++17
 - [CMake](https://cmake.org/download/) >= 3.23
-- [VulkanSDK](https://vulkan.lunarg.com/) >= 1.3.231
-    - Make sure to include the 64-bit debuggable shader API libraries when installing on Windows
+- [VulkanSDK](https://vulkan.lunarg.com/) >= 1.3.250
 
 ## Setup
 
 1. Clone the repo using the `--recursive` flag to ensure all submodules are downloaded
-2. Make sure the VulkanSDK is accessable via the `${VULKAN_SDK}` environment variable (this should happen automatically with the installer on Windows)
+2. Make sure the VulkanSDK is accessible via the `${VULKAN_SDK}` environment variable (this should happen automatically with the installer on Windows)
 
 ## Usage
 
@@ -58,8 +74,10 @@ set(FLOURISH_STR_FLAG "string")
 
 1. `FLOURISH_BUILD_TESTS`: Build the test program. Default off.
 2. `FLOURISH_ENABLE_LOGGING`: Enable logging output from the library. Default on.
-3. `FLOURISH_GLFW_INCLUDE_DIR`: Path to the include directory of GLFW. Default empty. Setting a value here will enable GLFW support for Flourish.
-4. `FLOURISH_IMGUI_INCLUDE_DIR`: Path to the include directory of ImGUI. Default empty. Setting a value here will enable ImGUI support for Flourish.
+3. `FLOURISH_ENABLE_AFTERMATH`: Enable integration with [NVIDIA NSight Aftermath](https://developer.nvidia.com/nsight-aftermath). The SDK must be accessible via the `${NSIGHT_AFTERMATH_SDK}` environment variable. Default off.
+4. `FLOURISH_GLFW_INCLUDE_DIR`: Path to the include directory of [GLFW](https://www.glfw.org/). Default empty. Setting a value here will enable builtin GLFW support for Flourish.
+5. `FLOURISH_IMGUI_INCLUDE_DIR`: Path to the include directory of [ImGui](https://github.com/ocornut/imgui). Default empty. Setting a value here will enable builtin ImGUI support for Flourish.
+6. `FLOURISH_TRACY_INCLUDE_DIR`: Path to the include directory of [Tracy](https://github.com/wolfpld/tracy). Default empty. Setting a value here will enable builtin profiling for Flourish calls.
 
 # Documentation
 
@@ -67,7 +85,7 @@ Coming soon
 
 # License
 
-Copyright (C) 2022 [Evan Thompson](https://evanthompson.site/)
+Copyright (C) 2023 [Evan Thompson](https://evanthompson.site/)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
