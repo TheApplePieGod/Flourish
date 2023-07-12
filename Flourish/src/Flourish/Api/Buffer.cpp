@@ -6,6 +6,12 @@
 
 namespace Flourish
 {
+    BufferLayout::BufferLayout(std::initializer_list<BufferLayoutElement> elements)
+        : m_Elements(elements)
+    {
+        m_CalculatedStride = CalculateStrideAndOffsets();
+    }
+
     u32 BufferLayout::CalculateStrideAndOffsets()
     {
         u32 stride = 0;
@@ -22,22 +28,32 @@ namespace Flourish
         return stride;
     }
 
-    void Buffer::SetElements(void* data, u32 elementCount, u32 elementOffset)
+    Buffer::Buffer(const BufferCreateInfo& createInfo)
+        : m_Info(createInfo)
+    {
+        m_Id = Context::GetNextId();
+    }
+
+    void Buffer::SetElements(const void* data, u32 elementCount, u32 elementOffset)
     {
         FL_ASSERT(elementCount + elementOffset <= m_Info.ElementCount, "Attempting to set data on buffer which is larger than allocated size");
-        SetBytes(data, m_Info.Layout.GetStride() * elementCount, m_Info.Layout.GetStride() * elementOffset);
+        SetBytes(data, GetStride() * elementCount, GetStride() * elementOffset);
     }
 
     std::shared_ptr<Buffer> Buffer::Create(const BufferCreateInfo& createInfo)
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a Buffer");
 
-        switch (Context::BackendType())
+        try
         {
-            case BackendType::Vulkan: { return std::make_shared<Vulkan::Buffer>(createInfo); }
+            switch (Context::BackendType())
+            {
+                case BackendType::Vulkan: { return std::make_shared<Vulkan::Buffer>(createInfo); }
+            }
         }
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "Buffer not supported for backend");
+        FL_ASSERT(false, "Failed to create Buffer");
         return nullptr;
     }
 }

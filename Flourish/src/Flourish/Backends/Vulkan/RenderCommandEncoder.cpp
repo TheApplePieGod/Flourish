@@ -7,6 +7,8 @@
 #include "Flourish/Backends/Vulkan/Buffer.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/CommandBuffer.h"
+#include "Flourish/Backends/Vulkan/Shader.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
 
 namespace Flourish::Vulkan
 {
@@ -16,70 +18,69 @@ namespace Flourish::Vulkan
 
     void RenderCommandEncoder::BeginEncoding(Framebuffer* framebuffer)
     {
+        FL_PROFILE_FUNCTION();
+
         m_Encoding = true;
-        m_BoundFramebuffer = framebuffer;
-
-        m_AllocInfo = Context::Commands().AllocateBuffers(
+        m_AnyCommandRecorded = false;
+        m_Submission.Framebuffer = framebuffer;
+        m_Submission.Buffers.resize(framebuffer->GetRenderPass()->GetSubpasses().size());
+        m_Submission.AllocInfo = Context::Commands().AllocateBuffers(
             GPUWorkloadType::Graphics,
-            false,
-            &m_CommandBuffer,
-            1, !m_FrameRestricted
+            true,
+            m_Submission.Buffers.data(),
+            m_Submission.Buffers.size(),
+            !m_FrameRestricted
         );   
-    
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        // TODO: check result?
-        vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
-
-        VkRenderPassBeginInfo rpBeginInfo{};
-        rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rpBeginInfo.renderPass = static_cast<RenderPass*>(framebuffer->GetRenderPass())->GetRenderPass();
-        rpBeginInfo.framebuffer = framebuffer->GetFramebuffer();
-        rpBeginInfo.renderArea.offset = { 0, 0 };
-        rpBeginInfo.renderArea.extent = { framebuffer->GetWidth(), framebuffer->GetHeight() };
-        rpBeginInfo.clearValueCount = static_cast<u32>(framebuffer->GetClearValues().size());
-        rpBeginInfo.pClearValues = framebuffer->GetClearValues().data();
-        vkCmdBeginRenderPass(m_CommandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        SetViewport(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
-        SetScissor(0, 0, framebuffer->GetWidth(), framebuffer->GetHeight());
-        SetLineWidth(1.f);
+        InitializeSubpass();
     }
 
     void RenderCommandEncoder::EndEncoding()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot end encoding that has already ended");
         m_Encoding = false;
-        m_BoundFramebuffer = nullptr;
-        m_BoundDescriptorSet = nullptr;
         m_BoundPipeline = nullptr;
         m_BoundPipelineName.clear();
         m_SubpassIndex = 0;
 
-        VkCommandBuffer buffer = m_CommandBuffer;
-        vkCmdEndRenderPass(buffer);
-        vkEndCommandBuffer(buffer);
-        m_ParentBuffer->SubmitEncodedCommands(buffer, m_AllocInfo, GPUWorkloadType::Graphics);
+        vkEndCommandBuffer(m_CurrentCommandBuffer);
+
+        // Indicate that we should do nothing here
+        if (!m_AnyCommandRecorded)
+            m_Submission.Buffers.clear();
+
+        m_ParentBuffer->SubmitEncodedCommands(m_Submission);
+
+        m_Submission.Framebuffer = nullptr;
     }
 
     void RenderCommandEncoder::BindPipeline(const std::string_view pipelineName)
     {
+        FL_PROFILE_FUNCTION();
+
         if (m_BoundPipelineName == pipelineName) return;
         m_BoundPipelineName = pipelineName;
 
         GraphicsPipeline* pipeline = static_cast<GraphicsPipeline*>(
-            m_BoundFramebuffer->GetRenderPass()->GetPipeline(pipelineName).get()
+            m_Submission.Framebuffer->GetRenderPass()->GetPipeline(pipelineName).get()
         );
+        FL_ASSERT(pipeline, "BindPipeline() pipeline not found");
         m_BoundPipeline = pipeline;
-        m_BoundDescriptorSet = m_BoundFramebuffer->GetPipelineDescriptorSet(pipelineName, pipeline->GetDescriptorSetLayout());
 
-        vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetPipeline(m_SubpassIndex));
+        m_DescriptorBinder.BindPipelineData(m_BoundPipeline->GetDescriptorData());
+
+        VkPipeline subpassPipeline = pipeline->GetPipeline(m_SubpassIndex);
+        FL_ASSERT(subpassPipeline, "BindPipeline() pipeline not supported for current subpass");
+
+        vkCmdBindPipeline(m_CurrentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, subpassPipeline);
     }
 
     void RenderCommandEncoder::SetViewport(u32 x, u32 y, u32 width, u32 height)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetViewport after encoding has ended");
 
         VkViewport viewport{};
@@ -90,98 +91,121 @@ namespace Flourish::Vulkan
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
 
-        vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
+        vkCmdSetViewport(m_CurrentCommandBuffer, 0, 1, &viewport);
     }
 
     void RenderCommandEncoder::SetScissor(u32 x, u32 y, u32 width, u32 height)
     {
+        FL_PROFILE_FUNCTION();
+        
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetScissor after encoding has ended");
 
         VkRect2D scissor{};
         scissor.offset = { 0, 0 };
         scissor.extent = { width, height };
 
-        vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
+        vkCmdSetScissor(m_CurrentCommandBuffer, 0, 1, &scissor);
     }
 
     void RenderCommandEncoder::SetLineWidth(float width)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_ASSERT(width >= 0, "Width cannot be less than zero");
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode SetLineWidth after encoding has ended");
 
         if (!Flourish::Context::FeatureTable().WideLines)
             width = std::min(width, 1.f);
 
-        vkCmdSetLineWidth(m_CommandBuffer, width);
+        vkCmdSetLineWidth(m_CurrentCommandBuffer, width);
     }
 
-    void RenderCommandEncoder::BindVertexBuffer(Flourish::Buffer* _buffer)
+    void RenderCommandEncoder::BindVertexBuffer(const Flourish::Buffer* _buffer)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindVertexBuffer after encoding has ended");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
 
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(m_CommandBuffer, 0, 1, &buffer, offsets);
+        vkCmdBindVertexBuffers(m_CurrentCommandBuffer, 0, 1, &buffer, offsets);
     }
 
-    void RenderCommandEncoder::BindIndexBuffer(Flourish::Buffer* _buffer)
+    void RenderCommandEncoder::BindIndexBuffer(const Flourish::Buffer* _buffer)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindIndexBuffer after encoding has ended");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
         
         VkDeviceSize offsets[] = { 0 };
-        vkCmdBindIndexBuffer(m_CommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(m_CurrentCommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
     }
 
-    void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount)
+    void RenderCommandEncoder::Draw(u32 vertexCount, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode Draw after encoding has ended");
         
-        vkCmdDraw(m_CommandBuffer, vertexCount, instanceCount, vertexOffset, 0);
+        vkCmdDraw(m_CurrentCommandBuffer, vertexCount, instanceCount, vertexOffset, instanceOffset);
+        m_AnyCommandRecorded = true;
     }
 
-    void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount)
+    void RenderCommandEncoder::DrawIndexed(u32 indexCount, u32 indexOffset, u32 vertexOffset, u32 instanceCount, u32 instanceOffset)
     {
+        FL_PROFILE_FUNCTION();
+        
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexed after encoding has ended");
 
-        vkCmdDrawIndexed(m_CommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, 0);
+        vkCmdDrawIndexed(m_CurrentCommandBuffer, indexCount, instanceCount, indexOffset, vertexOffset, instanceOffset);
+        m_AnyCommandRecorded = true;
     }
 
-    void RenderCommandEncoder::DrawIndexedIndirect(Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
+    void RenderCommandEncoder::DrawIndexedIndirect(const Flourish::Buffer* _buffer, u32 commandOffset, u32 drawCount)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexedIndirect after encoding has ended");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
 
+        u32 stride = _buffer->GetStride();
         vkCmdDrawIndexedIndirect(
-            m_CommandBuffer,
+            m_CurrentCommandBuffer,
             buffer,
-            commandOffset * _buffer->GetLayout().GetStride(),
+            commandOffset * stride,
             drawCount,
-            _buffer->GetLayout().GetStride()
+            stride
         );
+        m_AnyCommandRecorded = true;
     }
     
     void RenderCommandEncoder::StartNextSubpass()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode StartNextSubpass after encoding has ended");
 
-        vkCmdNextSubpass(m_CommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+        vkEndCommandBuffer(m_CurrentCommandBuffer);
 
         // Pipeline must be reset between each subpass
         m_SubpassIndex++;
         m_BoundPipeline = nullptr;
         m_BoundPipelineName.clear();
-        m_BoundDescriptorSet = nullptr;
+
+        InitializeSubpass();
     }
 
     void RenderCommandEncoder::ClearColorAttachment(u32 attachmentIndex)
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode ClearColorAttachment after encoding has ended");
         
-        auto& color = m_BoundFramebuffer->GetColorAttachments()[attachmentIndex].ClearColor;
+        auto& color = m_Submission.Framebuffer->GetColorAttachments()[attachmentIndex].ClearColor;
 
         VkClearAttachment clear;
         clear.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -193,15 +217,18 @@ namespace Flourish::Vulkan
         VkClearRect clearRect;
         clearRect.baseArrayLayer = 0;
         clearRect.layerCount = 1;
-        clearRect.rect.extent.width = m_BoundFramebuffer->GetWidth();
-        clearRect.rect.extent.height = m_BoundFramebuffer->GetHeight();
+        clearRect.rect.extent.width = m_Submission.Framebuffer->GetWidth();
+        clearRect.rect.extent.height = m_Submission.Framebuffer->GetHeight();
         clearRect.rect.offset.x = 0;
         clearRect.rect.offset.y = 0;
-        vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
+        vkCmdClearAttachments(m_CurrentCommandBuffer, 1, &clear, 1, &clearRect);        
+        m_AnyCommandRecorded = true;
     }
 
     void RenderCommandEncoder::ClearDepthAttachment()
     {
+        FL_PROFILE_FUNCTION();
+
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode ClearDepthAttachment after encoding has ended");
         
         VkClearAttachment clear;
@@ -211,122 +238,100 @@ namespace Flourish::Vulkan
         VkClearRect clearRect;
         clearRect.baseArrayLayer = 0;
         clearRect.layerCount = 1;
-        clearRect.rect.extent.height = m_BoundFramebuffer->GetWidth();
-        clearRect.rect.extent.width = m_BoundFramebuffer->GetHeight();
+        clearRect.rect.extent.width = m_Submission.Framebuffer->GetWidth();
+        clearRect.rect.extent.height = m_Submission.Framebuffer->GetHeight();
         clearRect.rect.offset.x = 0;
         clearRect.rect.offset.y = 0;
-        vkCmdClearAttachments(m_CommandBuffer, 1, &clear, 1, &clearRect);        
+        vkCmdClearAttachments(m_CurrentCommandBuffer, 1, &clear, 1, &clearRect);        
+        m_AnyCommandRecorded = true;
     }
 
-    void RenderCommandEncoder::BindPipelineBufferResource(u32 bindingIndex, Flourish::Buffer* buffer, u32 bufferOffset, u32 dynamicOffset, u32 elementCount)
+    void RenderCommandEncoder::BindResourceSet(const Flourish::ResourceSet* set, u32 setIndex)
     {
-        FL_CRASH_ASSERT(elementCount + dynamicOffset + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset + DynamicOffset must be <= buffer allocated count");
-        FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
+        FL_PROFILE_FUNCTION();
 
-        ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
-        ValidatePipelineBinding(bindingIndex, bufferType, buffer);
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before binding a resource set");
+        FL_CRASH_ASSERT(m_DescriptorBinder.DoesSetExist(setIndex), "Set index does not exist in shader");
 
-        m_BoundDescriptorSet->UpdateDynamicOffset(bindingIndex, dynamicOffset * buffer->GetLayout().GetStride());
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            bufferType, 
-            buffer,
-            true,
-            buffer->GetLayout().GetStride() * bufferOffset,
-            buffer->GetLayout().GetStride() * elementCount
-        );
+        m_DescriptorBinder.BindResourceSet(static_cast<const ResourceSet*>(set), setIndex);
     }
 
-    void RenderCommandEncoder::BindPipelineTextureResource(u32 bindingIndex, Flourish::Texture* texture)
+    void RenderCommandEncoder::UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset)
     {
-        // Ensure the texture to bind is not an output attachment
-        FL_CRASH_ASSERT(
-            std::find_if(
-                m_BoundFramebuffer->GetColorAttachments().begin(),
-                m_BoundFramebuffer->GetColorAttachments().end(),
-                [texture](const FramebufferColorAttachment& att){ return att.Texture.get() == texture; }
-            ) == m_BoundFramebuffer->GetColorAttachments().end(),
-            "Cannot bind a texture resource that is currently being written to"
-        )
-        
-        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+        FL_PROFILE_FUNCTION();
 
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            ShaderResourceType::Texture, 
-            texture,
-            false, 0, 0
-        );
-    }
-    
-    void RenderCommandEncoder::BindPipelineTextureLayerResource(u32 bindingIndex, Flourish::Texture* texture, u32 layerIndex, u32 mipLevel)
-    {
-        // Ensure the texture to bind is not an output attachment
-        FL_CRASH_ASSERT(
-            std::find_if(
-                m_BoundFramebuffer->GetColorAttachments().begin(),
-                m_BoundFramebuffer->GetColorAttachments().end(),
-                [texture, layerIndex, mipLevel](const FramebufferColorAttachment& att)
-                { return att.Texture.get() == texture && att.LayerIndex == layerIndex && att.MipLevel == mipLevel; }
-            ) == m_BoundFramebuffer->GetColorAttachments().end(),
-            "Cannot bind a texture resource that is currently being written to"
-        )
-        
-        ValidatePipelineBinding(bindingIndex, ShaderResourceType::Texture, texture);
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before updating dynamic offsets");
 
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            ShaderResourceType::Texture, 
-            texture,
-            true, layerIndex, mipLevel
-        );
+        if (m_DescriptorBinder.DoesSetExist(setIndex))
+        {
+            m_DescriptorBinder.UpdateDynamicOffset(setIndex, bindingIndex, offset);
+            return;
+        }
+
+        FL_CRASH_ASSERT(false, "Set index does not exist in shader");
     }
 
-    void RenderCommandEncoder::BindPipelineSubpassInputResource(u32 bindingIndex, SubpassAttachment attachment)
+    void RenderCommandEncoder::FlushResourceSet(u32 setIndex)
     {
-        ValidatePipelineBinding(bindingIndex, ShaderResourceType::SubpassInput, &attachment);
-        
-        VkImageView attView = m_BoundFramebuffer->GetAttachmentImageView(attachment);
+        FL_PROFILE_FUNCTION();
 
-        m_BoundDescriptorSet->UpdateBinding(
-            bindingIndex, 
-            ShaderResourceType::SubpassInput, 
-            attView,
-            attachment.Type == SubpassAttachmentType::Color, 0, 0
-        );
-    }
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must call BindPipeline before flushing a resource set");
+        FL_CRASH_ASSERT(m_DescriptorBinder.DoesSetExist(setIndex), "Set index does not exist in shader");
 
-    void RenderCommandEncoder::FlushPipelineBindings()
-    {
-        FL_CRASH_ASSERT(!m_BoundPipelineName.empty(), "Must call BindPipeline and bind all resources before FlushBindings");
-
-        // Update a newly allocated descriptor set based on the current bindings or return
-        // a cached one that was created before with the same binding info
-        m_BoundDescriptorSet->FlushBindings();
-
-        FL_CRASH_ASSERT(m_BoundDescriptorSet->GetMostRecentDescriptorSet() != nullptr);
-
-        // Bind the new set
-        VkDescriptorSet sets[1] = { m_BoundDescriptorSet->GetMostRecentDescriptorSet() };
+        // TODO: ensure bound
+        auto set = m_DescriptorBinder.GetResourceSet(setIndex);
+        VkDescriptorSet sets[1] = { set->GetSet() };
         vkCmdBindDescriptorSets(
-            m_CommandBuffer,
+            m_CurrentCommandBuffer,
             VK_PIPELINE_BIND_POINT_GRAPHICS,
             m_BoundPipeline->GetLayout(),
-            0, 1,
+            setIndex, 1,
             sets,
-            static_cast<u32>(m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().size()),
-            m_BoundDescriptorSet->GetLayout().GetDynamicOffsets().data()
+            m_DescriptorBinder.GetDynamicOffsetCount(setIndex),
+            m_DescriptorBinder.GetDynamicOffsetData(setIndex)
         );
     }
-    
-    void RenderCommandEncoder::ValidatePipelineBinding(u32 bindingIndex, ShaderResourceType resourceType, void* resource)
+
+    void RenderCommandEncoder::PushConstants(u32 offset, u32 size, const void* data)
     {
-        FL_CRASH_ASSERT(!m_BoundPipelineName.empty(), "Must call BindPipeline before BindPipelineResource");
-        FL_CRASH_ASSERT(resource != nullptr, "Cannot bind a null resource to a shader");
+        FL_CRASH_ASSERT(m_BoundPipeline, "Must bind a pipeline before pushing constants");
+        FL_ASSERT(
+            size <= m_DescriptorBinder.GetBoundData()->PushConstantRange.size,
+            "Push constant size out of range"
+        );
 
-        if (!m_BoundDescriptorSet->GetLayout().DoesBindingExist(bindingIndex))
-            return; // Silently ignore, TODO: warning once in the console when this happens
+        VkPipelineLayout layout = m_BoundPipeline->GetLayout();
+        vkCmdPushConstants(
+            m_CurrentCommandBuffer,
+            layout,
+            m_DescriptorBinder.GetBoundData()->PushConstantRange.stageFlags,
+            offset,
+            size,
+            data
+        );
+    }
 
-        FL_CRASH_ASSERT(m_BoundDescriptorSet->GetLayout().IsResourceCorrectType(bindingIndex, resourceType), "Attempting to bind a resource that does not match the bind index type");
+    void RenderCommandEncoder::InitializeSubpass()
+    {
+        m_CurrentCommandBuffer = m_Submission.Buffers[m_SubpassIndex];
+
+        // TODO: store this in the class since its basically the same each time
+        VkCommandBufferInheritanceInfo inheritanceInfo{};
+        inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+        inheritanceInfo.renderPass = static_cast<RenderPass*>(m_Submission.Framebuffer->GetRenderPass())->GetRenderPass();
+        inheritanceInfo.subpass = m_SubpassIndex;
+        inheritanceInfo.framebuffer = m_Submission.Framebuffer->GetFramebuffer();
+    
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+        beginInfo.pInheritanceInfo = &inheritanceInfo;
+
+        // TODO: check result?
+        vkBeginCommandBuffer(m_CurrentCommandBuffer, &beginInfo);
+
+        SetViewport(0, 0, m_Submission.Framebuffer->GetWidth(), m_Submission.Framebuffer->GetHeight());
+        SetScissor(0, 0, m_Submission.Framebuffer->GetWidth(), m_Submission.Framebuffer->GetHeight());
+        SetLineWidth(1.f);
     }
 }

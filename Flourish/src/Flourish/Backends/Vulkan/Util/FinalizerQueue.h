@@ -11,12 +11,14 @@ namespace Flourish::Vulkan
             u32 lifetime, 
             std::function<void()> execute,
             const char* debugName,
-            const std::vector<VkSemaphore>* semaphores = nullptr,
-            const std::vector<u64>* values = nullptr)
+            const VkSemaphore* semaphores = nullptr,
+            const u64* values = nullptr,
+            u32 semaphoreCount = 0
+        )
             : Lifetime(lifetime), Execute(execute), DebugName(debugName)
         {
-            if (semaphores) WaitSemaphores = *semaphores;
-            if (values) WaitValues = *values;
+            WaitSemaphores.assign(semaphores, semaphores + semaphoreCount);
+            WaitValues.assign(values, values + semaphoreCount);
         }
 
         u32 Lifetime = 0; // Frames
@@ -40,8 +42,9 @@ namespace Flourish::Vulkan
         void Push(std::function<void()> executeFunc, const char* debugName = nullptr);
         void PushAsync(
             std::function<void()> executeFunc,
-            const std::vector<VkSemaphore>* semaphores = nullptr,
-            const std::vector<u64>* waitValues = nullptr,
+            const VkSemaphore* semaphores = nullptr,
+            const u64* waitValues = nullptr,
+            u32 semaphoreCount = 0,
             const char* debugName = nullptr
         );
         void Iterate(bool force = false);

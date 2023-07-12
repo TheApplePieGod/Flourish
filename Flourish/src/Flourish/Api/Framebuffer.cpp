@@ -10,12 +10,16 @@ namespace Flourish
     {
         FL_ASSERT(Context::BackendType() != BackendType::None, "Must initialize Context before creating a Framebuffer");
 
-        switch (Context::BackendType())
+        try
         {
-            case BackendType::Vulkan: { return std::make_shared<Vulkan::Framebuffer>(createInfo); }
+            switch (Context::BackendType())
+            {
+                case BackendType::Vulkan: { return std::make_shared<Vulkan::Framebuffer>(createInfo); }
+            }
         }
+        catch (const std::exception& e) {}
 
-        FL_ASSERT(false, "Framebuffer not supported for backend");
+        FL_ASSERT(false, "Failed to create Framebuffer");
         return nullptr;
     }
 }

@@ -1,21 +1,13 @@
 #pragma once
 
-#include "Flourish/Api/CommandBuffer.h"
+#include "Flourish/Api/RenderGraph.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
 namespace Flourish::Vulkan
 {
-    struct CommandSubmissionData
-    {
-        std::vector<VkSubmitInfo> GraphicsSubmitInfos;
-        std::vector<VkSubmitInfo> ComputeSubmitInfos;
-        std::vector<VkSubmitInfo> TransferSubmitInfos;
-        std::vector<VkSemaphore> CompletionSemaphores;
-        std::vector<u64> CompletionSemaphoreValues;
-        std::vector<VkPipelineStageFlags> CompletionWaitStages;
-    };
-
+    class Framebuffer;
+    class RenderContext;
     class SubmissionHandler
     {
     public:
@@ -26,28 +18,33 @@ namespace Flourish::Vulkan
         void ProcessFrameSubmissions();
         
         // TS
-        void ProcessPushSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers, std::function<void()> callback = nullptr);
-        void ProcessExecuteSubmission(const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers);
+        void ProcessPushSubmission(Flourish::RenderGraph* graph, std::function<void()> callback = nullptr);
+        void ProcessExecuteSubmission(Flourish::RenderGraph* graph);
         
     public:
-        static void ProcessSubmission(
-            CommandSubmissionData& submissionData,
-            const std::vector<std::vector<Flourish::CommandBuffer*>>& buffers,
-            const std::vector<u32>& counts,
-            const std::vector<Flourish::RenderContext*>* contexts,
+        void ProcessSubmission(
+            Flourish::RenderGraph* const* graphs,
+            u32 graphCount,
+            bool frameScope,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
         );
-        
+
     private:
+        void PresentContext(RenderContext* context, u32 waitSemaphoreCount);
+
+    private:
+        static void ExecuteRenderPassCommands(
+            VkCommandBuffer primary,
+            Framebuffer* framebuffer,
+            const VkCommandBuffer* subpasses,
+            u32 subpassCount
+        );
         
     private:
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
         std::array<std::vector<u64>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphoreValues;
-        CommandSubmissionData m_FrameSubmissionData;
-        CommandSubmissionData m_PushSubmissionData;
-        CommandSubmissionData m_ExecuteSubmissionData;
-        std::mutex m_PushDataMutex;
-        std::mutex m_ExecuteDataMutex;
+        std::vector<VkPipelineStageFlags> m_FrameWaitFlags;
+        std::vector<VkPipelineStageFlags> m_RenderContextWaitFlags;
     };
 }

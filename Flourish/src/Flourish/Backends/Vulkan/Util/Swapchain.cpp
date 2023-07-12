@@ -6,8 +6,27 @@
 
 namespace Flourish::Vulkan
 {
-    void Swapchain::Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface)
+    #ifdef FL_PLATFORM_WINDOWS
+    // https://stackoverflow.com/questions/7009080/detecting-full-screen-mode-in-windows
+    bool IsFullscreen(HWND windowHandle)
     {
+        MONITORINFO monitorInfo{};
+        monitorInfo.cbSize = sizeof(MONITORINFO);
+        GetMonitorInfo(MonitorFromWindow(windowHandle, MONITOR_DEFAULTTONEAREST), &monitorInfo);
+
+        RECT windowRect;
+        GetWindowRect(windowHandle, &windowRect);
+
+        return windowRect.left == monitorInfo.rcMonitor.left
+            && windowRect.right == monitorInfo.rcMonitor.right
+            && windowRect.top == monitorInfo.rcMonitor.top
+            && windowRect.bottom == monitorInfo.rcMonitor.bottom;
+    }
+    #endif
+
+    void Swapchain::Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface, void* windowHandle)
+    {
+        m_WindowHandle = windowHandle;
         m_Surface = surface;
         m_CurrentWidth = createInfo.Width;
         m_CurrentHeight = createInfo.Height;
@@ -28,7 +47,8 @@ namespace Flourish::Vulkan
         Context::FinalizerQueue().Push([=]()
         {
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-                vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
+                if (imageAvailableSemaphores[frame])
+                    vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
         }, "Swapchain shutdown");
     }
     
@@ -75,7 +95,11 @@ namespace Flourish::Vulkan
             m_Surface,
             &presentSupport
         );
-        FL_CRASH_ASSERT(presentSupport, "Attempting to create a swapchain using a device that does not support presenting");
+        if (!presentSupport)
+        {
+            FL_LOG_ERROR("Could not create RenderContext because selected device does not support presenting");
+            throw std::exception();
+        }
         
         // Query surface formats
         u32 formatCount = 0;
@@ -85,7 +109,11 @@ namespace Flourish::Vulkan
             formats.resize(formatCount);
             vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_Surface, &formatCount, formats.data());
         }
-        FL_CRASH_ASSERT(formatCount > 0, "Attempting to create a swapchain using a device that does not support any surface formats");
+        if (formatCount == 0)
+        {
+            FL_LOG_ERROR("Could not create RenderContext because selected device does not support any surface formats");
+            throw std::exception();
+        }
 
         // Query present modes
         u32 presentModeCount = 0;
@@ -95,7 +123,11 @@ namespace Flourish::Vulkan
             presentModes.resize(presentModeCount);
             vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, m_Surface, &presentModeCount, presentModes.data());
         }
-        FL_CRASH_ASSERT(presentModeCount > 0, "Attempting to create a swapchain using a device that does not support any present modes");
+        if (presentModeCount == 0)
+        {
+            FL_LOG_ERROR("Could not create RenderContext because selected device does not support any present modes");
+            throw std::exception();
+        }
 
         // Choose a surface format
         std::array<VkFormat, 4> preferredFormats = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
@@ -147,6 +179,8 @@ namespace Flourish::Vulkan
 
     void Swapchain::RecreateSwapchain()
     {
+        FL_PROFILE_FUNCTION();
+
         m_Valid = false;
 
         auto device = Context::Devices().Device();
@@ -197,6 +231,23 @@ namespace Flourish::Vulkan
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = m_Swapchain;
 
+        // Fullscreen exclusive info on windows
+        #ifdef FL_PLATFORM_WINDOWS
+            u32 isFull = IsFullscreen((HWND)m_WindowHandle);
+
+            VkSurfaceFullScreenExclusiveWin32InfoEXT win32ExclusiveInfo{};
+            win32ExclusiveInfo.sType = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT;
+            win32ExclusiveInfo.hmonitor = MonitorFromWindow((HWND)m_WindowHandle, MONITOR_DEFAULTTONEAREST);
+
+            VkSurfaceFullScreenExclusiveInfoEXT exclusiveInfo{};
+            exclusiveInfo.sType = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT;
+            exclusiveInfo.pNext = &win32ExclusiveInfo;
+            exclusiveInfo.fullScreenExclusive = isFull ? VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT : VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
+
+            if (Context::Devices().SupportsFullScreenExclusive())
+                createInfo.pNext = &exclusiveInfo;
+        #endif
+
         u32 queueIndices[] = { Context::Queues().QueueIndex(GPUWorkloadType::Graphics), Context::Queues().PresentQueueIndex() };
         if (queueIndices[0] != queueIndices[1])
         {
@@ -208,11 +259,20 @@ namespace Flourish::Vulkan
             createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
         VkSwapchainKHR newSwapchain;
-        FL_VK_ENSURE_RESULT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapchain));
+        if(!FL_VK_CHECK_RESULT(vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapchain), "RenderContext create swapchain"))
+            throw std::exception();
 
         if (m_Swapchain)
             CleanupSwapchain();
         m_Swapchain = newSwapchain;
+
+        // Acquire fullscreen exclusive
+        // TODO: borderless mode
+        #ifdef FL_PLATFORM_WINDOWS
+            if (Context::Devices().SupportsFullScreenExclusive() &&
+                exclusiveInfo.fullScreenExclusive == VK_FULL_SCREEN_EXCLUSIVE_APPLICATION_CONTROLLED_EXT)
+                vkAcquireFullScreenExclusiveModeEXT(Context::Devices().Device(), m_Swapchain);
+        #endif
 
         // Load images
         std::vector<VkImage> chainImages;
@@ -236,7 +296,8 @@ namespace Flourish::Vulkan
         texCreateInfo.Width = m_CurrentWidth;
         texCreateInfo.Height = m_CurrentHeight;
         texCreateInfo.Format = rpCreateInfo.ColorAttachments[0].Format;
-        texCreateInfo.RenderTarget = true;
+        texCreateInfo.Usage = TextureUsageFlags::Graphics;
+        texCreateInfo.Writability = TextureWritability::PerFrame;
         FramebufferCreateInfo fbCreateInfo;
         fbCreateInfo.RenderPass = m_RenderPass;
         fbCreateInfo.Width = m_CurrentWidth;

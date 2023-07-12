@@ -51,8 +51,9 @@ namespace Flourish::Vulkan
 
         // TS
         VkQueue PresentQueue() const;
-        VkQueue Queue(GPUWorkloadType workloadType) const;
+        VkQueue Queue(GPUWorkloadType workloadType, u32 frameIndex = Flourish::Context::FrameIndex()) const;
         void LockQueue(GPUWorkloadType workloadType, bool lock);
+        void LockPresentQueue(bool lock);
         inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
         u32 QueueIndex(GPUWorkloadType workloadType) const;
 

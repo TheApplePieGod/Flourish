@@ -8,7 +8,7 @@ namespace Flourish
     struct FramebufferColorAttachment
     {
         // Required
-        std::array<float, 4> ClearColor;
+        std::array<float, 4> ClearColor = { 0.f, 0.f, 0.f, 0.f };
 
         // Specify a texture to be used as a render target
         std::shared_ptr<Texture> Texture = nullptr;
@@ -17,7 +17,12 @@ namespace Flourish
     };
 
     struct FramebufferDepthAttachment
-    {};
+    {
+        // Specify a texture to be used as a render target
+        std::shared_ptr<Texture> Texture = nullptr;
+        u32 LayerIndex = 0;
+        u32 MipLevel = 0;
+    };
 
     struct FramebufferCreateInfo
     {
@@ -35,7 +40,7 @@ namespace Flourish
             : m_Info(createInfo)
         {}
         virtual ~Framebuffer() = default;
-
+        
         // TS
         inline u32 GetWidth() { return m_Info.Width; }
         inline u32 GetHeight() { return m_Info.Height; }

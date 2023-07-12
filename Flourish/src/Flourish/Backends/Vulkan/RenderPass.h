@@ -13,6 +13,7 @@ namespace Flourish::Vulkan
 
         // TS
         inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
+        inline bool RendersToSwapchain() const { return m_RendersToSwapchain; }
 
         inline static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
 
@@ -22,6 +23,7 @@ namespace Flourish::Vulkan
     private:
         VkSampleCountFlagBits m_SampleCount;
         bool m_UseResolve;
-        VkRenderPass m_RenderPass;
+        bool m_RendersToSwapchain;
+        VkRenderPass m_RenderPass = nullptr;
     };
 }

@@ -7,7 +7,7 @@ namespace Flourish::Vulkan
 {
     void FinalizerQueue::Initialize()
     {
-        
+        FL_LOG_TRACE("Vulkan finalizer queue initialization begin");
     }
 
     void FinalizerQueue::Shutdown()
@@ -28,8 +28,9 @@ namespace Flourish::Vulkan
 
     void FinalizerQueue::PushAsync(
         std::function<void()> executeFunc,
-        const std::vector<VkSemaphore>* semaphores,
-        const std::vector<u64>* waitValues,
+        const VkSemaphore* semaphores,
+        const u64* waitValues,
+        u32 semaphoreCount,
         const char* debugName)
     {
         m_QueueLock.lock();
@@ -45,8 +46,10 @@ namespace Flourish::Vulkan
 
     void FinalizerQueue::Iterate(bool force)
     {
+        FL_PROFILE_FUNCTION();
+
         m_QueueLock.lock();
-        for (u32 i = 0; i < m_Queue.size(); i++)
+        for (int i = 0; i < m_Queue.size(); i++)
         {
             auto& value = m_Queue.at(i);
             
@@ -55,17 +58,17 @@ namespace Flourish::Vulkan
             {
                 // Check all semaphores for completion
                 u64 semaphoreVal;
-                for (u32 i = 0; i < value.WaitSemaphores.size(); i++)
+                for (u32 j = 0; j < value.WaitSemaphores.size(); j++)
                 {
-                    vkGetSemaphoreCounterValueKHR(Context::Devices().Device(), value.WaitSemaphores[i], &semaphoreVal);
-                    execute = semaphoreVal == value.WaitValues[i]; // Completed
+                    vkGetSemaphoreCounterValue(Context::Devices().Device(), value.WaitSemaphores[j], &semaphoreVal);
+                    execute = semaphoreVal >= value.WaitValues[j]; // Completed
                     if (!execute) break; // If any fail then all fail
                 }
             }
             else if (value.Lifetime > 0)
                 value.Lifetime -= 1;
             else
-                execute = false;
+                execute = true;
             
             if (execute || force)
             {
@@ -73,6 +76,7 @@ namespace Flourish::Vulkan
                 { FL_LOG_TRACE("Finalizer: %s", value.DebugName); }
                 m_QueueLock.unlock();
                 value.Execute();
+                value.Execute = nullptr; // Ensure function data gets cleaned up before relocking
                 m_QueueLock.lock();
                 m_Queue.erase(m_Queue.begin() + i);
                 i -= 1;

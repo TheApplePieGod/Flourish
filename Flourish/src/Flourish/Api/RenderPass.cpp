@@ -18,7 +18,17 @@ namespace Flourish
 
         FL_LOG_DEBUG("Registering graphics pipeline '%s' to RenderPass", name.data());
 
-        auto newPipeline = CreatePipeline(createInfo);
+        std::shared_ptr<GraphicsPipeline> newPipeline;
+        try
+        {
+            newPipeline = CreatePipeline(createInfo);
+        }
+        catch (const std::exception& e)
+        {
+            FL_ASSERT(false, "Failed to create graphics pipeline");
+            return nullptr;
+        }
+
         m_Pipelines[nameStr] = newPipeline;
         return newPipeline;
     }
@@ -34,6 +44,15 @@ namespace Flourish
         );
 
         return m_Pipelines[nameStr];
+    }
+
+    u32 RenderPass::GetColorAttachmentCount(u32 subpassIndex)
+    {
+        u32 count = 0;
+        for (auto& attachment : m_Info.Subpasses[subpassIndex].OutputAttachments)
+            if (attachment.Type == SubpassAttachmentType::Color)
+                count++;
+        return count;
     }
 
     std::shared_ptr<RenderPass> RenderPass::Create(const RenderPassCreateInfo& createInfo)

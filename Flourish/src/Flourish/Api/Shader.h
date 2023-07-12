@@ -2,39 +2,34 @@
 
 namespace Flourish
 {
+    namespace ShaderTypeEnum
+    {
+        enum Value : u8
+        {
+            None = 0,
+            Vertex = 1 << 0,
+            Fragment = 1 << 1,
+            Compute = 1 << 2,
+            RayGen = 1 << 3,
+            RayMiss = 1 << 4,
+            RayIntersection = 1 << 5,
+            RayClosestHit = 1 << 6,
+            RayAnyHit = 1 << 7,
+            All = 255
+        };
+    }
+    typedef ShaderTypeEnum::Value ShaderTypeFlags;
+    typedef u8 ShaderType;
+
     enum class ShaderResourceType
     {
         None = 0,
-        UniformBuffer, StorageBuffer, Texture, SubpassInput
-    };
-
-    enum class ShaderResourceAccessType
-    {
-        None = 0,
-        Vertex, Fragment, Both, Compute
-    };
-
-    struct ReflectionDataElement
-    {
-        ReflectionDataElement() = default;
-        ReflectionDataElement(u32 uniqueId, ShaderResourceType resourceType, ShaderResourceAccessType accessType, u32 bindingIndex, u32 setIndex, u32 arrayCount)
-            : UniqueId(uniqueId), ResourceType(resourceType), AccessType(accessType), BindingIndex(bindingIndex), SetIndex(setIndex), ArrayCount(arrayCount)
-        {}
-
-        u32 UniqueId;
-        ShaderResourceType ResourceType;
-        ShaderResourceAccessType AccessType;
-        u32 BindingIndex;
-        u32 SetIndex;
-        u32 ArrayCount;
-    };
-
-    enum class ShaderType
-    {
-        None = 0,
-        Vertex,
-        Fragment,
-        Compute
+        UniformBuffer,
+        StorageBuffer,
+        Texture,
+        StorageTexture,
+        SubpassInput,
+        AccelerationStructure
     };
 
     struct ShaderCreateInfo
@@ -53,7 +48,7 @@ namespace Flourish
         virtual ~Shader() = default;
 
         // TS
-        inline const auto& GetReflectionData() { return m_ReflectionData; }
+        inline ShaderType GetType() const { return m_Type; }
 
     public:
         // TS
@@ -61,6 +56,5 @@ namespace Flourish
 
     protected:
         ShaderType m_Type;
-        std::vector<ReflectionDataElement> m_ReflectionData;
     };
 }

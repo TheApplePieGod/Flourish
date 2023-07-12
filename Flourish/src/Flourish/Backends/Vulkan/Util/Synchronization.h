@@ -16,5 +16,6 @@ namespace Flourish::Vulkan
         static VkSemaphore CreateTimelineSemaphore(u32 initialValue);
         static VkSemaphore CreateSemaphore();
         static VkFence CreateFence();
+        static VkEvent CreateEvent();
     };
 }

@@ -9,7 +9,7 @@ void MacOS::PollEvents()
     [event release];
 }
 
-void* MacOS::CreateWindowAndGetView(int width, int height)
+void* MacOS::CreateWindowAndGetLayer(int width, int height)
 {
     NSApplication* app = NSApplication.sharedApplication;
     app.activationPolicy = NSApplicationActivationPolicyRegular;
@@ -30,5 +30,5 @@ void* MacOS::CreateWindowAndGetView(int width, int height)
     view.wantsLayer = YES;
     view.layer = [CAMetalLayer layer];
 
-    return view;
+    return view.layer;
 }

@@ -18,7 +18,7 @@ namespace Flourish::Vulkan
     class Swapchain
     {
     public:
-        void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface);
+        void Initialize(const RenderContextCreateInfo& createInfo, VkSurfaceKHR surface, void* windowHandle);
         void Shutdown();
         void UpdateActiveImage();
 
@@ -51,6 +51,7 @@ namespace Flourish::Vulkan
         void CleanupSwapchain();
 
     private:
+        void* m_WindowHandle = nullptr;
         VkSwapchainKHR m_Swapchain = nullptr;
         u32 m_CurrentWidth, m_CurrentHeight = 0;
         std::array<float, 4> m_ClearColor;

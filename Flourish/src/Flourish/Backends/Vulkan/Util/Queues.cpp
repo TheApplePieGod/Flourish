@@ -8,6 +8,8 @@ namespace Flourish::Vulkan
 {
     void Queues::Initialize()
     {
+        FL_LOG_TRACE("Vulkan queues initialization begin");
+
         auto indices = GetQueueFamilies(Context::Devices().PhysicalDevice());
 
         m_GraphicsQueue.QueueIndex = indices.GraphicsFamily.value();
@@ -26,50 +28,52 @@ namespace Flourish::Vulkan
 
     void Queues::Shutdown()
     {
-        auto semaphores = m_UnusedSemaphores;
-        Context::FinalizerQueue().Push([=]()
-        {
-            for (auto semaphore : semaphores)
-                vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
-        }, "Queues free");
+        FL_LOG_TRACE("Vulkan queues shutdown begin");
+
+        for (auto semaphore : m_UnusedSemaphores)
+            vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
     }
     
     PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
     {
-        std::vector<VkSemaphore> semaphore = { RetrieveSemaphore() };
+        VkSemaphore semaphore = RetrieveSemaphore();
 
         m_SemaphoresLock.lock();
-        std::vector<u64> signalValue = { ++m_ExecuteSemaphoreSignalValue };
+        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
         m_SemaphoresLock.unlock();
 
         VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
         timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
         timelineSubmitInfo.signalSemaphoreValueCount = 1;
-        timelineSubmitInfo.pSignalSemaphoreValues = signalValue.data();
+        timelineSubmitInfo.pSignalSemaphoreValues = &signalValue;
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.pNext = &timelineSubmitInfo;
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = semaphore.data();
+        submitInfo.pSignalSemaphores = &semaphore;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
 
+        // Lock queues here to ensure we don't submit to the same queue on different threads concurrently. Additionally, lock the present queue
+        // because it is likely that the present queue is just an alias for a different queue and is not its own thing
+        LockPresentQueue(true);
         LockQueue(workloadType, true);
-        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr));
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr), "PushCommand queue submit");
         LockQueue(workloadType, false);
+        LockPresentQueue(false);
 
-        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore, signalValue, debugName]()
+        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore]()
         {
+            m_SemaphoresLock.lock();
+            m_UnusedSemaphores.push_back(semaphore);
+            m_SemaphoresLock.unlock();
+
             if (completionCallback)
                 completionCallback();
-
-            m_SemaphoresLock.lock();
-            m_UnusedSemaphores.push_back(semaphore[0]);
-            m_SemaphoresLock.unlock();
-        }, &semaphore, &signalValue, debugName ? debugName : "Push command finalizer");
+        }, &semaphore, &signalValue, 1, debugName);
         
-        return { semaphore[0], signalValue[0] };
+        return { semaphore, signalValue };
     }
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName)
@@ -82,7 +86,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = &pushResult.SignalSemaphore;
         waitInfo.pValues = &pushResult.SignalValue;
 
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     VkQueue Queues::PresentQueue() const
@@ -90,16 +94,16 @@ namespace Flourish::Vulkan
         return m_PresentQueue.Queues[Flourish::Context::FrameIndex()];
     }
 
-    VkQueue Queues::Queue(GPUWorkloadType workloadType) const
+    VkQueue Queues::Queue(GPUWorkloadType workloadType, u32 frameIndex) const
     {
         switch (workloadType)
         {
             case GPUWorkloadType::Graphics:
-            { return m_GraphicsQueue.Queues[Flourish::Context::FrameIndex()]; }
+            { return m_GraphicsQueue.Queues[frameIndex]; }
             case GPUWorkloadType::Transfer:
-            { return m_TransferQueue.Queues[Flourish::Context::FrameIndex()]; }
+            { return m_TransferQueue.Queues[frameIndex]; }
             case GPUWorkloadType::Compute:
-            { return m_ComputeQueue.Queues[Flourish::Context::FrameIndex()]; }
+            { return m_ComputeQueue.Queues[frameIndex]; }
         }
 
         FL_ASSERT(false, "Queue for workload not supported");
@@ -121,10 +125,19 @@ namespace Flourish::Vulkan
 
         FL_ASSERT(mutex, "Queue for workload not supported");
 
-        if (lock) mutex->lock();
-        else mutex->unlock();
+        if (lock)
+            mutex->lock();
+        else
+            mutex->unlock();
     }
 
+    void Queues::LockPresentQueue(bool lock)
+    {
+        if (lock)
+            m_PresentQueue.AccessMutex.lock();
+        else
+            m_PresentQueue.AccessMutex.unlock();
+    }
     
     u32 Queues::QueueIndex(GPUWorkloadType workloadType) const
     {
@@ -237,14 +250,15 @@ namespace Flourish::Vulkan
 
     VkSemaphore Queues::RetrieveSemaphore()
     {
+        m_SemaphoresLock.lock();
         if (m_UnusedSemaphores.size() > 0)
         {
-            m_SemaphoresLock.lock();
             auto semaphore = m_UnusedSemaphores.back();
             m_UnusedSemaphores.pop_back();
             m_SemaphoresLock.unlock();
             return semaphore;
         }
+        m_SemaphoresLock.unlock();
 
         return Synchronization::CreateTimelineSemaphore(0);
     }

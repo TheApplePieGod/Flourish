@@ -8,6 +8,18 @@
 	#endif
 #endif
 
+#ifdef FL_USE_TRACY
+    #define TRACY_ENABLE
+    #include "tracy/Tracy.hpp"
+    #define FL_PROFILE_FUNCTION() ZoneScoped
+#else
+    #define FL_PROFILE_FUNCTION()
+#endif
+
+#if defined(FL_HAS_AFTERMATH) && defined(FL_DEBUG)
+    #define FL_USE_AFTERMATH
+#endif
+
 #include <string>
 #include <vector>
 #include <array>
@@ -17,7 +29,7 @@
 #include <functional>
 #include <filesystem>
 #include <optional>
-#include <deque>
+#include <queue>
 #include <mutex>
 #include <shared_mutex>
 #include <filesystem>
@@ -29,4 +41,6 @@
 
 #ifdef FL_PLATFORM_WINDOWS
 	#include <Windows.h>
+#else
+    #include <dlfcn.h>
 #endif

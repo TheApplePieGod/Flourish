@@ -4,6 +4,19 @@
 
 namespace Flourish
 {
+    namespace TextureUsageEnum
+    {
+        enum Value : u8
+        {
+            Readonly = 0,
+            Graphics = (1 << 0),
+            Compute = (1 << 1),
+            Transfer = (1 << 2)
+        };
+    }
+    typedef TextureUsageEnum::Value TextureUsageFlags;
+    typedef u8 TextureUsage;
+    
     enum class ColorFormat
     {
         None = 0,
@@ -12,7 +25,15 @@ namespace Flourish
         RGB8_UNORM,
         BGR8_UNORM,
         R16_FLOAT, RGBA16_FLOAT,
-        R32_FLOAT, RGBA32_FLOAT
+        R32_FLOAT, RGBA32_FLOAT,
+        Depth
+    };
+    
+    enum class TextureWritability
+    {
+        None = 0,
+        Once,
+        PerFrame
     };
 
     enum class SamplerFilter
@@ -44,16 +65,16 @@ namespace Flourish
         SamplerFilter MagFilter = SamplerFilter::Linear;
         std::array<SamplerWrapMode, 3> UVWWrap = { SamplerWrapMode::Repeat, SamplerWrapMode::Repeat, SamplerWrapMode::Repeat };
         SamplerReductionMode ReductionMode = SamplerReductionMode::WeightedAverage;
-        bool AnisotropyEnable = true;
+        bool AnisotropyEnable = false;
         u32 MaxAnisotropy = 8;
     };
-
+    
     struct TextureCreateInfo
     {
         u32 Width, Height;
         ColorFormat Format;
-        BufferUsageType UsageType;
-        bool RenderTarget = false; // TODO: revisit this & usage type
+        TextureUsage Usage = TextureUsageFlags::Readonly;
+        TextureWritability Writability = TextureWritability::None;
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
         TextureSamplerState SamplerState;
@@ -66,9 +87,7 @@ namespace Flourish
     class Texture
     {
     public:
-        Texture(const TextureCreateInfo& createInfo)
-            : m_Info(createInfo)
-        { m_Channels = ColorFormatComponentCount(createInfo.Format); }
+        Texture(const TextureCreateInfo& createInfo);
         virtual ~Texture() = default;
         
         // TS
@@ -78,6 +97,7 @@ namespace Flourish
         #endif
 
         // TS  
+        inline u64 GetId() const { return m_Id; }
         inline u32 GetArrayCount() const { return m_Info.ArrayCount; }
         inline u32 GetWidth() const { return m_Info.Width; }
         inline u32 GetHeight() const { return m_Info.Height; }
@@ -85,7 +105,8 @@ namespace Flourish
         inline u32 GetMipWidth(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Width * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Channels; }
-        inline bool IsRenderTarget() const { return m_Info.RenderTarget; }
+        inline TextureUsage GetUsageType() const { return m_Info.Usage; }
+        inline TextureWritability GetWritability() const { return m_Info.Writability; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
         inline ColorFormat GetColorFormat() const { return m_Info.Format; }
 
@@ -99,5 +120,6 @@ namespace Flourish
         TextureCreateInfo m_Info;
         u32 m_MipLevels;
         u32 m_Channels;
+        u64 m_Id;
     };
 }

@@ -4,6 +4,8 @@
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/RenderPass.h"
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "Flourish/Backends/Vulkan/ResourceSet.h"
+#include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
 
 namespace Flourish::Vulkan
 {
@@ -11,7 +13,7 @@ namespace Flourish::Vulkan
     {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
-        bindingDescription.stride = layout.GetStride();
+        bindingDescription.stride = layout.GetCalculatedStride();
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
         return bindingDescription;
@@ -37,12 +39,24 @@ namespace Flourish::Vulkan
     GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
         : Flourish::GraphicsPipeline(createInfo)
     {
-        m_DescriptorSetLayout.Initialize(m_ProgramReflectionData);
-
+        auto vertShader = static_cast<Shader*>(createInfo.VertexShader.Shader.get());
+        auto fragShader = static_cast<Shader*>(createInfo.FragmentShader.Shader.get());
         VkPipelineShaderStageCreateInfo shaderStages[] = {
-            static_cast<Shader*>(createInfo.VertexShader.get())->DefineShaderStage(),
-            static_cast<Shader*>(createInfo.FragmentShader.get())->DefineShaderStage()
+            vertShader->DefineShaderStage(),
+            fragShader->DefineShaderStage()
         };
+
+        // Populate descriptor data
+        std::array<Shader*, 2> shaders = { vertShader, fragShader };
+        m_DescriptorData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
+        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Graphics;
+
+        // Populate specialization constants
+        std::array<std::vector<SpecializationConstant>, 2> specs = { m_Info.VertexShader.Specializations, m_Info.FragmentShader.Specializations };
+        PipelineSpecializationHelper specHelper;
+        specHelper.Populate(shaders.data(), specs.data(), shaders.size());
+        shaderStages[0].pSpecializationInfo = &specHelper.SpecInfos[0];
+        shaderStages[1].pSpecializationInfo = &specHelper.SpecInfos[1];
 
         auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
         auto attributeDescriptions = GenerateVertexAttributeDescriptions(createInfo.VertexLayout.GetElements());
@@ -134,20 +148,34 @@ namespace Flourish::Vulkan
         dynamicState.dynamicStateCount = 3;
         dynamicState.pDynamicStates = dynamicStates;
 
-        VkDescriptorSetLayout layout[1] = { m_DescriptorSetLayout.GetLayout() };
+        u32 setCount = m_DescriptorData.SetData.size();
+        std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
+        for (u32 i = 0; i < setCount; i++)
+            if (m_DescriptorData.SetData[i].Exists)
+                layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = layout;
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
-        FL_VK_ENSURE_RESULT(vkCreatePipelineLayout(Context::Devices().Device(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout));
+        pipelineLayoutInfo.setLayoutCount = setCount;
+        pipelineLayoutInfo.pSetLayouts = layouts.data();
+        if (m_DescriptorData.PushConstantRange.size > 0)
+        {
+            pipelineLayoutInfo.pushConstantRangeCount = 1;
+            pipelineLayoutInfo.pPushConstantRanges = &m_DescriptorData.PushConstantRange;
+        }
+        if (!FL_VK_CHECK_RESULT(vkCreatePipelineLayout(
+            Context::Devices().Device(),
+            &pipelineLayoutInfo,
+            nullptr,
+            &m_PipelineLayout
+        ), "GraphicsPipeline create layout"))
+            throw std::exception();
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencil.depthTestEnable = createInfo.DepthTest;
-        depthStencil.depthWriteEnable = createInfo.DepthWrite;
-        depthStencil.depthCompareOp = Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS;
+        depthStencil.depthTestEnable = createInfo.DepthConfig.DepthTest;
+        depthStencil.depthWriteEnable = createInfo.DepthConfig.DepthWrite;
+        depthStencil.depthCompareOp = Common::ConvertDepthComparison(createInfo.DepthConfig.CompareOperation);
         depthStencil.depthBoundsTestEnable = VK_FALSE;
         depthStencil.minDepthBounds = 0.0f;
         depthStencil.maxDepthBounds = 1.0f;
@@ -180,6 +208,13 @@ namespace Flourish::Vulkan
             if (fillCompatible)
                 m_Info.CompatibleSubpasses.push_back(i);
             pipelineInfo.subpass = m_Info.CompatibleSubpasses[i];
+
+            // Ensure Compatability
+            if (renderPass->GetColorAttachmentCount(m_Info.CompatibleSubpasses[i]) != m_Info.BlendStates.size())
+            {
+                FL_LOG_ERROR("Pipeline has blend state count that does not match with a compatible subpass");
+                throw std::exception();
+            }
             
             if (i > 0)
             {
@@ -188,29 +223,39 @@ namespace Flourish::Vulkan
             }
 
             VkPipeline pipeline;
-            FL_VK_ENSURE_RESULT(vkCreateGraphicsPipelines(
+            if(!FL_VK_CHECK_RESULT(vkCreateGraphicsPipelines(
                 Context::Devices().Device(),
                 VK_NULL_HANDLE,
                 1,
                 &pipelineInfo,
                 nullptr,
                 &pipeline
-            ));
+            ), "GraphicsPipeline create pipeline"))
+                throw std::exception();
+
             m_Pipelines[m_Info.CompatibleSubpasses[i]] = pipeline;
         }
     }
 
     GraphicsPipeline::~GraphicsPipeline()
     {
-        m_DescriptorSetLayout.Shutdown();
-
         auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;
         Context::FinalizerQueue().Push([=]()
         {
             for (auto& pair : pipelines)
                 vkDestroyPipeline(Context::Devices().Device(), pair.second, nullptr);
-            vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
+            if (layout)
+                vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Graphics pipeline free");
+    }
+
+    std::shared_ptr<Flourish::ResourceSet> GraphicsPipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)
+    {
+        return m_DescriptorData.CreateResourceSet(
+            setIndex,
+            ResourceSetPipelineCompatabilityFlags::Graphics,
+            createInfo
+        );
     }
 }

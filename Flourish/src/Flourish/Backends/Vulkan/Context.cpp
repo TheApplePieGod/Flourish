@@ -3,6 +3,10 @@
 
 #include "Flourish/Backends/Vulkan/RenderContext.h"
 
+#ifdef FL_PLATFORM_MACOS
+    #include "MoltenVK/mvk_config.h"
+#endif
+
 namespace Flourish::Vulkan
 {
     static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback(
@@ -15,7 +19,7 @@ namespace Flourish::Vulkan
         {
             default:
                 break;
-            //case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: { FL_LOG_TRACE("%s", pCallbackData->pMessage); } return VK_TRUE;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: { FL_LOG_TRACE("%s", pCallbackData->pMessage); } return VK_TRUE;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: { FL_LOG_INFO("%s", pCallbackData->pMessage); } return VK_TRUE;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: { FL_LOG_WARN("%s", pCallbackData->pMessage); } return VK_TRUE;
             case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: { FL_LOG_ERROR("%s", pCallbackData->pMessage); } return VK_TRUE;
@@ -26,8 +30,10 @@ namespace Flourish::Vulkan
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
+        FL_LOG_DEBUG("Initializing vulkan context");
+        
         // Initialize the vulkan loader
-        FL_VK_ENSURE_RESULT(volkInitialize());
+        FL_VK_ENSURE_RESULT(volkInitialize(), "Vulkan loader initialization");
 
         SetupInstance(initInfo);
         s_Devices.Initialize(initInfo);
@@ -44,15 +50,17 @@ namespace Flourish::Vulkan
     {
         FL_LOG_TRACE("Vulkan context shutdown begin");
 
-        s_Queues.Shutdown();
-
         Sync();
 
+        FL_LOG_TRACE("Running vulkan finalizer pass #1");
         s_FinalizerQueue.Shutdown();
-        s_SubmissionHandler.Shutdown();
-        s_Commands.Shutdown();
         if (finalizer)
             finalizer();
+        FL_LOG_TRACE("Running vulkan finalizer pass #2");
+        s_FinalizerQueue.Shutdown();
+        s_Queues.Shutdown();
+        s_SubmissionHandler.Shutdown();
+        s_Commands.Shutdown();
         vmaDestroyAllocator(s_Allocator);
         s_Devices.Shutdown();
         #if FL_DEBUG
@@ -62,6 +70,7 @@ namespace Flourish::Vulkan
             if (destroyDebugUtilsFunc)
                 destroyDebugUtilsFunc(s_Instance, s_DebugMessenger, nullptr);
         #endif
+        FL_LOG_TRACE("Destroying vulkan instance");
         vkDestroyInstance(s_Instance, nullptr);
 
         FL_LOG_DEBUG("Vulkan context shutdown complete");
@@ -80,6 +89,8 @@ namespace Flourish::Vulkan
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
     {
+        FL_LOG_TRACE("Vulkan instance setup begin");
+
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = initInfo.ApplicationName;
@@ -106,7 +117,6 @@ namespace Flourish::Vulkan
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
             #elif defined (FL_PLATFORM_MACOS)
-                "VK_MVK_macos_surface",
                 "VK_EXT_metal_surface"
             #endif
         };
@@ -117,13 +127,19 @@ namespace Flourish::Vulkan
             bool found = Common::SupportsExtension(supportedExtensions, extension);
             FL_CRASH_ASSERT(found, "Vulkan driver is missing the required extension '%s'", extension);
         }
+        
+        // Ensure portability enumeration is enabled on mac but only if it is supported
+        #ifdef FL_PLATFORM_MACOS
+            if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_enumeration"))
+                requiredExtensions.push_back("VK_KHR_portability_enumeration");
+        #endif
 
         // Create instance
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
         #if FL_DEBUG
-            FL_LOG_DEBUG("Configuring validation layers");
+            FL_LOG_TRACE("Configuring validation layers");
             const char* debugExt = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
             bool supportsDebug = Common::SupportsExtension(supportedExtensions, debugExt);
             if (supportsDebug)
@@ -131,16 +147,42 @@ namespace Flourish::Vulkan
             ConfigureValidationLayers();
             createInfo.enabledLayerCount = static_cast<u32>(s_ValidationLayers.size());
             createInfo.ppEnabledLayerNames = s_ValidationLayers.data();
+            FL_LOG_INFO("%d vulkan validation layers enabled", createInfo.enabledLayerCount);
+            for (u32 i = 0; i < createInfo.enabledLayerCount; i++)
+                FL_LOG_INFO("    %s", createInfo.ppEnabledLayerNames[i]);
+
+            VkValidationFeatureEnableEXT enables[] = {
+                VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+                VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+                VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+            };
+            VkValidationFeaturesEXT features = {};
+            features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+            features.enabledValidationFeatureCount = 3;
+            features.pEnabledValidationFeatures = enables;
+            if (Common::SupportsExtension(supportedExtensions, "VK_EXT_validation_features"))
+            {
+                requiredExtensions.push_back("VK_EXT_validation_features");
+                createInfo.pNext = &features;
+            }
         #else
             createInfo.enabledLayerCount = 0;
         #endif
         createInfo.enabledExtensionCount = static_cast<u32>(requiredExtensions.size());
         createInfo.ppEnabledExtensionNames = requiredExtensions.data();
+        #ifdef FL_PLATFORM_MACOS
+            if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_enumeration"))
+                createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        #endif
 
-        FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance));
+        FL_LOG_INFO("%d vulkan instance extensions enabled", createInfo.enabledExtensionCount);
+        for (u32 i = 0; i < createInfo.enabledExtensionCount; i++)
+            FL_LOG_INFO("    %s", createInfo.ppEnabledExtensionNames[i]);
+        
+        FL_VK_ENSURE_RESULT(vkCreateInstance(&createInfo, nullptr, &s_Instance), "Vulkan create instance");
 
         // Load all instance functions
-        volkLoadInstance(s_Instance);
+        volkLoadInstanceOnly(s_Instance);
 
         #if FL_DEBUG
             // Setup debug messenger
@@ -163,9 +205,36 @@ namespace Flourish::Vulkan
                     success = func(s_Instance, &createInfo, nullptr, &s_DebugMessenger) == VK_SUCCESS;
             
                 if (!success)
-                    FL_LOG_WARN("Unable to initialize debug utilities") ;
+                    FL_LOG_WARN("Unable to initialize vulkan debug utilities") ;
             }   
         #endif
+
+        // Enable metal argument buffers. For now, this is mandatory because we haven't provided a way
+        // for the user to know that the limits of descriptor indexing are. This is fine
+        // for now since argument buffers are supported in osx >= 11.0
+        // https://github.com/KhronosGroup/MoltenVK/issues/1610
+        #ifdef FL_PLATFORM_MACOS
+            FL_LOG_DEBUG("Configuring MoltenVK");
+
+            // For some reason, vkGetInstanceProcAddr does not work with the config functions, so we
+            // must load them manually
+            // https://github.com/KhronosGroup/MoltenVK/issues/1817
+            auto libMoltenVK = dlopen("libMoltenVK.dylib", RTLD_LAZY);
+
+            auto getMvkConfig = (PFN_vkGetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkGetMoltenVKConfigurationMVK");
+            FL_CRASH_ASSERT(getMvkConfig, "MoltenVK configuration function not found");
+
+            MVKConfiguration mvkConfig;
+            size_t mvkConfigSize = sizeof(mvkConfig);
+            getMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
+            mvkConfig.useMetalArgumentBuffers = MVKUseMetalArgumentBuffers::MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS_ALWAYS;
+
+            auto setMvkConfig = (PFN_vkSetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkSetMoltenVKConfigurationMVK");
+            FL_CRASH_ASSERT(setMvkConfig, "MoltenVK configuration function not found");
+            setMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
+        #endif
+
+        FL_LOG_TRACE("Instance setup complete");
     }
 
     void Context::SetupAllocator()
@@ -180,8 +249,10 @@ namespace Flourish::Vulkan
         createInfo.device = s_Devices.Device();
         createInfo.vulkanApiVersion = VulkanApiVersion;
         createInfo.pVulkanFunctions = &vulkanFunctions;
+        if (Flourish::Context::FeatureTable().BufferGPUAddress)
+            createInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
-        vmaCreateAllocator(&createInfo, &s_Allocator);
+        FL_VK_ENSURE_RESULT(vmaCreateAllocator(&createInfo, &s_Allocator), "Vulkan create allocator");
     }
 
     void Context::ConfigureValidationLayers()

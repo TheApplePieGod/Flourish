@@ -19,11 +19,12 @@
 		#error "IOS simulator is not supported!"
 	#elif TARGET_OS_IPHONE == 1
 		#define FL_PLATFORM_IOS
-		#define VK_USE_PLATFORM_IOS_MVK
+		#define VK_USE_PLATFORM_METAL_EXT
 		#error "IOS is not supported!"
 	#elif TARGET_OS_MAC == 1
 		#define FL_PLATFORM_MACOS
-		#define VK_USE_PLATFORM_MACOS_MVK
+		#define VK_USE_PLATFORM_METAL_EXT
+        #define VK_ENABLE_BETA_EXTENSIONS
 	#else
 		#error "Unknown Apple platform!"
 	#endif

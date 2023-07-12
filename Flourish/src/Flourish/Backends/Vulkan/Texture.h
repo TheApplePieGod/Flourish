@@ -36,12 +36,16 @@ namespace Flourish::Vulkan
         VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
         VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
-        VkSampler GetSampler() const { return m_Sampler; }
+
+        // TS
+        inline VkSampler GetSampler() const { return m_Sampler; }
+        inline bool IsDepthImage() const { return m_IsDepthImage; }
         
     public:
         static void GenerateMipmaps(
             VkImage image,
             VkFormat imageFormat,
+            VkImageAspectFlags imageAspect,
             u32 width,
             u32 height,
             u32 mipLevels,
@@ -51,12 +55,39 @@ namespace Flourish::Vulkan
             VkFilter sampleFilter,
             VkCommandBuffer buffer = nullptr
         );
+
+        // Must transtion srcImage to TRANSFER_SRC and dstImage to TRANSFER_DST
+        static void Blit(
+            VkImage srcImage,
+            VkFormat srcFormat,
+            VkImageAspectFlags srcAspect,
+            u32 srcMip,
+            u32 srcLayer,
+            VkImage dstImage,
+            VkFormat dstFormat,
+            VkImageAspectFlags dstAspect,
+            u32 dstMip,
+            u32 dstLayer,
+            u32 width,
+            u32 height,
+            VkFilter sampleFilter,
+            VkCommandBuffer buffer = nullptr
+        );
+
+        // Can transition image to TRANSFER_DST, will happen automatically
         static void TransitionImageLayout(
             VkImage image,
             VkImageLayout oldLayout,
             VkImageLayout newLayout,
+            VkImageAspectFlags imageAspect,
+            u32 baseMip,
             u32 mipLevels,
+            u32 baseLayer,
             u32 layerCount,
+            VkAccessFlags srcAccessMask,
+            VkPipelineStageFlags srcStage,
+            VkAccessFlags dstAccessMask,
+            VkPipelineStageFlags dstStage,
             VkCommandBuffer buffer = nullptr
         );
         static VkImageView CreateImageView(const ImageViewCreateInfo& createInfo);
@@ -64,8 +95,8 @@ namespace Flourish::Vulkan
     private:
         struct ImageData
         {
-            VkImage Image;
-            VkImageView ImageView;
+            VkImage Image = nullptr;
+            VkImageView ImageView = nullptr;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
             std::vector<VkImageView> SliceViews = {};
@@ -84,6 +115,15 @@ namespace Flourish::Vulkan
         VkFormat m_Format;
         VkSampler m_Sampler = nullptr;
         u32 m_ImageCount = 0;
-        u32* m_ReadyState = nullptr;
+        bool m_IsDepthImage = false;
+        bool m_IsStorageImage = false;
+
+        // TODO: remove this and use an upload system like buffers 
+        std::shared_ptr<bool> m_IsReady = nullptr;
+    
+    private:
+        #ifdef FL_USE_IMGUI
+        inline static std::mutex s_ImGuiMutex;
+        #endif
     };
 }

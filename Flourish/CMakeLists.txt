@@ -31,6 +31,7 @@ if (APPLE)
     FlourishCore
     PUBLIC
     "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/macOS/include>"
+    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/MoltenVK/include>"
   )
 else()
   target_include_directories(
@@ -68,42 +69,75 @@ if (NOT FLOURISH_IMGUI_INCLUDE_DIR STREQUAL "OFF")
   message("Flourish compiling with ImGui support")
 endif()
 
-# Link vulkan related libraries
+if (NOT FLOURISH_TRACY_INCLUDE_DIR STREQUAL "OFF")
+  target_include_directories(
+    FlourishCore
+    PUBLIC
+    "$<BUILD_INTERFACE:${FLOURISH_TRACY_INCLUDE_DIR}>"
+  )
+  target_compile_definitions(
+    FlourishCore
+    PUBLIC
+    FL_USE_TRACY
+  )
+  message("Flourish compiling with Tracy support")
+endif()
+
+# Link Aftermath
+if (FLOURISH_ENABLE_AFTERMATH)
+  message("Flourish compiling with Aftermath support")
+  find_library(aftermath
+    NAMES "GFSDK_Aftermath_Lib.x64"
+    PATHS "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
+  )
+  target_link_libraries(FlourishCore ${aftermath})
+  target_include_directories(
+    FlourishCore
+    PUBLIC
+    "$<BUILD_INTERFACE:$ENV{NSIGHT_AFTERMATH_SDK}/include>"
+  )
+  target_compile_definitions(
+    FlourishCore
+    PUBLIC
+    FL_HAS_AFTERMATH
+  )
+  add_custom_target(CopyAftermathLibs ALL
+      COMMAND ${CMAKE_COMMAND} -E copy $ENV{NSIGHT_AFTERMATH_SDK}/lib/x64/GFSDK_Aftermath_Lib.x64.dll ${OUTPUT_DIRECTORY}/GFSDK_Aftermath_Lib.x64.dll
+  )
+endif()
+
+# Link vulkan related libraries & copy if necessary
 if (WIN32)
-  if (${CMAKE_BUILD_TYPE} MATCHES Debug)
-    set(DEBUG_LIB_EXTRAS "d")
-  endif()
   find_library(shaderc
     NAMES "shaderc_shared"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
-  find_library(spirvcore${DEBUG_LIB_EXTRAS}
-    NAMES "spirv-cross-core${DEBUG_LIB_EXTRAS}"
+  find_library(spirvcore
+    NAMES "spirv-cross-c-shared"
     PATHS "$ENV{VULKAN_SDK}/lib"
   )
-  target_link_libraries(FlourishCore ${spirvcore${DEBUG_LIB_EXTRAS}})
-  find_library(spirvglsl
-    NAMES "spirv-cross-glsl"
-    PATHS "$ENV{VULKAN_SDK}/lib"
+  target_link_libraries(FlourishCore ${spirvcore})
+
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/shaderc_shared.dll ${OUTPUT_DIRECTORY}/shaderc_shared.dll
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/Bin/spirv-cross-c-shared.dll ${OUTPUT_DIRECTORY}/spirv-cross-c-shared.dll
   )
-  target_link_libraries(FlourishCore ${spirvglsl})
 elseif(APPLE)
   find_library(shaderc
-    NAMES "libshaderc_shared.dylib"
+    NAMES "libshaderc_combined.a"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
   find_library(spirvcore
-    NAMES "libspirv-cross-core.a"
+    NAMES "libspirv-cross-c.a"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
-  target_link_libraries(FlourishCore ${spirvcore})
-  find_library(spirvglsl
-    NAMES "libspirv-cross-glsl.a"
-    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
+
+  add_custom_target(CopyVulkanLibs ALL
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
   )
-  target_link_libraries(FlourishCore ${sprivglsl})
 else()
 endif()
 

@@ -2,9 +2,7 @@
 
 #include "Flourish/Api/GraphicsCommandEncoder.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
-#include "Flourish/Backends/Vulkan/Util/DescriptorSet.h"
 #include "Flourish/Backends/Vulkan/Util/Commands.h"
-#include "Flourish/Backends/Vulkan/ComputePipeline.h"
 
 namespace Flourish::Vulkan
 {
@@ -17,15 +15,18 @@ namespace Flourish::Vulkan
 
         void BeginEncoding();
         void EndEncoding() override;
-        void GenerateMipMaps(Flourish::Texture* texture) override;
+        void GenerateMipMaps(Flourish::Texture* texture, SamplerFilter filter) override;
+        void BlitTexture(Flourish::Texture* src, Flourish::Texture* dst, u32 srcLayerIndex, u32 srcMipLevel, u32 dstLayerIndex, u32 dstMipLevel) override;
 
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
+        inline void MarkManuallyRecorded() { m_AnyCommandRecorded = true; }
 
     private:
+        bool m_AnyCommandRecorded = false;
         bool m_FrameRestricted;
-        CommandBufferAllocInfo m_AllocInfo;
         VkCommandBuffer m_CommandBuffer;
+        CommandBufferEncoderSubmission m_Submission;
         CommandBuffer* m_ParentBuffer;
     };
 }

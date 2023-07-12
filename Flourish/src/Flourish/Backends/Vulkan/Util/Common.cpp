@@ -1,6 +1,8 @@
 #include "flpch.h"
 #include "Common.h"
 
+#include "Flourish/Backends/Vulkan/Util/DebugCheckpoints.h"
+
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
@@ -38,6 +40,7 @@ namespace Flourish::Vulkan
             case ColorFormat::RGBA16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
             case ColorFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
             case ColorFormat::RGBA32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+            case ColorFormat::Depth: return VK_FORMAT_D32_SFLOAT;
         }
 
         return VK_FORMAT_UNDEFINED;
@@ -58,9 +61,24 @@ namespace Flourish::Vulkan
             case VK_FORMAT_R16G16B16A16_SFLOAT: return ColorFormat::RGBA16_FLOAT;
             case VK_FORMAT_R32_SFLOAT: return ColorFormat::R32_FLOAT;
             case VK_FORMAT_R32G32B32A32_SFLOAT: return ColorFormat::RGBA32_FLOAT;
+            case VK_FORMAT_D32_SFLOAT: return ColorFormat::Depth;
         }
 
         return ColorFormat::None;
+    }
+
+    VkAttachmentLoadOp Common::ConvertAttachmentInitialization(AttachmentInitialization init)
+    {
+        switch (init)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AttachmentInitialization"); } break;
+            case AttachmentInitialization::None: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            case AttachmentInitialization::Preserve: return VK_ATTACHMENT_LOAD_OP_LOAD;
+            case AttachmentInitialization::Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        }
+
+        return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
     }
 
     VkSampleCountFlagBits Common::ConvertMsaaSampleCount(MsaaSampleCount sampleCount)
@@ -150,6 +168,25 @@ namespace Flourish::Vulkan
         return VK_FRONT_FACE_MAX_ENUM;
     }
 
+    VkCompareOp Common::ConvertDepthComparison(DepthComparison comp)
+    {
+        switch (comp)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified DepthComparison"); } break;
+            case DepthComparison::Equal: return VK_COMPARE_OP_EQUAL;
+            case DepthComparison::NotEqual: return VK_COMPARE_OP_NOT_EQUAL;
+            case DepthComparison::Less: return VK_COMPARE_OP_LESS;
+            case DepthComparison::LessOrEqual: return VK_COMPARE_OP_LESS_OR_EQUAL;
+            case DepthComparison::Greater: return VK_COMPARE_OP_GREATER;
+            case DepthComparison::GreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+            case DepthComparison::AlwaysTrue: return VK_COMPARE_OP_ALWAYS;
+            case DepthComparison::AlwaysFalse: return VK_COMPARE_OP_NEVER;
+            case DepthComparison::Auto: return Flourish::Context::ReversedZBuffer() ? VK_COMPARE_OP_GREATER_OR_EQUAL : VK_COMPARE_OP_LESS; }
+
+        return VK_COMPARE_OP_MAX_ENUM;
+    }
+
     VkDescriptorType Common::ConvertShaderResourceType(ShaderResourceType type)
     {
         switch (type)
@@ -157,27 +194,45 @@ namespace Flourish::Vulkan
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
             case ShaderResourceType::Texture: return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            case ShaderResourceType::StorageTexture: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
             case ShaderResourceType::UniformBuffer: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
             case ShaderResourceType::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
             case ShaderResourceType::SubpassInput: return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+            case ShaderResourceType::AccelerationStructure: return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         }
 
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 
-    VkShaderStageFlags Common::ConvertShaderResourceAccessType(ShaderResourceAccessType type)
+    ShaderResourceType Common::RevertShaderResourceType(VkDescriptorType type)
     {
         switch (type)
         {
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ShaderResourceType"); } break;
-            case ShaderResourceAccessType::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
-            case ShaderResourceAccessType::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-            case ShaderResourceAccessType::Both: return (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
-            case ShaderResourceAccessType::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
+            case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: return ShaderResourceType::Texture;
+            case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: return ShaderResourceType::StorageTexture;
+            case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return ShaderResourceType::UniformBuffer;
+            case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return ShaderResourceType::StorageBuffer;
+            case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return ShaderResourceType::SubpassInput;
+            case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: return ShaderResourceType::AccelerationStructure;
         }
 
-        return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+        return ShaderResourceType::None;
+    }
+
+    VkShaderStageFlags Common::ConvertShaderAccessType(ShaderType type)
+    {
+        VkShaderStageFlags result = 0;
+        result |= ((type & ShaderTypeFlags::Vertex) > 0) * VK_SHADER_STAGE_VERTEX_BIT;
+        result |= ((type & ShaderTypeFlags::Fragment) > 0) * VK_SHADER_STAGE_FRAGMENT_BIT;
+        result |= ((type & ShaderTypeFlags::Compute) > 0) * VK_SHADER_STAGE_COMPUTE_BIT;
+        result |= ((type & ShaderTypeFlags::RayGen) > 0) * VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayMiss) > 0) * VK_SHADER_STAGE_MISS_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayIntersection) > 0) * VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayClosestHit) > 0) * VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+        result |= ((type & ShaderTypeFlags::RayAnyHit) > 0) * VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+        return result;
     }
 
     VkBlendFactor Common::ConvertBlendFactor(BlendFactor factor)
@@ -259,5 +314,48 @@ namespace Flourish::Vulkan
         }
 
         return VK_SAMPLER_REDUCTION_MODE_MAX_ENUM;
+    }
+
+    VkAccelerationStructureTypeKHR Common::ConvertAccelerationStructureType(AccelerationStructureType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AccelerationStructureType"); } break;
+            case AccelerationStructureType::Node: return VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            case AccelerationStructureType::Scene: return VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+        }
+
+        return VK_ACCELERATION_STRUCTURE_TYPE_MAX_ENUM_KHR;
+    }
+
+    VkBuildAccelerationStructureFlagsKHR Common::ConvertAccelerationStructurePerformanceType(AccelerationStructurePerformanceType type)
+    {
+        switch (type)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified AccelerationStructurePerformanceType"); } break;
+            case AccelerationStructurePerformanceType::FasterRuntime: return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+            case AccelerationStructurePerformanceType::FasterBuilds: return VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR;
+        }
+
+        return VK_BUILD_ACCELERATION_STRUCTURE_FLAG_BITS_MAX_ENUM_KHR;
+    }
+
+    bool Common::CheckResult(VkResult result, bool ensure, const char* name)
+    {
+        /*
+        #if defined(FL_DEBUG)
+        if (result == VK_ERROR_DEVICE_LOST)
+            DebugCheckpoints::LogCheckpoints();
+        #endif
+        */
+
+        if (ensure)
+        { FL_ASSERT(result == VK_SUCCESS, "%s critically failed with error %d", name, result); }
+        else
+        { FL_ASSERT(result == VK_SUCCESS, "%s failed with error %d", name, result); }
+        
+        return result == VK_SUCCESS;
     }
 }
