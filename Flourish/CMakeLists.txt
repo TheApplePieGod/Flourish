@@ -133,6 +133,7 @@ elseif(APPLE)
     NAMES "libspirv-cross-c.a"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
+  target_link_libraries(FlourishCore ${spirvcore})
 
   add_custom_target(CopyVulkanLibs ALL
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
