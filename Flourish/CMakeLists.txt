@@ -125,29 +125,21 @@ if (WIN32)
   )
 elseif(APPLE)
   find_library(shaderc
-    NAMES "libshaderc_combined.a"
+    NAMES "libshaderc_shared.dylib"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
   find_library(spirvcore
-    NAMES "libspirv-cross-c.a"
+    NAMES "libspirv-cross-c-shared.dylib"
     PATHS "$ENV{VULKAN_SDK}/macOS/lib"
   )
   target_link_libraries(FlourishCore ${spirvcore})
-  find_library(spirvcore
-    NAMES "libspirv-cross-c.a"
-    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
-  )
-  target_link_libraries(FlourishCore ${spirvcore})
-  find_library(spirvglsl
-    NAMES "libspirv-cross-glsl.a"
-    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
-  )
-  target_link_libraries(FlourishCore ${spirvglsl})
 
   add_custom_target(CopyVulkanLibs ALL
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libshaderc_shared.dylib ${OUTPUT_DIRECTORY}/libshaderc_shared.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libspirv-cross-c-shared.dylib ${OUTPUT_DIRECTORY}/libspirv-cross-c-shared.dylib
   )
 else()
 endif()
