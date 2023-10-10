@@ -138,8 +138,8 @@ elseif(APPLE)
   add_custom_target(CopyVulkanLibs ALL
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libshaderc_shared.dylib ${OUTPUT_DIRECTORY}/libshaderc_shared.dylib
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libspirv-cross-c-shared.dylib ${OUTPUT_DIRECTORY}/libspirv-cross-c-shared.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libshaderc_shared.dylib ${OUTPUT_DIRECTORY}/libshaderc_shared.1.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libspirv-cross-c-shared.dylib ${OUTPUT_DIRECTORY}/libspirv-cross-c-shared.0.dylib
   )
 else()
 endif()
