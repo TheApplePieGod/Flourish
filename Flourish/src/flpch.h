@@ -41,6 +41,8 @@
 
 #ifdef FL_PLATFORM_WINDOWS
 	#include <Windows.h>
-#else
+#elif defined(FL_PLATFORM_MACOS)
     #include <dlfcn.h>
+#elif defined(FL_PLATFORM_ANDROID)
+    #include <android/native_activity.h>
 #endif

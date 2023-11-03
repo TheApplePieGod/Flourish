@@ -6,7 +6,11 @@ if(APPLE)
 endif()
 
 # Build dependencies
+set(VMA_STATIC_VULKAN_FUNCTIONS 0)
+set(VMA_DYNAMIC_VULKAN_FUNCTIONS 1)
 add_subdirectory("lib/vma")
+set(VULKAN_HEADERS_INSTALL_DIR $ENV{VULKAN_SDK})
+add_subdirectory("lib/volk")
 
 # Build main
 if(APPLE)
@@ -25,19 +29,13 @@ target_include_directories(
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/lib/vma/include>"
+  "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
 )
 if (APPLE)
   target_include_directories(
     FlourishCore
     PUBLIC
-    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/macOS/include>"
-    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/MoltenVK/include>"
-  )
-else()
-  target_include_directories(
-    FlourishCore
-    PUBLIC
-    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/include>"
+    "$<BUILD_INTERFACE:$ENV{VULKAN_SDK}/../MoltenVK/include>"
   )
 endif()
 
@@ -83,6 +81,9 @@ if (NOT FLOURISH_TRACY_INCLUDE_DIR STREQUAL "OFF")
   message("Flourish compiling with Tracy support")
 endif()
 
+# Link
+target_link_libraries(FlourishCore VulkanMemoryAllocator volk)
+
 # Link Aftermath
 if (FLOURISH_ENABLE_AFTERMATH)
   message("Flourish compiling with Aftermath support")
@@ -126,20 +127,20 @@ if (WIN32)
 elseif(APPLE)
   find_library(shaderc
     NAMES "libshaderc_shared.dylib"
-    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
+    PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${shaderc})
   find_library(spirvcore
     NAMES "libspirv-cross-c-shared.dylib"
-    PATHS "$ENV{VULKAN_SDK}/macOS/lib"
+    PATHS "$ENV{VULKAN_SDK}/lib"
   )
   target_link_libraries(FlourishCore ${spirvcore})
 
   add_custom_target(CopyVulkanLibs ALL
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/lib/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libMoltenVK.dylib
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${OUTPUT_DIRECTORY}/libMoltenVK.dylib ${OUTPUT_DIRECTORY}/libvulkan.1.dylib
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libshaderc_shared.dylib ${OUTPUT_DIRECTORY}/libshaderc_shared.1.dylib
-    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/macOS/lib/libspirv-cross-c-shared.dylib ${OUTPUT_DIRECTORY}/libspirv-cross-c-shared.0.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/lib/libshaderc_shared.dylib ${OUTPUT_DIRECTORY}/libshaderc_shared.1.dylib
+    COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/lib/libspirv-cross-c-shared.dylib ${OUTPUT_DIRECTORY}/libspirv-cross-c-shared.0.dylib
   )
 else()
 endif()

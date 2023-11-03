@@ -34,7 +34,6 @@
 #elif defined(__ANDROID__)
 	#define FL_PLATFORM_ANDROID
 	#define VK_USE_PLATFORM_ANDROID_KHR
-	#error "Android is not supported!"
 #elif defined(__linux__)
 	#define FL_PLATFORM_LINUX
 	#define VK_USE_PLATFORM_XCB_KHR

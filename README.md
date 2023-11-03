@@ -49,6 +49,7 @@ Setting up Flourish is relatively simple, and it utilizes CMake and git submodul
 
 1. Clone the repo using the `--recursive` flag to ensure all submodules are downloaded
 2. Make sure the VulkanSDK is accessible via the `${VULKAN_SDK}` environment variable (this should happen automatically with the installer on Windows)
+ - On MacOS, this should be <sdk_version>/macOS
 
 ## Usage
 

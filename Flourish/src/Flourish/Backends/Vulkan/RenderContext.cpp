@@ -27,6 +27,14 @@ namespace Flourish::Vulkan
             #ifdef FL_PLATFORM_WINDOWS
                 windowHandle = glfwGetWin32Window(createInfo.Window);
             #endif
+        #elif defined(FL_PLATFORM_ANDROID)
+	        VkAndroidSurfaceCreateInfoKHR surfaceInfo;
+            surfaceInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+            surfaceInfo.pNext = nullptr;
+            surfaceInfo.flags = 0;
+            surfaceInfo.window = createInfo.Window;
+
+        	auto result = vkCreateAndroidSurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
         #elif defined(FL_PLATFORM_WINDOWS)
             VkWin32SurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
