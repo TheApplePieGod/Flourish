@@ -24,8 +24,8 @@ namespace Flourish::Vulkan
         inline const PipelineDescriptorData* GetDescriptorData() const { return &m_DescriptorData; }
 
     private:
-        VkPipelineLayout m_PipelineLayout = nullptr;
-        VkPipeline m_Pipeline = nullptr;
+        VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
+        VkPipeline m_Pipeline = VK_NULL_HANDLE;
         PipelineDescriptorData m_DescriptorData;
         std::vector<u8> m_GroupHandles;
     };

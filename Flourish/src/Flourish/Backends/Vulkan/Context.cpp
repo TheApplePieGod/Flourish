@@ -114,6 +114,8 @@ namespace Flourish::Vulkan
             VK_KHR_SURFACE_EXTENSION_NAME,
             #ifdef FL_PLATFORM_WINDOWS
                 "VK_KHR_win32_surface",
+            #elif defined(FL_PLATFORM_ANDROID)
+                "VK_KHR_android_surface"
             #elif defined(FL_PLATFORM_LINUX)
                 "VK_KHR_xcb_surface",
             #elif defined (FL_PLATFORM_MACOS)

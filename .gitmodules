@@ -6,6 +6,26 @@
 	path = Flourish/lib/volk
 	url = https://github.com/zeux/volk.git
 	branch = master
+[submodule "Flourish/lib/shaderc"]
+	path = Flourish/lib/shaderc
+	url = https://github.com/google/shaderc.git
+	branch = master
+[submodule "Flourish/lib/spirv-cross"]
+	path = Flourish/lib/spirv-cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross
+	branch = master
+[submodule "Flourish/lib/spirv-tools"]
+	path = Flourish/lib/spirv-tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools
+	branch = master
+[submodule "Flourish/lib/spirv-headers"]
+	path = Flourish/lib/spirv-headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers
+	branch = master
+[submodule "Flourish/lib/glslang"]
+	path = Flourish/lib/glslang
+	url = https://github.com/KhronosGroup/glslang
+	branch = master
 [submodule "FlourishTesting/lib/spdlog"]
 	path = FlourishTesting/lib/spdlog
 	url = https://github.com/gabime/spdlog.git

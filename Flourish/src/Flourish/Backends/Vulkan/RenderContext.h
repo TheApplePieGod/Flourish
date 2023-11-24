@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
         inline u64 GetSignalValue() const { return m_SignalValue; }
 
     private:
-        VkSurfaceKHR m_Surface = nullptr;
+        VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
         Vulkan::Swapchain m_Swapchain;
         Vulkan::CommandBuffer m_CommandBuffer;
         std::array<std::array<VkSemaphore, 2>, Flourish::Context::MaxFrameBufferCount> m_SignalSemaphores;

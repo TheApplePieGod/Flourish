@@ -41,7 +41,7 @@ namespace Flourish::Vulkan
 
     private:
         u32 m_WriteIndex = 0;
-        VkAccelerationStructureKHR m_AccelStructure = nullptr;
+        VkAccelerationStructureKHR m_AccelStructure = VK_NULL_HANDLE;
         std::shared_ptr<Buffer> m_AccelBuffer;
         std::shared_ptr<Buffer> m_ScratchBuffer;
         std::vector<VkAccelerationStructureInstanceKHR> m_Instances;

@@ -24,6 +24,6 @@ namespace Flourish::Vulkan
         VkSampleCountFlagBits m_SampleCount;
         bool m_UseResolve;
         bool m_RendersToSwapchain;
-        VkRenderPass m_RenderPass = nullptr;
+        VkRenderPass m_RenderPass = VK_NULL_HANDLE;
     };
 }

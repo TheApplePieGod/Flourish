@@ -52,7 +52,7 @@ namespace Flourish::Vulkan
 
     private:
         void* m_WindowHandle = nullptr;
-        VkSwapchainKHR m_Swapchain = nullptr;
+        VkSwapchainKHR m_Swapchain = VK_NULL_HANDLE;
         u32 m_CurrentWidth, m_CurrentHeight = 0;
         std::array<float, 4> m_ClearColor;
         std::vector<ImageData> m_ImageData;

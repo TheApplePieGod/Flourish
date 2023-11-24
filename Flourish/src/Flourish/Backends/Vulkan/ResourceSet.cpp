@@ -171,7 +171,7 @@ namespace Flourish::Vulkan
         UpdateBinding(
             bindingIndex, 
             bufferType, 
-            buffer,
+            (const void*)buffer,
             true,
             stride * bufferOffset,
             stride * elementCount,
@@ -206,7 +206,7 @@ namespace Flourish::Vulkan
         UpdateBinding(
             bindingIndex, 
             texType, 
-            texture,
+            (const void*)texture,
             false, 0, 0,
             arrayIndex
         );
@@ -233,7 +233,7 @@ namespace Flourish::Vulkan
         UpdateBinding(
             bindingIndex, 
             texType, 
-            texture,
+            (const void*)texture,
             true, layerIndex, mipLevel,
             arrayIndex
         );
@@ -260,7 +260,7 @@ namespace Flourish::Vulkan
         UpdateBinding(
             bindingIndex, 
             ShaderResourceType::SubpassInput, 
-            attView,
+            (const void*)attView,
             attachment.Type == SubpassAttachmentType::Color,
             0, 0, 0
         );
@@ -280,7 +280,7 @@ namespace Flourish::Vulkan
         UpdateBinding(
             bindingIndex, 
             ShaderResourceType::AccelerationStructure, 
-            accel,
+            (const void*)accel,
             false,
             0, 0, 0
         );
@@ -421,7 +421,7 @@ namespace Flourish::Vulkan
                     VkImageView view = (VkImageView)resource;
 
                     // useOffset: is the attachment a color attachment
-                    imageInfos[imageInfoBaseIndex].sampler = NULL;
+                    imageInfos[imageInfoBaseIndex].sampler = VK_NULL_HANDLE;
                     imageInfos[imageInfoBaseIndex].imageLayout = useOffset ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
                     imageInfos[imageInfoBaseIndex].imageView = view;
                 } break;

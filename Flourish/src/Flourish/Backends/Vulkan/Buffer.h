@@ -20,7 +20,7 @@ namespace Flourish::Vulkan
             const BufferCreateInfo& createInfo,
             VkBufferUsageFlags usageFlags,
             MemoryDirection memoryDirection,
-            VkCommandBuffer uploadBuffer = nullptr,
+            VkCommandBuffer uploadBuffer = VK_NULL_HANDLE,
             bool forceDeviceMemory = false
         );
         ~Buffer() override;
@@ -43,7 +43,7 @@ namespace Flourish::Vulkan
             VkBuffer src,
             VkBuffer dst,
             u64 size,
-            VkCommandBuffer buffer = nullptr,
+            VkCommandBuffer buffer = VK_NULL_HANDLE,
             bool execute = false,
             std::function<void()> callback = nullptr
         );
@@ -53,7 +53,7 @@ namespace Flourish::Vulkan
             u32 imageWidth,
             u32 imageHeight,
             VkImageLayout imageLayout,
-            VkCommandBuffer buffer = nullptr
+            VkCommandBuffer buffer = VK_NULL_HANDLE
         );
         static void CopyImageToBuffer(
             VkImage src,
@@ -61,7 +61,7 @@ namespace Flourish::Vulkan
             u32 imageWidth,
             u32 imageHeight,
             VkImageLayout imageLayout,
-            VkCommandBuffer buffer = nullptr
+            VkCommandBuffer buffer = VK_NULL_HANDLE
         );
         static void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size);
 
@@ -73,13 +73,13 @@ namespace Flourish::Vulkan
             u32 imageHeight,
             VkImageLayout imageLayout,
             bool imageSrc,
-            VkCommandBuffer cmdBuf = nullptr
+            VkCommandBuffer cmdBuf = VK_NULL_HANDLE
         );
 
     private:
         struct BufferData
         {
-            VkBuffer Buffer = nullptr;
+            VkBuffer Buffer = VK_NULL_HANDLE;
             VkDeviceAddress DeviceAddress = 0;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;

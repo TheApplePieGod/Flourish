@@ -5,12 +5,51 @@ if(APPLE)
   enable_language(OBJCXX)
 endif()
 
+# Vulkan compile definitions
+if (APPLE)
+  add_compile_definitions(VK_USE_PLATFORM_METAL_EXT)
+elseif (WIN32)
+  add_compile_definitions(VK_USE_PLATFORM_WIN32_KHR)
+elseif (ANDROID)
+  add_compile_definitions(VK_USE_PLATFORM_ANDROID_KHR)
+elseif (UNIX)
+  add_compile_definitions(VK_USE_PLATFORM_XCB_KHR)
+endif()
+
+# For overriding default option values
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+
 # Build dependencies
-set(VMA_STATIC_VULKAN_FUNCTIONS 0)
-set(VMA_DYNAMIC_VULKAN_FUNCTIONS 1)
+set(VMA_STATIC_VULKAN_FUNCTIONS OFF)
+set(VMA_DYNAMIC_VULKAN_FUNCTIONS ON)
 add_subdirectory("lib/vma")
 set(VULKAN_HEADERS_INSTALL_DIR $ENV{VULKAN_SDK})
 add_subdirectory("lib/volk")
+
+# Need to compile all sdk dependencies manually
+if (ANDROID)
+  add_subdirectory("lib/spirv-headers")
+  set(SKIP_SPIRV_TOOLS_INSTALL ON)
+  set(SPIRV_WERROR OFF)
+  set(SPIRV_SKIP_EXECUTABLES ON)
+  set(SPIRV_SKIP_TESTS ON)
+  set(SPIRV_CHECK_CONTEXT OFF)
+  add_subdirectory("lib/spirv-tools")
+  set(ENABLE_CTEST OFF)
+  set(SKIP_GLSLANG_INSTALL ON)
+  set(ENABLE_SPVREMAPPER OFF)
+  set(ENABLE_GLSLANG_BINARIES OFF)
+  add_subdirectory("lib/glslang")
+  set(SHADERC_SKIP_INSTALL ON)
+  set(SHADERC_SKIP_TESTS ON)
+  set(SHADERC_SKIP_EXAMPLES ON)
+  set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
+  add_subdirectory("lib/shaderc")
+  set(SPIRV_CROSS_CLI OFF)
+  set(SPIRV_CROSS_SKIP_INSTALL ON)
+  set(SPIRV_CROSS_ENABLE_TESTS OFF)
+  add_subdirectory("lib/spirv-cross")
+endif()
 
 # Build main
 if(APPLE)
@@ -40,49 +79,39 @@ if (APPLE)
 endif()
 
 if (NOT FLOURISH_GLFW_INCLUDE_DIR STREQUAL "OFF")
-  target_include_directories(
-    FlourishCore
-    PUBLIC
+  target_include_directories(FlourishCore PUBLIC
     "$<BUILD_INTERFACE:${FLOURISH_GLFW_INCLUDE_DIR}>"
   )
-  target_compile_definitions(
-    FlourishCore
-    PUBLIC
+  target_compile_definitions(FlourishCore PUBLIC
     FL_USE_GLFW
   )
   message("Flourish compiling with GLFW support")
 endif()
 
 if (NOT FLOURISH_IMGUI_INCLUDE_DIR STREQUAL "OFF")
-  target_include_directories(
-    FlourishCore
-    PUBLIC
+  target_include_directories(FlourishCore PUBLIC
     "$<BUILD_INTERFACE:${FLOURISH_IMGUI_INCLUDE_DIR}>"
   )
-  target_compile_definitions(
-    FlourishCore
-    PUBLIC
+  target_compile_definitions(FlourishCore PUBLIC
     FL_USE_IMGUI IMGUI_IMPL_VULKAN_NO_PROTOTYPES
   )
   message("Flourish compiling with ImGui support")
 endif()
 
 if (NOT FLOURISH_TRACY_INCLUDE_DIR STREQUAL "OFF")
-  target_include_directories(
-    FlourishCore
-    PUBLIC
+  target_include_directories(FlourishCore PUBLIC
     "$<BUILD_INTERFACE:${FLOURISH_TRACY_INCLUDE_DIR}>"
   )
-  target_compile_definitions(
-    FlourishCore
-    PUBLIC
+  target_compile_definitions(FlourishCore PUBLIC
     FL_USE_TRACY
   )
   message("Flourish compiling with Tracy support")
 endif()
 
 # Link
-target_link_libraries(FlourishCore VulkanMemoryAllocator volk)
+target_link_libraries(FlourishCore
+  VulkanMemoryAllocator volk
+)
 
 # Link Aftermath
 if (FLOURISH_ENABLE_AFTERMATH)
@@ -92,14 +121,10 @@ if (FLOURISH_ENABLE_AFTERMATH)
     PATHS "$ENV{NSIGHT_AFTERMATH_SDK}/lib/x64"
   )
   target_link_libraries(FlourishCore ${aftermath})
-  target_include_directories(
-    FlourishCore
-    PUBLIC
+  target_include_directories(FlourishCore PUBLIC
     "$<BUILD_INTERFACE:$ENV{NSIGHT_AFTERMATH_SDK}/include>"
   )
-  target_compile_definitions(
-    FlourishCore
-    PUBLIC
+  target_compile_definitions(FlourishCore PUBLIC
     FL_HAS_AFTERMATH
   )
   add_custom_target(CopyAftermathLibs ALL
@@ -143,6 +168,7 @@ elseif(APPLE)
     COMMAND ${CMAKE_COMMAND} -E copy $ENV{VULKAN_SDK}/lib/libspirv-cross-c-shared.dylib ${OUTPUT_DIRECTORY}/libspirv-cross-c-shared.0.dylib
   )
 else()
+    target_link_libraries(FlourishCore shaderc spirv-cross-c)
 endif()
 
 # PCH

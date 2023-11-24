@@ -26,7 +26,8 @@ namespace Flourish::Vulkan
         inline static VmaAllocator Allocator() { return s_Allocator; }
         inline static const auto& ValidationLayers() { return s_ValidationLayers; }
 
-        // Need to stay on 1.2 for now to support MoltenVK
+        // For the sake of not having switches for a bunch of internal machinery,
+        // we're going to stick to >= 1.2 for now.
         inline static constexpr u32 VulkanApiVersion = VK_API_VERSION_1_2;
 
     private:
@@ -39,14 +40,14 @@ namespace Flourish::Vulkan
         static void ConfigureValidationLayers();
 
     private:
-        inline static VkInstance s_Instance = nullptr;
+        inline static VkInstance s_Instance = VK_NULL_HANDLE;
         inline static Vulkan::Devices s_Devices;
         inline static Vulkan::Queues s_Queues;
         inline static Vulkan::Commands s_Commands;
         inline static Vulkan::FinalizerQueue s_FinalizerQueue;
         inline static Vulkan::SubmissionHandler s_SubmissionHandler;
         inline static VmaAllocator s_Allocator;
-        inline static VkDebugUtilsMessengerEXT s_DebugMessenger = nullptr;
+        inline static VkDebugUtilsMessengerEXT s_DebugMessenger = VK_NULL_HANDLE;
         inline static std::vector<const char*> s_ValidationLayers;
 
         friend class Flourish::Context;

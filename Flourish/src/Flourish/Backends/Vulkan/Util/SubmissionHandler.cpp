@@ -215,7 +215,7 @@ namespace Flourish::Vulkan
                             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                                 Context::Queues().Queue(submitData.Workload),
                                 1, &submitInfo,
-                                nullptr
+                                VK_NULL_HANDLE
                             ), "Submission handler 2 submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
                             Context::Queues().LockPresentQueue(false);
@@ -360,7 +360,7 @@ namespace Flourish::Vulkan
         FL_VK_ENSURE_RESULT(vkQueueSubmit(
             Context::Queues().Queue(GPUWorkloadType::Graphics),
             1, &finalSubmitInfo,
-            nullptr
+            VK_NULL_HANDLE
         ), "Submission handler 2 submit");
         Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
 

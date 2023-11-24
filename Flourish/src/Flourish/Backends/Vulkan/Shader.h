@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
         void Reflect(const std::vector<u32>& compiledData);
 
     private:
-        VkShaderModule m_ShaderModule = nullptr;
+        VkShaderModule m_ShaderModule = VK_NULL_HANDLE;
 
         std::vector<ReflectionDataElement> m_ReflectionData;
         ReflectionDataElement m_PushConstantReflection;

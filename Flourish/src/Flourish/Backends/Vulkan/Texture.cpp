@@ -173,7 +173,7 @@ namespace Flourish::Vulkan
                     
                     #ifdef FL_USE_IMGUI
                     s_ImGuiMutex.lock();
-                    imageData.ImGuiHandles.push_back(ImGui_ImplVulkan_AddTexture(
+                    imageData.ImGuiHandles.push_back((void*)ImGui_ImplVulkan_AddTexture(
                         m_Sampler,
                         layerView,
                         m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
