@@ -170,7 +170,7 @@ namespace Flourish
         inline BufferType GetType() const { return m_Info.Type; }
         inline BufferUsageType GetUsage() const { return m_Info.Usage; }
         inline const BufferLayout& GetLayout() const { return m_Info.Layout; }
-        inline u32 GetStride() const { return m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride; }
+        inline u32 GetStride() const { return m_Stride; }
         inline u32 GetAllocatedSize() const { return m_Info.ElementCount * GetStride(); }
         inline u32 GetAllocatedCount() const { return m_Info.ElementCount; }
         inline bool CanCreateAccelerationStructure() const { return m_Info.CanCreateAccelerationStructure; }
@@ -182,5 +182,6 @@ namespace Flourish
     protected:
         BufferCreateInfo m_Info;
         u64 m_Id;
+        u32 m_Stride;
     };
 }

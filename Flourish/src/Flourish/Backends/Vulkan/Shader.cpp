@@ -11,17 +11,13 @@ namespace Flourish::Vulkan
 {
     std::string ReadFileToString(std::filesystem::path path)
     {
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
-        if (!file.is_open())
+        u32 outLength;
+        unsigned char* data = Flourish::Context::ReadFile()(path.generic_u8string(), outLength);
+        if (!data)
             return "";
-        
-        u32 fileSize = static_cast<u32>(file.tellg());
-        std::vector<char> buffer(fileSize);
-        file.seekg(0, std::ios::beg);
-        file.read(buffer.data(), fileSize);
-        file.close();
-
-        return std::string(buffer.data(), buffer.size());
+        auto str = std::string((char*)data, outLength);
+        delete[] data;
+        return str;
     }
 
     class ShaderIncluder : public shaderc::CompileOptions::IncluderInterface
@@ -47,11 +43,11 @@ namespace Flourish::Vulkan
             std::filesystem::path loadPath = std::filesystem::path(m_BasePath);
             if (includeDepth > 1)
                 loadPath.append(std::filesystem::path(requestingSource).parent_path().generic_u8string());
-            std::string contents = ReadFileToString(
-                loadPath.append(requestedSource).generic_u8string()
-            );
+            loadPath.append(requestedSource);
+            loadPath = std::filesystem::weakly_canonical(loadPath).relative_path();
 
             std::string name(requestedSource);
+            std::string contents = ReadFileToString(loadPath.generic_u8string());
             auto container = new std::array<std::string, 2>;
             (*container)[0] = name;
             (*container)[1] = contents;
@@ -92,7 +88,7 @@ namespace Flourish::Vulkan
         #endif
 
         std::string baseSource(source);
-        options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
+        options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
         if (!path.empty())
         {
             // If the path is passed in, we want to enable the #include resolver
@@ -124,6 +120,7 @@ namespace Flourish::Vulkan
         if (Flourish::Context::FeatureTable().RayTracing)
             options.AddMacroDefinition("FLOURISH_RAY_TRACING");
 
+        /*
         shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
             baseSource.data(),
             shaderKind,
@@ -132,7 +129,8 @@ namespace Flourish::Vulkan
         );
         FL_CRASH_ASSERT(
             preprocessed.GetCompilationStatus() == shaderc_compilation_status_success,
-            "Shader preprocessing failed: %s",
+            "Shader preprocessing failed with code %d: %s",
+            preprocessed.GetCompilationStatus(),
             preprocessed.GetErrorMessage().data()
         );
 
@@ -142,9 +140,18 @@ namespace Flourish::Vulkan
             path.empty() ? "shader" : path.data(),
             options
         );
+        */
+        shaderc::SpvCompilationResult compiled = compiler.CompileGlslToSpv(
+            baseSource.c_str(),
+            baseSource.size(),
+            shaderKind,
+            path.empty() ? "shader" : path.data(),
+            options
+        );
         FL_CRASH_ASSERT(
             compiled.GetCompilationStatus() == shaderc_compilation_status_success,
-            "Shader compilation failed: %s",
+            "Shader compilation failed with code %d: %s",
+            compiled.GetCompilationStatus(),
             compiled.GetErrorMessage().data()
         );
 

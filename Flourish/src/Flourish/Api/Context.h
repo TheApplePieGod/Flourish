@@ -4,6 +4,8 @@
 
 namespace Flourish
 {
+    using ReadFileFn = std::function<unsigned char*(std::string_view, u32&)>;
+
     enum class BackendType
     {
         None = 0,
@@ -21,6 +23,9 @@ namespace Flourish
         u32 FrameBufferCount = 2;
         bool UseReversedZBuffer = true;
         FeatureTable RequestedFeatures;
+
+        // Custom file read handler. Defaults to standard std::ifstream
+        ReadFileFn ReadFile = nullptr;
     };
 
     class RenderGraph;
@@ -47,6 +52,7 @@ namespace Flourish
         inline static u32 LastFrameIndex() { return s_LastFrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
+        inline static const auto& ReadFile() { return s_ReadFile; }
         inline static const auto& FrameGraphSubmissions() { return s_GraphSubmissions; }
         inline static const auto& FrameContextSubmissions() { return s_ContextSubmissions; }
         inline static u64 GetNextId() { return s_IdCounter++; }
@@ -65,5 +71,6 @@ namespace Flourish
         inline static std::vector<RenderContext*> s_ContextSubmissions;
         inline static std::mutex s_FrameMutex;
         inline static std::atomic<u64> s_IdCounter = { 1 };
+        inline static ReadFileFn s_ReadFile;
     };
 }

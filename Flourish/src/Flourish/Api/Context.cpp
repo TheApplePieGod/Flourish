@@ -5,6 +5,23 @@
 
 namespace Flourish
 {
+    unsigned char* ReadFileImpl(std::string_view path, u32& outLength)
+    {
+        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            return nullptr;
+        
+        u32 fileSize = static_cast<u32>(file.tellg());
+        unsigned char* buffer = new unsigned char[fileSize + 1];
+        file.seekg(0, std::ios::beg);
+        file.read((char*)buffer, fileSize);
+        file.close();
+
+        buffer[fileSize] = 0;
+
+        outLength = fileSize;
+        return buffer;
+    }
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
@@ -18,6 +35,10 @@ namespace Flourish
             FL_LOG_WARN("Frame buffer count is limited to %d", MaxFrameBufferCount);
             s_FrameBufferCount = MaxFrameBufferCount;
         }
+
+        s_ReadFile = initInfo.ReadFile;
+        if (!s_ReadFile)
+            s_ReadFile = ReadFileImpl;
 
         s_BackendType = initInfo.Backend;
         switch (s_BackendType)

@@ -123,6 +123,30 @@ namespace Flourish::Vulkan
         if (m_Info.Usage == BufferUsageType::Dynamic)
             m_BufferCount = Flourish::Context::FrameBufferCount();
 
+        m_Stride = m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride;
+
+        // Validate alignment & update stride if necessary
+        if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
+        {
+            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+            u32 correction = minAlignment - m_Stride % minAlignment;
+            if (correction > 0)
+            {
+                FL_LOG_DEBUG("Uniform buffer stride %d aligned to be %d", m_Stride, m_Stride + correction);
+                m_Stride += correction;
+            }
+        }
+        if ((usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) && m_Info.ElementCount > 1)
+        {
+            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
+            u32 correction = minAlignment - m_Stride % minAlignment;
+            if (correction > 0)
+            {
+                FL_LOG_DEBUG("Storage buffer stride %d aligned to be %d", m_Stride, m_Stride + correction);
+                m_Stride += correction;
+            }
+        }
+
         if (GetAllocatedSize() == 0)
         {
             FL_LOG_ERROR("Cannot create a buffer with zero size");
@@ -147,26 +171,6 @@ namespace Flourish::Vulkan
             bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
-        // Validate alignment
-        if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
-        {
-            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
-            if (GetStride() % minAlignment != 0)
-            {
-                FL_LOG_ERROR("Uniform buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
-                throw std::exception();
-            }
-        }
-        if ((usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) && m_Info.ElementCount > 1)
-        {
-            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
-            if (GetStride() % minAlignment != 0)
-            {
-                FL_LOG_ERROR("Storage buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
-                throw std::exception();
-            }
-        }
-        
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
         if (m_MemoryDirection == MemoryDirection::GPUToCPU && m_Info.InitialData)
             FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have");
