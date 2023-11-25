@@ -41,7 +41,11 @@ namespace Flourish::Vulkan
         void PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo);
         void PopulateDeviceProperties();
         VkSampleCountFlagBits GetMaxSampleCount();
-        void DumpDeviceInfo(LogLevel logLevel, const VkPhysicalDeviceProperties& props);
+        void DumpDeviceInfo(
+            LogLevel logLevel,
+            const VkPhysicalDeviceProperties& props,
+            const std::vector<VkExtensionProperties>& extensions
+        );
 
     private:
         std::vector<VkExtensionProperties> m_SupportedExtensions;

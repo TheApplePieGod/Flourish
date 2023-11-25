@@ -290,7 +290,7 @@ namespace Flourish::Vulkan
         renderPassInfo.dependencyCount = static_cast<u32>(dependencies.size());;
         renderPassInfo.pDependencies = dependencies.data();
         
-        if (!FL_VK_CHECK_RESULT(vkCreateRenderPass2(
+        if (!FL_VK_CHECK_RESULT(vkCreateRenderPass2KHR(
             Context::Devices().Device(),
             &renderPassInfo,
             nullptr,

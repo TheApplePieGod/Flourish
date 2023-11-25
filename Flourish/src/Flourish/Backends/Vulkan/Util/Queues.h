@@ -54,7 +54,7 @@ namespace Flourish::Vulkan
         VkQueue Queue(GPUWorkloadType workloadType, u32 frameIndex = Flourish::Context::FrameIndex()) const;
         void LockQueue(GPUWorkloadType workloadType, bool lock);
         void LockPresentQueue(bool lock);
-        inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
+        inline u32 PresentQueueIndex() const { return m_PhysicalQueues[m_PresentQueue].QueueIndex; }
         u32 QueueIndex(GPUWorkloadType workloadType) const;
 
     public:
@@ -84,10 +84,13 @@ namespace Flourish::Vulkan
 
     private:
         QueueData& GetQueueData(GPUWorkloadType workloadType);
+        const QueueData& GetQueueData(GPUWorkloadType workloadType) const;
         VkSemaphore RetrieveSemaphore();
 
     private:
-        QueueData m_GraphicsQueue, m_ComputeQueue, m_TransferQueue, m_PresentQueue;
+        std::array<QueueData, 4> m_PhysicalQueues;
+        std::array<u32, 4> m_VirtualQueues;
+        u32 m_PresentQueue;
         std::vector<VkSemaphore> m_UnusedSemaphores;
         std::mutex m_SemaphoresLock;
         u64 m_ExecuteSemaphoreSignalValue = 0;

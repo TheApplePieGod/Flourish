@@ -31,7 +31,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = sems.data();
         waitInfo.pValues = vals.data();
 
-        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
 
         sems.clear();
         vals.clear();
@@ -126,7 +126,7 @@ namespace Flourish::Vulkan
         waitInfo.pSemaphores = semaphores.data();
         waitInfo.pValues = values.data();
 
-        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
     }
 
     void SubmissionHandler::ProcessSubmission(
@@ -210,7 +210,6 @@ namespace Flourish::Vulkan
                                 isFirstSubmit = false;
                             }
 
-                            Context::Queues().LockPresentQueue(true);
                             Context::Queues().LockQueue(submitData.Workload, true);
                             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                                 Context::Queues().Queue(submitData.Workload),
@@ -218,7 +217,6 @@ namespace Flourish::Vulkan
                                 VK_NULL_HANDLE
                             ), "Submission handler 2 submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
-                            Context::Queues().LockPresentQueue(false);
 
                             // Need to free primary buffer
                             if (!frameScope)
@@ -377,9 +375,7 @@ namespace Flourish::Vulkan
         presentInfo.pImageIndices = imageIndex;
         
         Context::Queues().LockPresentQueue(true);
-        Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
         auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
-        Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
         Context::Queues().LockPresentQueue(false);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
             context->Swapchain().Recreate();
