@@ -44,7 +44,6 @@ namespace Flourish::Vulkan
             if (includeDepth > 1)
                 loadPath.append(std::filesystem::path(requestingSource).parent_path().generic_u8string());
             loadPath.append(requestedSource);
-            loadPath = std::filesystem::weakly_canonical(loadPath).relative_path();
 
             std::string name(requestedSource);
             std::string contents = ReadFileToString(loadPath.generic_u8string());
@@ -120,27 +119,6 @@ namespace Flourish::Vulkan
         if (Flourish::Context::FeatureTable().RayTracing)
             options.AddMacroDefinition("FLOURISH_RAY_TRACING");
 
-        /*
-        shaderc::PreprocessedSourceCompilationResult preprocessed = compiler.PreprocessGlsl(
-            baseSource.data(),
-            shaderKind,
-            path.empty() ? "shader" : path.data(),
-            options
-        );
-        FL_CRASH_ASSERT(
-            preprocessed.GetCompilationStatus() == shaderc_compilation_status_success,
-            "Shader preprocessing failed with code %d: %s",
-            preprocessed.GetCompilationStatus(),
-            preprocessed.GetErrorMessage().data()
-        );
-
-        shaderc::SpvCompilationResult compiled = compiler.CompileGlslToSpv(
-            preprocessed.begin(),
-            shaderKind,
-            path.empty() ? "shader" : path.data(),
-            options
-        );
-        */
         shaderc::SpvCompilationResult compiled = compiler.CompileGlslToSpv(
             baseSource.c_str(),
             baseSource.size(),

@@ -129,7 +129,7 @@ namespace Flourish::Vulkan
         if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
         {
             VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
-            u32 correction = minAlignment - m_Stride % minAlignment;
+            u32 correction = (minAlignment - m_Stride % minAlignment) % minAlignment;
             if (correction > 0)
             {
                 FL_LOG_DEBUG("Uniform buffer stride %d aligned to be %d", m_Stride, m_Stride + correction);
@@ -139,7 +139,7 @@ namespace Flourish::Vulkan
         if ((usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) && m_Info.ElementCount > 1)
         {
             VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
-            u32 correction = minAlignment - m_Stride % minAlignment;
+            u32 correction = (minAlignment - m_Stride % minAlignment) % minAlignment;
             if (correction > 0)
             {
                 FL_LOG_DEBUG("Storage buffer stride %d aligned to be %d", m_Stride, m_Stride + correction);
