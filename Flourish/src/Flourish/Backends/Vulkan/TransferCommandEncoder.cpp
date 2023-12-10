@@ -154,4 +154,23 @@ namespace Flourish::Vulkan
         );
         m_AnyCommandRecorded = true;
     }
+
+    void TransferCommandEncoder::CopyBufferToBuffer(Flourish::Buffer* _src, Flourish::Buffer* _dst, u32 srcOffset, u32 dstOffset, u32 size)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode CopyBufferToBuffer after encoding has ended");
+        
+        Buffer* src = static_cast<Buffer*>(_src);
+        Buffer* dst = static_cast<Buffer*>(_dst);
+
+        Buffer::CopyBufferToBuffer(
+            src->GetBuffer(),
+            dst->GetBuffer(),
+            srcOffset,
+            dstOffset,
+            size,
+            m_CommandBuffer
+        );
+
+        m_AnyCommandRecorded = true;
+    }
 }

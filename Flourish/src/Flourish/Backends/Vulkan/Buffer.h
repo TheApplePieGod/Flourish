@@ -42,7 +42,9 @@ namespace Flourish::Vulkan
         static void CopyBufferToBuffer(
             VkBuffer src,
             VkBuffer dst,
-            u64 size,
+            u32 srcOffset,
+            u32 dstOffset,
+            u32 size,
             VkCommandBuffer buffer = VK_NULL_HANDLE,
             bool execute = false,
             std::function<void()> callback = nullptr

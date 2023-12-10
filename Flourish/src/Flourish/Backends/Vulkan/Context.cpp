@@ -2,6 +2,7 @@
 #include "Context.h"
 
 #include "Flourish/Backends/Vulkan/RenderContext.h"
+#include "Flourish/Backends/Vulkan/Util/DescriptorBinder.h"
 
 #ifdef FL_PLATFORM_MACOS
     #include "MoltenVK/mvk_config.h"
@@ -43,6 +44,9 @@ namespace Flourish::Vulkan
         s_SubmissionHandler.Initialize();
         s_FinalizerQueue.Initialize();
 
+        // Create global empty descriptor set layout
+        PipelineDescriptorData::Initialize();
+
         FL_LOG_DEBUG("Vulkan context ready");
     }
 
@@ -51,6 +55,8 @@ namespace Flourish::Vulkan
         FL_LOG_TRACE("Vulkan context shutdown begin");
 
         Sync();
+
+        PipelineDescriptorData::Shutdown();
 
         FL_LOG_TRACE("Running vulkan finalizer pass #1");
         s_FinalizerQueue.Shutdown();
@@ -229,7 +235,7 @@ namespace Flourish::Vulkan
             MVKConfiguration mvkConfig;
             size_t mvkConfigSize = sizeof(mvkConfig);
             getMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
-            mvkConfig.useMetalArgumentBuffers = MVKUseMetalArgumentBuffers::MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS_ALWAYS;
+            mvkConfig.useMetalArgumentBuffers = MVKUseMetalArgumentBuffers::MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS_DESCRIPTOR_INDEXING;
 
             auto setMvkConfig = (PFN_vkSetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkSetMoltenVKConfigurationMVK");
             FL_CRASH_ASSERT(setMvkConfig, "MoltenVK configuration function not found");

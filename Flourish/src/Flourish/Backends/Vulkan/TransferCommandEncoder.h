@@ -18,6 +18,7 @@ namespace Flourish::Vulkan
         void FlushBuffer(Flourish::Buffer* buffer) override;
         void CopyTextureToBuffer(Flourish::Texture* texture, Flourish::Buffer* buffer, u32 layerIndex, u32 mipLevel) override;
         void CopyBufferToTexture(Flourish::Texture* texture, Flourish::Buffer* buffer, u32 layerIndex, u32 mipLevel) override;
+        void CopyBufferToBuffer(Flourish::Buffer* src, Flourish::Buffer* dst, u32 srcOffset, u32 dstOffset, u32 size) override;
 
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }

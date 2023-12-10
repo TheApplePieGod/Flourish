@@ -25,8 +25,12 @@ namespace Flourish::Vulkan
         u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
         for (u32 i = 0; i < setCount; i++)
+        {
             if (m_DescriptorData.SetData[i].Exists)
                 layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
+            else
+                layouts[i] = m_DescriptorData.EmptySetLayout;
+        }
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

@@ -18,47 +18,49 @@ namespace Flourish::Vulkan
             FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
         #endif
 
-        VkBufferUsageFlags usage;
+        VkBufferUsageFlags usage = 0;
         MemoryDirection memDirection;
         switch (m_Info.Type)
         {
             default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
             case BufferType::Uniform:
             {
-                usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Storage:
             {
-                usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Pixel:
             {
-                usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 memDirection = MemoryDirection::GPUToCPU;
             } break;
 
             case BufferType::Indirect:
             {
-                usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Vertex:
             {
-                usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Index:
             {
-                usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
         }
+
+        // TODO: this probably isn't great but we have no good way of specifying this in the api
+        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
         if (m_Info.CanCreateAccelerationStructure)
         {
@@ -215,9 +217,9 @@ namespace Flourish::Vulkan
 
         // GPU -> CPU will transfer Regular -> Staging while CPU -> GPU will do the reverse
         if (m_MemoryDirection == MemoryDirection::GPUToCPU)
-            CopyBufferToBuffer(GetBuffer(), GetStagingBuffer(), GetAllocatedSize(), buffer, execute);
+            CopyBufferToBuffer(GetBuffer(), GetStagingBuffer(), 0, 0, GetAllocatedSize(), buffer, execute);
         else
-            CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), GetAllocatedSize(), buffer, execute);
+            CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), 0, 0, GetAllocatedSize(), buffer, execute);
     }
 
     VkBuffer Buffer::GetBuffer() const
@@ -250,7 +252,16 @@ namespace Flourish::Vulkan
         return (void*)m_Buffers[Flourish::Context::FrameIndex()].DeviceAddress;
     }
 
-    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute, std::function<void()> callback)
+    void Buffer::CopyBufferToBuffer(
+        VkBuffer src,
+        VkBuffer dst,
+        u32 srcOffset,
+        u32 dstOffset,
+        u32 size,
+        VkCommandBuffer buffer,
+        bool execute,
+        std::function<void()> callback
+    )
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
@@ -268,8 +279,8 @@ namespace Flourish::Vulkan
         }
 
         VkBufferCopy copy{};
-        copy.srcOffset = 0;
-        copy.dstOffset = 0;
+        copy.srcOffset = srcOffset;
+        copy.dstOffset = dstOffset;
         copy.size = size;
 
         vkCmdCopyBuffer(cmdBuffer, src, dst, 1, &copy);
@@ -483,6 +494,7 @@ namespace Flourish::Vulkan
                     CopyBufferToBuffer(
                         srcBuffer,
                         m_Buffers[i].Buffer,
+                        0, 0,
                         m_Info.InitialDataSize,
                         uploadBuffer,
                         true,
