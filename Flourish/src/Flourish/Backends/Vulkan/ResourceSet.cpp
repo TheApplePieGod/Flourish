@@ -155,7 +155,12 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         FL_CRASH_ASSERT(elementCount + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset must be <= buffer allocated count");
-        FL_CRASH_ASSERT(buffer->GetType() == BufferType::Uniform || buffer->GetType() == BufferType::Storage, "Buffer bind must be either a uniform or storage buffer");
+        FL_CRASH_ASSERT(
+            buffer->GetType() == BufferType::Uniform ||
+            buffer->GetType() == BufferType::Storage ||
+            buffer->GetType() == BufferType::Indirect,
+            "Buffer bind must be either a uniform, storage, or indirect buffer"
+        );
 
         ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
         if (!ValidateBinding(bindingIndex, bufferType, buffer, 0))
