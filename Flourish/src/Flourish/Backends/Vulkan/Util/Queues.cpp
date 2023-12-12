@@ -26,10 +26,12 @@ namespace Flourish::Vulkan
                 vkGetDeviceQueue(
                     Context::Devices().Device(),
                     fam.first,
-                    std::min(i, fam.second - 1),
+                    i % fam.second,
                     &physical.Queues[i]
                 );
             }
+
+            physical.QueueIndex = fam.first;
 
             if (indices.GraphicsFamily.value() == fam.first)
                 m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Graphics)] = physicalIdx;

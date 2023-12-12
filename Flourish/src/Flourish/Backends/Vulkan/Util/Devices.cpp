@@ -306,16 +306,19 @@ namespace Flourish::Vulkan
                 supported.RtQueryFeatures.rayQuery &&
                 supported.RtPipelineFeatures.rayTracingPipeline &&
                 supported.BufferAddrFeatures.bufferDeviceAddress &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_KHR_SPIRV_1_4_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_QUERY_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME))
             {
+                m_SupportsSpirv14 = true;
                 m_Features.GeneralFeatures.features.shaderInt64 = true;
                 m_Features.AccelFeatures.accelerationStructure = true;
                 m_Features.RtQueryFeatures.rayQuery = true;
                 m_Features.RtPipelineFeatures.rayTracingPipeline = true;
                 m_Features.BufferAddrFeatures.bufferDeviceAddress = true;
+                extensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);

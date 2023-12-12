@@ -7,7 +7,7 @@ namespace Flourish
 {
     unsigned char* ReadFileImpl(std::string_view path, u32& outLength)
     {
-        std::ifstream file(path, std::ios::ate | std::ios::binary);
+        std::ifstream file(path.data(), std::ios::ate | std::ios::binary);
         if (!file.is_open())
             return nullptr;
         
