@@ -52,6 +52,7 @@ namespace Flourish::Vulkan
             bool Exists = false;
             u32 ArrayCount;
             VkDescriptorType Type;
+            VkShaderStageFlags Access;
             u32 BufferArrayIndex = 0;
             u32 AccelArrayIndex = 0;
             u32 ImageArrayIndex = 0;

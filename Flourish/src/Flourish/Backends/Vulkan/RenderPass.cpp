@@ -309,7 +309,7 @@ namespace Flourish::Vulkan
         }, "RenderPass free");
     }
 
-    std::shared_ptr<Flourish::GraphicsPipeline> RenderPass::CreatePipeline(const GraphicsPipelineCreateInfo& createInfo)
+    std::unique_ptr<Flourish::GraphicsPipeline> RenderPass::CreatePipeline(const GraphicsPipelineCreateInfo& createInfo)
     {
         #ifdef FL_ENABLE_ASSERTS
         for (u32 subpass : createInfo.CompatibleSubpasses)
@@ -336,10 +336,6 @@ namespace Flourish::Vulkan
         }
         #endif
 
-        return std::make_shared<GraphicsPipeline>(
-            createInfo,
-            this,
-            m_SampleCount
-        );
+        return std::make_unique<GraphicsPipeline>(createInfo, this);
     }
 }

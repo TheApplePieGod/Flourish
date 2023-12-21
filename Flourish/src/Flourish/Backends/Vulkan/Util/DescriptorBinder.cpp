@@ -114,6 +114,27 @@ namespace Flourish::Vulkan
         return std::make_shared<ResourceSet>(createInfo, compatability, data.Pool);
     }
 
+    bool PipelineDescriptorData::operator==(const PipelineDescriptorData& other) const
+    {
+        bool earlyChecks = SetData.size() == other.SetData.size() &&
+                           TotalDynamicOffsets == other.TotalDynamicOffsets &&
+                           Compatability == other.Compatability;
+        if (!earlyChecks)
+            return false;
+
+        for (u32 i = 0; i < SetData.size(); i++)
+        {
+            auto& l = SetData[i];
+            auto& r = other.SetData[i];
+            if (l.Exists != r.Exists ||
+                l.DynamicOffsetCount != r.DynamicOffsetCount ||
+                !l.Pool->CheckCompatibility(r.Pool.get()))
+                return false;
+        }
+
+        return true;
+    }
+
     void PipelineDescriptorData::Initialize()
     {
         VkDescriptorSetLayoutCreateInfo layoutInfo{};

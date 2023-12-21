@@ -11,11 +11,41 @@ namespace Flourish::Vulkan
     ComputePipeline::ComputePipeline(const ComputePipelineCreateInfo& createInfo)
         : Flourish::ComputePipeline(createInfo)
     {
+        Recreate();
+    }
+
+    ComputePipeline::~ComputePipeline()
+    {
+        Cleanup();
+    }
+
+    void ComputePipeline::Recreate()
+    {
+        if (m_Created)
+            FL_LOG_DEBUG("Recreating compute pipeline");
+
         auto shader = static_cast<Shader*>(m_Info.Shader.Shader.get());
         VkPipelineShaderStageCreateInfo shaderStage = shader->DefineShaderStage();
 
-        m_DescriptorData.Populate(&shader, 1, m_Info.AccessOverrides);
-        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Compute;
+        // Update revision count immediately to ensure we don't continually try
+        // and recreate if this revision fails
+        m_ShaderRevision = shader->GetRevisionCount();
+
+        // Populate descriptor data
+        PipelineDescriptorData newDescData;
+        newDescData.Populate(&shader, 1, m_Info.AccessOverrides);
+        newDescData.Compatability = ResourceSetPipelineCompatabilityFlags::Compute;
+
+        if (m_Created && !(newDescData == m_DescriptorData))
+        {
+            FL_LOG_ERROR("Cannot recreate compute pipeline because new shader bindings are different or incompatible");
+            return;
+        }
+
+        if (m_Created)
+            Cleanup();
+
+        m_DescriptorData = std::move(newDescData);
 
         // Populate specialization constants
         PipelineSpecializationHelper specHelper;
@@ -61,9 +91,11 @@ namespace Flourish::Vulkan
             &m_Pipeline
         ), "ComputePipeline create pipeline"))
             throw std::exception();
+
+        m_Created = true;
     }
 
-    ComputePipeline::~ComputePipeline()
+    void ComputePipeline::Cleanup()
     {
         auto pipeline = m_Pipeline;
         auto layout = m_PipelineLayout;
@@ -74,6 +106,21 @@ namespace Flourish::Vulkan
             if (layout)
                 vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Compute pipeline free");
+
+        m_Pipeline = VK_NULL_HANDLE;
+        m_PipelineLayout = VK_NULL_HANDLE;
+    }
+
+    bool ComputePipeline::ValidateShaders()
+    {
+        auto shader = static_cast<Shader*>(m_Info.Shader.Shader.get());
+        if (shader->GetRevisionCount() != m_ShaderRevision)
+        {
+            Recreate();
+            return true;
+        }
+        
+        return false;
     }
 
     std::shared_ptr<Flourish::ResourceSet> ComputePipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)

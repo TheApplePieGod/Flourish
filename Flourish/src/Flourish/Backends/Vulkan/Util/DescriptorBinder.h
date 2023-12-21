@@ -31,6 +31,8 @@ namespace Flourish::Vulkan
         // TS
         std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, ResourceSetPipelineCompatability compatability, const ResourceSetCreateInfo& createInfo);
 
+        bool operator==(const PipelineDescriptorData& other) const;
+
         // Global statics
         static void Initialize();
         static void Shutdown();

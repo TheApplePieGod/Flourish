@@ -103,13 +103,20 @@ namespace Flourish::Vulkan
             baseSource = ReadFileToString(path);
         }
 
-        FL_CRASH_ASSERT(!baseSource.empty(), "Failed to load source code for shader or source code was empty");
+        if (baseSource.empty())
+        {
+            FL_LOG_ERROR("Failed to load source code for shader or source code was empty");
+            return std::vector<u32>();
+        }
 
         shaderc_shader_kind shaderKind = shaderc_glsl_vertex_shader;
         switch (type)
         {
             default:
-            { FL_CRASH_ASSERT(false, "Can't compile unsupported shader type"); } break;
+            {
+                FL_LOG_ERROR("Can't compile unsupported shader type");
+                return std::vector<u32>();
+            } break;
             case ShaderTypeFlags::Vertex: { shaderKind = shaderc_glsl_vertex_shader; } break;
             case ShaderTypeFlags::Fragment: { shaderKind = shaderc_glsl_fragment_shader; } break;
             case ShaderTypeFlags::Compute: { shaderKind = shaderc_glsl_compute_shader; } break;
@@ -131,12 +138,16 @@ namespace Flourish::Vulkan
             path.empty() ? "shader" : path.data(),
             options
         );
-        FL_CRASH_ASSERT(
-            compiled.GetCompilationStatus() == shaderc_compilation_status_success,
-            "Shader compilation failed with code %d: %s",
-            compiled.GetCompilationStatus(),
-            compiled.GetErrorMessage().data()
-        );
+
+        if (compiled.GetCompilationStatus() != shaderc_compilation_status_success)
+        {
+            FL_LOG_ERROR(
+                "Shader compilation failed with code %d: %s",
+                compiled.GetCompilationStatus(),
+                compiled.GetErrorMessage().data()
+            );
+            return std::vector<u32>();
+        }
 
         return std::vector<u32>((u32*)compiled.cbegin(), (u32*)compiled.cend());
     }
@@ -144,7 +155,41 @@ namespace Flourish::Vulkan
     Shader::Shader(const ShaderCreateInfo& createInfo)
         : Flourish::Shader(createInfo)
     {
-        std::vector<u32> compiled = CompileSpirv(createInfo.Path, createInfo.Source, createInfo.Type);
+        Recreate();
+
+        // Failed to compile
+        if (!m_Revisions)
+            FL_CRASH_ASSERT(false, "Failed to create shader because initial compilation failed");
+    }
+
+    Shader::~Shader()
+    {
+        Cleanup();
+    }
+
+    void Shader::Reload()
+    {
+        Recreate();
+    }
+
+    void Shader::Recreate()
+    {
+        if (m_Revisions)
+        {
+            // Recreating from source doesnt make sense because the source
+            // is immutable
+            if (m_Info.Path.empty())
+                return;
+            
+            FL_LOG_DEBUG("Recompiling shader @ '%s'", m_Info.Path.data());
+        }
+
+        std::vector<u32> compiled = CompileSpirv(m_Info.Path, m_Info.Source, m_Info.Type);
+        if (compiled.empty()) // Compilation failure
+            return;
+
+        Cleanup();
+
         Reflect(compiled);
 
         VkShaderModuleCreateInfo modCreateInfo{};
@@ -159,9 +204,11 @@ namespace Flourish::Vulkan
             &m_ShaderModule
         ), "Shader create shader module"))
             throw std::exception();
+
+        m_Revisions++;
     }
 
-    Shader::~Shader()
+    void Shader::Cleanup()
     {
         // TODO: might not actually need to be on the queue since it's a one-time use thing
         // but to be safe it's here anyways
@@ -171,12 +218,14 @@ namespace Flourish::Vulkan
             if (mod)
                 vkDestroyShaderModule(Context::Devices().Device(), mod, nullptr);
         }, "Shader free");
+
+        m_ShaderModule = VK_NULL_HANDLE;
     }
 
     VkPipelineShaderStageCreateInfo Shader::DefineShaderStage(const char* entrypoint)
     {
         VkShaderStageFlagBits stage;
-        switch (m_Type)
+        switch (m_Info.Type)
         {
             case ShaderTypeFlags::Vertex: { stage = VK_SHADER_STAGE_VERTEX_BIT; } break;
             case ShaderTypeFlags::Fragment: { stage = VK_SHADER_STAGE_FRAGMENT_BIT; } break;
@@ -209,6 +258,7 @@ namespace Flourish::Vulkan
     void Shader::Reflect(const std::vector<u32>& compiledData)
     {
         m_ReflectionData.clear();
+        m_SpecializationReflection.clear();
 
         u32 size = compiledData.size();
 
@@ -252,7 +302,7 @@ namespace Flourish::Vulkan
         spvc_resources_get_resource_list_for_type(resources, SPVC_RESOURCE_TYPE_PUSH_CONSTANT, &pushConstants, &pushConstantsCount);
 
         const char* typeString = "";
-        switch (m_Type)
+        switch (m_Info.Type)
         {
             case ShaderTypeFlags::Vertex: { typeString = "Vertex"; } break;
             case ShaderTypeFlags::Fragment: { typeString = "Fragment"; } break;
@@ -328,7 +378,7 @@ namespace Flourish::Vulkan
 
             m_ReflectionData.emplace_back(
                 ShaderResourceType::UniformBuffer,
-                m_Type,
+                m_Info.Type,
                 binding,
                 set,
                 (u32)bufferSize, 1
@@ -362,7 +412,7 @@ namespace Flourish::Vulkan
 
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageBuffer,
-                m_Type,
+                m_Info.Type,
                 binding,
                 set,
                 (u32)bufferSize, 1
@@ -395,7 +445,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::Texture,
-                m_Type,
+                m_Info.Type,
                 binding,
                 set, 0,
                 arrayCount
@@ -427,7 +477,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::StorageTexture,
-                m_Type,
+                m_Info.Type,
                 binding,
                 set, 0,
                 arrayCount
@@ -457,7 +507,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::SubpassInput,
-                m_Type,
+                m_Info.Type,
                 binding,
                 set, 0, 1
             );
@@ -485,7 +535,7 @@ namespace Flourish::Vulkan
             
             m_ReflectionData.emplace_back(
                 ShaderResourceType::AccelerationStructure,
-                m_Type,
+                m_Info.Type,
                 binding,
                 set, 0, 1
             );
@@ -519,7 +569,7 @@ namespace Flourish::Vulkan
             u32 memberCount = spvc_type_get_num_member_types(bufferType);
 
             m_PushConstantReflection.Size = bufferSize;
-            m_PushConstantReflection.AccessType = m_Type;
+            m_PushConstantReflection.AccessType = m_Info.Type;
 
 			FL_LOG_DEBUG("    %s", pushConstants[i].name);
 			FL_LOG_DEBUG("      Size = %d", bufferSize);

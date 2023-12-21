@@ -45,6 +45,7 @@ namespace Flourish::Vulkan
 
             bindingData.Type = binding.descriptorType;
             bindingData.ArrayCount = binding.descriptorCount;
+            bindingData.Access = binding.stageFlags;
 
             // TODO: this really is unnecessary on all bindings. We should have some
             // sort of preprocess in the shader that detects this intent
@@ -190,7 +191,6 @@ namespace Flourish::Vulkan
     }
 
     // TODO: hashing? compatability table?
-    // TODO: should also check accesstype compatability
     bool DescriptorPool::CheckCompatibility(const DescriptorPool* other) const
     {
         const auto& l = m_Bindings;
@@ -204,7 +204,8 @@ namespace Flourish::Vulkan
             if (l[i].Exists != r[i].Exists)
                 return false;
             if (l[i].Type != r[i].Type ||
-                l[i].ArrayCount != r[i].ArrayCount)
+                l[i].ArrayCount != r[i].ArrayCount ||
+                l[i].Access != r[i].Access)
                 return false;
         }
 
