@@ -333,10 +333,12 @@ namespace Flourish::Vulkan
         if (initInfo.RequestedFeatures.BufferGPUAddress)
         {
             if (supported.GeneralFeatures.features.shaderInt64 &&
-                supported.BufferAddrFeatures.bufferDeviceAddress)
+                supported.BufferAddrFeatures.bufferDeviceAddress &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
             {
                 m_Features.GeneralFeatures.features.shaderInt64 = true;
                 m_Features.BufferAddrFeatures.bufferDeviceAddress = true;
+                extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
                 Flourish::Context::FeatureTable().BufferGPUAddress = true;
             }
             else

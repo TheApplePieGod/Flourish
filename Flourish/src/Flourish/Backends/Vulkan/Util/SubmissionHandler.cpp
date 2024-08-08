@@ -310,7 +310,8 @@ namespace Flourish::Vulkan
         auto& frameVals = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()];
         auto& submissions = context->CommandBuffer().GetEncoderSubmissions();
         if (submissions.empty())
-            throw std::exception();
+            // TODO: revisit this
+            return;
         auto& submission = submissions[0];
 
         while (m_RenderContextWaitFlags.size() < waitSemaphoreCount)

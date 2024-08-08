@@ -433,7 +433,7 @@ namespace Flourish::Vulkan
                 VkBufferDeviceAddressInfo addInfo{};
                 addInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
                 addInfo.buffer = m_Buffers[i].Buffer;
-                m_Buffers[i].DeviceAddress = vkGetBufferDeviceAddress(Context::Devices().Device(), &addInfo);
+                m_Buffers[i].DeviceAddress = vkGetBufferDeviceAddressKHR(Context::Devices().Device(), &addInfo);
             }
 
             if (dynamicHostBuffer)
