@@ -20,8 +20,6 @@ endif()
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 # Build dependencies
-set(VMA_STATIC_VULKAN_FUNCTIONS OFF)
-set(VMA_DYNAMIC_VULKAN_FUNCTIONS ON)
 add_subdirectory("lib/vma")
 set(VULKAN_HEADERS_INSTALL_DIR $ENV{VULKAN_SDK})
 add_subdirectory("lib/volk")

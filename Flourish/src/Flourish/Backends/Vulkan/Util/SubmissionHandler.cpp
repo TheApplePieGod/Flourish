@@ -374,6 +374,8 @@ namespace Flourish::Vulkan
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapchain;
         presentInfo.pImageIndices = imageIndex;
+
+        FL_LOG_WARN("Waiting on %d", Flourish::Context::FrameIndex());
         
         Context::Queues().LockPresentQueue(true);
         auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);

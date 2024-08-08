@@ -5,7 +5,7 @@
 #include "Flourish/Backends/Vulkan/Util/DescriptorBinder.h"
 
 #ifdef FL_PLATFORM_MACOS
-    #include "MoltenVK/mvk_config.h"
+    #include "MoltenVK/mvk_vulkan.h"
 #endif
 
 namespace Flourish::Vulkan
@@ -148,13 +148,22 @@ namespace Flourish::Vulkan
         createInfo.pApplicationInfo = &appInfo;
         #if FL_DEBUG
             FL_LOG_TRACE("Configuring validation layers");
+
             const char* debugExt = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
             bool supportsDebug = Common::SupportsExtension(supportedExtensions, debugExt);
             if (supportsDebug)
                 requiredExtensions.push_back(debugExt);
+
+            const char* layerExt = VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
+            bool supportsLayerSettings = Common::SupportsExtension(supportedExtensions, layerExt);
+            if (supportsLayerSettings)
+                requiredExtensions.push_back(layerExt);
+
             ConfigureValidationLayers();
+
             createInfo.enabledLayerCount = static_cast<u32>(s_ValidationLayers.size());
             createInfo.ppEnabledLayerNames = s_ValidationLayers.data();
+
             FL_LOG_INFO("%d vulkan validation layers enabled", createInfo.enabledLayerCount);
             for (u32 i = 0; i < createInfo.enabledLayerCount; i++)
                 FL_LOG_INFO("    %s", createInfo.ppEnabledLayerNames[i]);
@@ -171,17 +180,39 @@ namespace Flourish::Vulkan
             if (Common::SupportsExtension(supportedExtensions, "VK_EXT_validation_features"))
             {
                 requiredExtensions.push_back("VK_EXT_validation_features");
-                createInfo.pNext = &features;
+                Common::IterateAndWriteNextChain(&createInfo.pNext, &features);
             }
         #else
             createInfo.enabledLayerCount = 0;
         #endif
+
         createInfo.enabledExtensionCount = static_cast<u32>(requiredExtensions.size());
         createInfo.ppEnabledExtensionNames = requiredExtensions.data();
+
+        std::vector<VkLayerSettingEXT> layerSettings;
         #ifdef FL_PLATFORM_MACOS
             if (Common::SupportsExtension(supportedExtensions, "VK_KHR_portability_enumeration"))
                 createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+
+            // Enable metal argument buffers. For now, this is mandatory because we haven't provided a way
+            // for the user to know that the limits of descriptor indexing are. This is fine
+            // for now since argument buffers are supported in osx >= 11.0
+            // https://github.com/KhronosGroup/MoltenVK/issues/1610
+            VkLayerSettingEXT& settings = layerSettings.emplace_back();
+            u32 useMetalArgumentBuffers = 1;
+            settings.type = VK_LAYER_SETTING_TYPE_UINT32_EXT;
+            settings.pLayerName = kMVKMoltenVKDriverLayerName;
+            settings.pSettingName = "useMetalArgumentBuffers";
+            settings.pValues = &useMetalArgumentBuffers;
+            settings.valueCount = 1;
         #endif
+
+        VkLayerSettingsCreateInfoEXT layerSettingsInfo{};
+        layerSettingsInfo.sType = VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT;
+        layerSettingsInfo.pSettings = layerSettings.data();
+        layerSettingsInfo.settingCount = layerSettings.size();
+        if (supportsLayerSettings)
+            Common::IterateAndWriteNextChain(&createInfo.pNext, &layerSettingsInfo);
 
         FL_LOG_INFO("%d vulkan instance extensions enabled", createInfo.enabledExtensionCount);
         for (u32 i = 0; i < createInfo.enabledExtensionCount; i++)
@@ -215,31 +246,6 @@ namespace Flourish::Vulkan
                 if (!success)
                     FL_LOG_WARN("Unable to initialize vulkan debug utilities") ;
             }   
-        #endif
-
-        // Enable metal argument buffers. For now, this is mandatory because we haven't provided a way
-        // for the user to know that the limits of descriptor indexing are. This is fine
-        // for now since argument buffers are supported in osx >= 11.0
-        // https://github.com/KhronosGroup/MoltenVK/issues/1610
-        #ifdef FL_PLATFORM_MACOS
-            FL_LOG_DEBUG("Configuring MoltenVK");
-
-            // For some reason, vkGetInstanceProcAddr does not work with the config functions, so we
-            // must load them manually
-            // https://github.com/KhronosGroup/MoltenVK/issues/1817
-            auto libMoltenVK = dlopen("libMoltenVK.dylib", RTLD_LAZY);
-
-            auto getMvkConfig = (PFN_vkGetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkGetMoltenVKConfigurationMVK");
-            FL_CRASH_ASSERT(getMvkConfig, "MoltenVK configuration function not found");
-
-            MVKConfiguration mvkConfig;
-            size_t mvkConfigSize = sizeof(mvkConfig);
-            getMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
-            mvkConfig.useMetalArgumentBuffers = MVKUseMetalArgumentBuffers::MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS_DESCRIPTOR_INDEXING;
-
-            auto setMvkConfig = (PFN_vkSetMoltenVKConfigurationMVK)dlsym(libMoltenVK, "vkSetMoltenVKConfigurationMVK");
-            FL_CRASH_ASSERT(setMvkConfig, "MoltenVK configuration function not found");
-            setMvkConfig(s_Instance, &mvkConfig, &mvkConfigSize);
         #endif
 
         FL_LOG_TRACE("Instance setup complete");

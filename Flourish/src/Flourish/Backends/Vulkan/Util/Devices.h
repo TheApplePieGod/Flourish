@@ -10,7 +10,7 @@ namespace Flourish::Vulkan
     public:
         struct DeviceFeatures
         {
-            DeviceFeatures();
+            void Populate(const FeatureTable& features, VkPhysicalDevice device);
 
             VkPhysicalDeviceRayQueryFeaturesKHR RtQueryFeatures{};
             VkPhysicalDeviceAccelerationStructureFeaturesKHR AccelFeatures{};

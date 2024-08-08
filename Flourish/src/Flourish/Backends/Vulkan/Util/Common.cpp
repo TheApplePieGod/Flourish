@@ -3,6 +3,9 @@
 
 #include "Flourish/Backends/Vulkan/Util/DebugCheckpoints.h"
 
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 namespace Flourish::Vulkan
 {
     bool Common::SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension)
@@ -15,6 +18,20 @@ namespace Flourish::Vulkan
                 return strcmp(arg.extensionName, extension) == 0;
             }
         ) != extensions.end();
+    }
+
+    void** Common::IterateAndWriteNextChain(void** base, const void* pNext)
+    {
+        return IterateAndWriteNextChain((const void**)base, pNext);
+    }
+
+    void** Common::IterateAndWriteNextChain(const void** base, const void* pNext)
+    {
+        VkBaseOutStructure** next = (VkBaseOutStructure**)base;
+        while (*next != nullptr)
+            next = &(*next)->pNext;
+        *next = (VkBaseOutStructure*)pNext;
+        return (void**)&(*next)->pNext;
     }
 
     VkFormat Common::ConvertColorFormat(ColorFormat format)

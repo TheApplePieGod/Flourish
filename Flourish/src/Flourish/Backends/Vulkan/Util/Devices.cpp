@@ -1,3 +1,4 @@
+#include "Flourish/Api/FeatureTable.h"
 #include "flpch.h"
 #include "Devices.h"
 
@@ -8,24 +9,36 @@
 
 namespace Flourish::Vulkan
 {
-    Devices::DeviceFeatures::DeviceFeatures()
+    void Devices::DeviceFeatures::Populate(const FeatureTable& features, VkPhysicalDevice device)
     {
-        RtQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-        //RtQueryFeatures.pNext = nullptr;
-        AccelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-        AccelFeatures.pNext = &RtQueryFeatures;
-        RtPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-        RtPipelineFeatures.pNext = &AccelFeatures;
-        BufferAddrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-        BufferAddrFeatures.pNext = &RtPipelineFeatures;
-        TimelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-        TimelineFeatures.pNext = &BufferAddrFeatures;
-        Sync2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-        Sync2Features.pNext = &TimelineFeatures;
-        IndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-        IndexingFeatures.pNext = &Sync2Features;
         GeneralFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        GeneralFeatures.pNext = &IndexingFeatures;
+        TimelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        Sync2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+        IndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+        BufferAddrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+        AccelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+        RtQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+        RtPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+
+        void** next = &GeneralFeatures.pNext;
+
+        // Required extensions
+        next = Common::IterateAndWriteNextChain(next, &TimelineFeatures);
+        //next = Common::IterateAndWriteNextChain(next, &Sync2Features);
+
+        if (features.BufferGPUAddress)
+            next = Common::IterateAndWriteNextChain(next, &BufferAddrFeatures);
+        if (features.PartiallyBoundResourceSets)
+            next = Common::IterateAndWriteNextChain(next, &IndexingFeatures);
+        if (features.RayTracing)
+        {
+            next = Common::IterateAndWriteNextChain(next, &AccelFeatures);
+            next = Common::IterateAndWriteNextChain(next, &RtQueryFeatures);
+            next = Common::IterateAndWriteNextChain(next, &RtPipelineFeatures);
+        }
+
+        if (device)
+            vkGetPhysicalDeviceFeatures2(device, &GeneralFeatures);
     }
 
     void Devices::Initialize(const ContextInitializeInfo& initInfo)
@@ -239,7 +252,7 @@ namespace Flourish::Vulkan
     void Devices::PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
         DeviceFeatures supported;
-        vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &supported.GeneralFeatures);
+        supported.Populate(initInfo.RequestedFeatures, m_PhysicalDevice);
 
         FL_CRASH_ASSERT(
             supported.TimelineFeatures.timelineSemaphore,
@@ -379,6 +392,8 @@ namespace Flourish::Vulkan
             { FL_LOG_WARN("BindlessShaderResources was requested but not supported"); }
         }
         */
+
+        m_Features.Populate(Flourish::Context::FeatureTable(), nullptr);
     }
 
     void Devices::PopulateDeviceProperties()
