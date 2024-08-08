@@ -70,8 +70,6 @@ namespace Flourish::Vulkan
             VK_NULL_HANDLE,
             &m_ActiveImageIndex
         );
-
-        FL_LOG_WARN("Signaling %d", Flourish::Context::FrameIndex());
     }
 
     void Swapchain::UpdateDimensions(u32 width, u32 height)
