@@ -32,6 +32,7 @@ namespace Flourish::Vulkan
             next = Common::IterateAndWriteNextChain(next, &IndexingFeatures);
         if (features.RayTracing)
         {
+            next = Common::IterateAndWriteNextChain(next, &BufferAddrFeatures);
             next = Common::IterateAndWriteNextChain(next, &AccelFeatures);
             next = Common::IterateAndWriteNextChain(next, &RtQueryFeatures);
             next = Common::IterateAndWriteNextChain(next, &RtPipelineFeatures);

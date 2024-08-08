@@ -18,6 +18,13 @@ namespace Flourish::Vulkan
     const SubmissionBarrier COMPUTE_BARRIER = {
         true,
         { VK_STRUCTURE_TYPE_MEMORY_BARRIER },
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
+    };
+
+    const SubmissionBarrier COMPUTE_BARRIER_RT = {
+        true,
+        { VK_STRUCTURE_TYPE_MEMORY_BARRIER },
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR
     };
@@ -96,6 +103,10 @@ namespace Flourish::Vulkan
         // Good estimate
         m_ExecuteData.SubmissionSyncs.reserve(m_ExecuteData.SubmissionOrder.size() * 5);
 
+        const SubmissionBarrier& computeBarrier = Flourish::Context::FeatureTable().RayTracing
+            ? COMPUTE_BARRIER_RT
+            : COMPUTE_BARRIER;
+
         u32 semaphoreIndex = 0;
         u32 eventIndex = 0;
         u32 totalIndex = 0;
@@ -165,7 +176,7 @@ namespace Flourish::Vulkan
                                 } break;
                                 case GPUWorkloadType::Compute:
                                 {
-                                    currentSync.Barrier = COMPUTE_BARRIER;
+                                    currentSync.Barrier = computeBarrier;
                                     currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
                                     currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
                                 } break;
@@ -245,7 +256,7 @@ namespace Flourish::Vulkan
                             case GPUWorkloadType::Compute:
                             {
                                 if (!currentSync.Barrier.ShouldBarrier)
-                                    currentSync.Barrier = COMPUTE_BARRIER;
+                                    currentSync.Barrier = computeBarrier;
                                 currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
                                 currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
                             } break;
