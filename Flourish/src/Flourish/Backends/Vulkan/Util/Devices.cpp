@@ -26,13 +26,12 @@ namespace Flourish::Vulkan
         next = Common::IterateAndWriteNextChain(next, &TimelineFeatures);
         //next = Common::IterateAndWriteNextChain(next, &Sync2Features);
 
-        if (features.BufferGPUAddress)
+        if (features.RayTracing || features.BufferGPUAddress)
             next = Common::IterateAndWriteNextChain(next, &BufferAddrFeatures);
         if (features.PartiallyBoundResourceSets)
             next = Common::IterateAndWriteNextChain(next, &IndexingFeatures);
         if (features.RayTracing)
         {
-            next = Common::IterateAndWriteNextChain(next, &BufferAddrFeatures);
             next = Common::IterateAndWriteNextChain(next, &AccelFeatures);
             next = Common::IterateAndWriteNextChain(next, &RtQueryFeatures);
             next = Common::IterateAndWriteNextChain(next, &RtPipelineFeatures);
