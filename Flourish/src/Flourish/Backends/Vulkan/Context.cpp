@@ -154,11 +154,6 @@ namespace Flourish::Vulkan
             if (supportsDebug)
                 requiredExtensions.push_back(debugExt);
 
-            const char* layerExt = VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
-            bool supportsLayerSettings = Common::SupportsExtension(supportedExtensions, layerExt);
-            if (supportsLayerSettings)
-                requiredExtensions.push_back(layerExt);
-
             ConfigureValidationLayers();
 
             createInfo.enabledLayerCount = static_cast<u32>(s_ValidationLayers.size());
@@ -185,6 +180,11 @@ namespace Flourish::Vulkan
         #else
             createInfo.enabledLayerCount = 0;
         #endif
+
+        const char* layerExt = VK_EXT_LAYER_SETTINGS_EXTENSION_NAME;
+        bool supportsLayerSettings = Common::SupportsExtension(supportedExtensions, layerExt);
+        if (supportsLayerSettings)
+            requiredExtensions.push_back(layerExt);
 
         createInfo.enabledExtensionCount = static_cast<u32>(requiredExtensions.size());
         createInfo.ppEnabledExtensionNames = requiredExtensions.data();
