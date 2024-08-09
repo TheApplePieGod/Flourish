@@ -35,7 +35,9 @@ namespace Flourish::Vulkan
         PopulateSwapchainInfo();
         RecreateSwapchain();
         
-        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+        // Initialize twice as many semaphores as technically necessary. This solves a strange
+        // validation error on MacOS (likely false positive) and doesn't really have any downsides 
+        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount() * 2; frame++)
             m_ImageAvailableSemaphores[frame] = Synchronization::CreateSemaphore();
     }
 
@@ -46,7 +48,7 @@ namespace Flourish::Vulkan
         auto imageAvailableSemaphores = m_ImageAvailableSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
-            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount() * 2; frame++)
                 if (imageAvailableSemaphores[frame])
                     vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
         }, "Swapchain shutdown");
@@ -66,7 +68,7 @@ namespace Flourish::Vulkan
             Context::Devices().Device(),
             m_Swapchain,
             UINT64_MAX,
-            m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()],
+            GetImageAvailableSemaphore(),
             VK_NULL_HANDLE,
             &m_ActiveImageIndex
         );
@@ -81,7 +83,7 @@ namespace Flourish::Vulkan
 
     VkSemaphore Swapchain::GetImageAvailableSemaphore() const
     {
-        return m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()];
+        return m_ImageAvailableSemaphores[Flourish::Context::FrameCount() % (Flourish::Context::FrameBufferCount() * 2)];
     }
 
     void Swapchain::PopulateSwapchainInfo()
