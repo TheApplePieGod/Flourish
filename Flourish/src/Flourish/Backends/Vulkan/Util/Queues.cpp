@@ -12,12 +12,18 @@ namespace Flourish::Vulkan
 
         auto indices = GetQueueFamilies(Context::Devices().PhysicalDevice());
 
-        u32 physicalIdx = 0;
         std::unordered_map<u32, u32> uniqueFamilies;
         uniqueFamilies.insert({ indices.GraphicsFamily.value(), indices.GraphicsQueueCount });
         uniqueFamilies.insert({ indices.ComputeFamily.value(), indices.ComputeQueueCount });
         uniqueFamilies.insert({ indices.TransferFamily.value(), indices.TransferQueueCount });
         uniqueFamilies.insert({ indices.PresentFamily.value(), indices.PresentQueueCount });
+
+        if (indices.PresentFamily.value() != indices.GraphicsFamily.value())
+        {
+            FL_LOG_WARN("Present queue and graphics queue are different"); 
+        }
+
+        u32 physicalIdx = 0;
         for (auto& fam : uniqueFamilies)
         {
             auto& physical = m_PhysicalQueues[physicalIdx];
