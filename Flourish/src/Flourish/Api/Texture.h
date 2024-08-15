@@ -113,6 +113,7 @@ namespace Flourish
     public:
         // TS
         static std::shared_ptr<Texture> Create(const TextureCreateInfo& createInfo);
+        static u32 ColorFormatSize(ColorFormat format);
         static u32 ColorFormatComponentCount(ColorFormat format);
         static BufferDataType ColorFormatBufferDataType(ColorFormat format);
 

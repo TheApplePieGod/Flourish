@@ -30,6 +30,13 @@ namespace Flourish
         return nullptr;
     }
 
+    u32 Texture::ColorFormatSize(ColorFormat format)
+    {
+        u32 components = ColorFormatComponentCount(format);
+        u32 size = BufferDataTypeSize(ColorFormatBufferDataType(format));
+        return components * size;
+    }
+
     u32 Texture::ColorFormatComponentCount(ColorFormat format)
     {
         switch (format)
