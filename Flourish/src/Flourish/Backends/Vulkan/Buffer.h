@@ -52,16 +52,22 @@ namespace Flourish::Vulkan
         static void CopyBufferToImage(
             VkBuffer src,
             VkImage dst,
+            VkImageAspectFlags dstAspect,
             u32 imageWidth,
             u32 imageHeight,
+            u32 dstMipLevel,
+            u32 dstLayerIndex,
             VkImageLayout imageLayout,
             VkCommandBuffer buffer = VK_NULL_HANDLE
         );
         static void CopyImageToBuffer(
             VkImage src,
+            VkImageAspectFlags srcAspect,
             VkBuffer dst,
             u32 imageWidth,
             u32 imageHeight,
+            u32 srcMipLevel,
+            u32 srcLayerIndex,
             VkImageLayout imageLayout,
             VkCommandBuffer buffer = VK_NULL_HANDLE
         );
@@ -70,9 +76,12 @@ namespace Flourish::Vulkan
     private:
         static void ImageBufferCopyInternal(
             VkImage image,
+            VkImageAspectFlags aspect,
             VkBuffer buffer,
             u32 imageWidth,
             u32 imageHeight,
+            u32 mipLevel,
+            u32 layerIndex,
             VkImageLayout imageLayout,
             bool imageSrc,
             VkCommandBuffer cmdBuf = VK_NULL_HANDLE

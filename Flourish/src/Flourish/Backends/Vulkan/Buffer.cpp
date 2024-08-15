@@ -307,14 +307,32 @@ namespace Flourish::Vulkan
         }
     }
 
-    void Buffer::CopyBufferToImage(VkBuffer src, VkImage dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
+    void Buffer::CopyBufferToImage(
+        VkBuffer src,
+        VkImage dst,
+        VkImageAspectFlags dstAspect,
+        u32 imageWidth,
+        u32 imageHeight,
+        u32 dstMipLevel,
+        u32 dstLayerIndex,
+        VkImageLayout imageLayout,
+        VkCommandBuffer buffer)
     {
-        ImageBufferCopyInternal(dst, src, imageWidth, imageHeight, imageLayout, false, buffer);
+        ImageBufferCopyInternal(dst, dstAspect, src, imageWidth, imageHeight, dstMipLevel, dstLayerIndex, imageLayout, false, buffer);
     }
 
-    void Buffer::CopyImageToBuffer(VkImage src, VkBuffer dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
+    void Buffer::CopyImageToBuffer(
+        VkImage src,
+        VkImageAspectFlags srcAspect,
+        VkBuffer dst,
+        u32 imageWidth,
+        u32 imageHeight,
+        u32 srcMipLevel,
+        u32 srcLayerIndex,
+        VkImageLayout imageLayout,
+        VkCommandBuffer buffer)
     {
-        ImageBufferCopyInternal(src, dst, imageWidth, imageHeight, imageLayout, true, buffer);
+        ImageBufferCopyInternal(src, srcAspect, dst, imageWidth, imageHeight, srcMipLevel, srcLayerIndex, imageLayout, true, buffer);
     }
 
     void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size)
@@ -339,7 +357,17 @@ namespace Flourish::Vulkan
             throw std::exception();
     }
 
-    void Buffer::ImageBufferCopyInternal(VkImage image, VkBuffer buffer, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, bool imageSrc, VkCommandBuffer cmdBuf)
+    void Buffer::ImageBufferCopyInternal(
+        VkImage image,
+        VkImageAspectFlags aspect,
+        VkBuffer buffer,
+        u32 imageWidth,
+        u32 imageHeight,
+        u32 mipLevel,
+        u32 layerIndex,
+        VkImageLayout imageLayout,
+        bool imageSrc,
+        VkCommandBuffer cmdBuf)
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = cmdBuf;
@@ -360,9 +388,9 @@ namespace Flourish::Vulkan
         region.bufferOffset = 0;
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.aspectMask = aspect;
+        region.imageSubresource.mipLevel = mipLevel;
+        region.imageSubresource.baseArrayLayer = layerIndex;
         region.imageSubresource.layerCount = 1;
         region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { imageWidth, imageHeight, 1 };

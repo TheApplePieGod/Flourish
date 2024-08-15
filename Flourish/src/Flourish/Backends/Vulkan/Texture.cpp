@@ -203,8 +203,10 @@ namespace Flourish::Vulkan
                 Buffer::CopyBufferToImage(
                     stagingBuffer,
                     imageData.Image,
+                    aspect,
                     m_Info.Width,
                     m_Info.Height,
+                    0, 0,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     cmdBuffer
                 );

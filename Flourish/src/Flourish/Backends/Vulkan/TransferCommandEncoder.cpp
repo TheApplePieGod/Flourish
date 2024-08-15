@@ -88,9 +88,11 @@ namespace Flourish::Vulkan
 
         Buffer::CopyImageToBuffer(
             texture->GetImage(),
+            aspect,
             buffer->GetBuffer(),
             texture->GetWidth(),
             texture->GetHeight(),
+            mipLevel, layerIndex,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             m_CommandBuffer
         );
@@ -135,8 +137,10 @@ namespace Flourish::Vulkan
         Buffer::CopyBufferToImage(
             buffer->GetBuffer(),
             texture->GetImage(),
+            aspect,
             texture->GetWidth(),
             texture->GetHeight(),
+            mipLevel, layerIndex,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             m_CommandBuffer
         );
