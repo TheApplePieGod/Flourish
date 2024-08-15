@@ -228,7 +228,10 @@ namespace Flourish::Vulkan
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         createInfo.preTransform = capabilities.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Transparency?
+        if (capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+            createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Transparency?
+        else
+            createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
         createInfo.presentMode = m_Info.PresentMode;
         createInfo.clipped = VK_TRUE;
         createInfo.oldSwapchain = m_Swapchain;
