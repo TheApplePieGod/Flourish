@@ -91,7 +91,11 @@ namespace Flourish::Vulkan
         layoutInfo.pBindings = bindings.data();
         if (Flourish::Context::FeatureTable().PartiallyBoundResourceSets)
         {
-            //layoutInfo.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+            // Since this feature enables argument buffers on macos, we need to add this
+            // flag so the validation layers use the proper limits
+            #ifdef FL_PLATFORM_MACOS
+                layoutInfo.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+            #endif
             layoutInfo.pNext = &flags;
         }
 
@@ -222,8 +226,11 @@ namespace Flourish::Vulkan
         poolInfo.pPoolSizes = m_CachedPoolSizes.data();
         poolInfo.maxSets = MaxSetsPerPool;
         poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-        //if (Flourish::Context::FeatureTable().PartiallyBoundResourceSets)
-        //    poolInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        
+        #ifdef FL_PLATFORM_MACOS
+        if (Flourish::Context::FeatureTable().PartiallyBoundResourceSets)
+            poolInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        #endif
 
         VkDescriptorPool pool;
         FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(
