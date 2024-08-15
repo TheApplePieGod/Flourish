@@ -18,6 +18,8 @@ namespace Flourish::Vulkan
         m_Format = Common::ConvertColorFormat(m_Info.Format);
         m_IsStorageImage = m_Info.Usage & TextureUsageFlags::Compute;
 
+        PopulateFeatures();
+
         // Populate initial image info
         bool hasInitialData = m_Info.InitialData && m_Info.InitialDataSize > 0;
         VkImageCreateInfo imageInfo{};
@@ -282,6 +284,8 @@ namespace Flourish::Vulkan
         m_Info.MipCount = 1;
         m_Format = Common::ConvertColorFormat(m_Info.Format);
 
+        PopulateFeatures();
+
         m_MipLevels = 1;
         m_ImageCount = 1;
         
@@ -377,11 +381,13 @@ namespace Flourish::Vulkan
     void Texture::Blit(
         VkImage srcImage,
         VkFormat srcFormat,
+        VkFormatFeatureFlags srcFormatFeatures,
         VkImageAspectFlags srcAspect,
         u32 srcMip,
         u32 srcLayer,
         VkImage dstImage,
         VkFormat dstFormat,
+        VkFormatFeatureFlags dstFormatFeatures,
         VkImageAspectFlags dstAspect,
         u32 dstMip,
         u32 dstLayer,
@@ -405,26 +411,96 @@ namespace Flourish::Vulkan
             FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuffer, &beginInfo), "Blit command buffer begin");
         }
 
-        VkImageBlit blit{};
-        blit.srcOffsets[0] = { 0, 0, 0 };
-        blit.srcOffsets[1] = { (int)width, (int)height, 1 };
-        blit.srcSubresource.aspectMask = srcAspect;
-        blit.srcSubresource.mipLevel = srcMip;
-        blit.srcSubresource.baseArrayLayer = srcLayer;
-        blit.srcSubresource.layerCount = 1;
-        blit.dstOffsets[0] = { 0, 0, 0 };
-        blit.dstOffsets[1] = { (int)width, (int)height, 1 };
-        blit.dstSubresource.aspectMask = dstAspect;
-        blit.dstSubresource.mipLevel = dstMip;
-        blit.dstSubresource.baseArrayLayer = dstLayer;
-        blit.dstSubresource.layerCount = 1;
+        if ((srcFormatFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) && (dstFormatFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT))
+        {
+            // If available, take advantage of the optimized blit operation
 
-        vkCmdBlitImage(cmdBuffer,
-            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            1, &blit,
-            sampleFilter
-        );
+            VkImageBlit blit{};
+            blit.srcOffsets[0] = { 0, 0, 0 };
+            blit.srcOffsets[1] = { (int)width, (int)height, 1 };
+            blit.srcSubresource.aspectMask = srcAspect;
+            blit.srcSubresource.mipLevel = srcMip;
+            blit.srcSubresource.baseArrayLayer = srcLayer;
+            blit.srcSubresource.layerCount = 1;
+            blit.dstOffsets[0] = { 0, 0, 0 };
+            blit.dstOffsets[1] = { (int)width, (int)height, 1 };
+            blit.dstSubresource.aspectMask = dstAspect;
+            blit.dstSubresource.mipLevel = dstMip;
+            blit.dstSubresource.baseArrayLayer = dstLayer;
+            blit.dstSubresource.layerCount = 1;
+
+            vkCmdBlitImage(
+                cmdBuffer,
+                srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1, &blit,
+                sampleFilter
+            );
+        }
+        else if ((srcFormatFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) && (dstFormatFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT))
+        {
+            // Emulate blit by first copying to a temporary buffer, then transferring the buffer into the dst texture
+
+            u32 formatSize = ColorFormatSize(Common::RevertColorFormat(srcFormat));
+            u32 bufferSize = formatSize * width * height;
+
+            // Create a temporary buffer which will deallocate out of scope
+            // TODO: this is not great, we really should have a temporary allocation for transient buffers
+            BufferCreateInfo ibCreateInfo;
+            ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
+            ibCreateInfo.ElementCount = 1;
+            ibCreateInfo.Stride = bufferSize;
+            Buffer tempBuffer(
+                ibCreateInfo,
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                Buffer::MemoryDirection::CPUToGPU,
+                nullptr,
+                true
+            );
+
+            Buffer::CopyImageToBuffer(
+                srcImage,
+                srcAspect,
+                tempBuffer.GetBuffer(),
+                width, height,
+                srcMip, srcLayer,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                cmdBuffer
+            );
+
+            VkBufferMemoryBarrier bufBarrier{};
+            bufBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+            bufBarrier.buffer = tempBuffer.GetBuffer();
+            bufBarrier.size = bufferSize;
+            bufBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bufBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            bufBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            bufBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            vkCmdPipelineBarrier(
+                cmdBuffer,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                0,
+                0, nullptr,
+                1, &bufBarrier,
+                0, nullptr
+            );
+
+            Buffer::CopyBufferToImage(
+                tempBuffer.GetBuffer(),
+                dstImage,
+                dstAspect,
+                width, height,
+                dstMip, dstLayer,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                cmdBuffer
+            );
+        }
+        else
+        {
+            // Out of luck, throw and error and do nothing
+            FL_LOG_ERROR("Blit() operation performed on incompatible src and/or dst textures, skipping");
+        }
         
         if (!buffer)
         {
@@ -450,6 +526,9 @@ namespace Flourish::Vulkan
         VkFilter sampleFilter,
         VkCommandBuffer buffer)
     {
+        // TODO: this function should use the Blit() function to support CmdBlit fallback,
+        // but need to spend some time figuring out how to do it efficiently
+
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
         CommandBufferAllocInfo allocInfo;
@@ -681,6 +760,15 @@ namespace Flourish::Vulkan
     const Texture::ImageData& Texture::GetImageData() const
     {
         return m_ImageCount == 1 ? m_Images[0] : m_Images[Flourish::Context::FrameIndex()];
+    }
+
+    void Texture::PopulateFeatures()
+    {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(Context::Devices().PhysicalDevice(), m_Format, &props);
+
+        // We only take advantage of optimal tiling so we can always assume this here
+        m_FeatureFlags = props.optimalTilingFeatures;
     }
     
     void Texture::CreateSampler()

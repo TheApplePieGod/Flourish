@@ -39,6 +39,7 @@ namespace Flourish::Vulkan
 
         // TS
         inline VkSampler GetSampler() const { return m_Sampler; }
+        inline VkFormatFeatureFlags GetFormatFeatures() const { return m_FeatureFlags; }
         inline bool IsDepthImage() const { return m_IsDepthImage; }
         
     public:
@@ -60,11 +61,13 @@ namespace Flourish::Vulkan
         static void Blit(
             VkImage srcImage,
             VkFormat srcFormat,
+            VkFormatFeatureFlags srcFormatFeatures,
             VkImageAspectFlags srcAspect,
             u32 srcMip,
             u32 srcLayer,
             VkImage dstImage,
             VkFormat dstFormat,
+            VkFormatFeatureFlags dstFormatFeatures,
             VkImageAspectFlags dstAspect,
             u32 dstMip,
             u32 dstLayer,
@@ -107,12 +110,13 @@ namespace Flourish::Vulkan
 
     private:
         const ImageData& GetImageData() const;
-        void UpdateFormat();
+        void PopulateFeatures();
         void CreateSampler();
 
     private:
         std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
         VkFormat m_Format;
+        VkFormatFeatureFlags m_FeatureFlags;
         VkSampler m_Sampler = VK_NULL_HANDLE;
         u32 m_ImageCount = 0;
         bool m_IsDepthImage = false;
