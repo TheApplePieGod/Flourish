@@ -28,7 +28,7 @@ namespace Flourish
         virtual void ClearDepthAttachment() = 0;
         
         // Bind -> Update -> Flush
-        // Offset in bytes
+        // Offset in bytes (make sure to respect buffer stride!)
         virtual void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) = 0;
         virtual void BindResourceSet(const ResourceSet* set, u32 setIndex) = 0;
         virtual void FlushResourceSet(u32 setIndex) = 0;
