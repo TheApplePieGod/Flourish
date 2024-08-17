@@ -120,9 +120,10 @@ namespace Flourish::Vulkan
             {
                 m_ExecuteData.SubmissionSyncs.emplace_back();
                 auto& submission = node.EncoderNodes[subIndex];
+                u32 queueIndex = Context::Queues().QueueIndex(submission.WorkloadType);
                 bool firstSub = orderIndex == 0 && subIndex == 0;
-                bool workloadChange = !firstSub && submission.WorkloadType != currentWorkloadType;
-                if (workloadChange || firstSub)
+                bool queueChange = !firstSub && queueIndex != Context::Queues().QueueIndex(currentWorkloadType);
+                if (queueChange || firstSub)
                 {
                     m_ExecuteData.SubmissionSyncs[totalIndex].SubmitDataIndex = m_ExecuteData.SubmitData.size();
                     auto& submitData = m_ExecuteData.SubmitData.emplace_back();
@@ -145,7 +146,7 @@ namespace Flourish::Vulkan
                     }
 
                     currentWorkloadIndex = totalIndex;
-                    currentWorkloadType = submitData.Workload;
+                    currentWorkloadType = submission.WorkloadType;
                 }
 
                 auto& currentSync = m_ExecuteData.SubmissionSyncs[totalIndex];
@@ -159,7 +160,8 @@ namespace Flourish::Vulkan
                     if (resourceInfo.LastWriteIndex == -1)
                         continue;
 
-                    if (resourceInfo.LastWriteWorkload == submission.WorkloadType)
+                    u32 lastWriteQueue = Context::Queues().QueueIndex(resourceInfo.LastWriteWorkload);
+                    if (lastWriteQueue == queueIndex)
                     {
                         // If the write occured before the previous wait, we don't have to wait again
                         // because the event existing implies a read that occured before this one
@@ -171,21 +173,37 @@ namespace Flourish::Vulkan
                                 case GPUWorkloadType::Graphics:
                                 {
                                     currentSync.Barrier = GRAPHICS_BARRIER;
-                                    currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
                                     currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
                                 } break;
                                 case GPUWorkloadType::Compute:
                                 {
                                     currentSync.Barrier = computeBarrier;
-                                    currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
                                     currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
                                 } break;
                                 case GPUWorkloadType::Transfer:
                                 {
                                     currentSync.Barrier = TRANSFER_BARRIER;
-                                    currentSync.Barrier.MemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
                                     currentSync.Barrier.MemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
                                 } break;
+
+                                switch (resourceInfo.LastWriteWorkload)
+                                {
+                                    case GPUWorkloadType::Graphics:
+                                    {
+                                        currentSync.Barrier.SrcStage = GRAPHICS_BARRIER.SrcStage;
+                                        currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                                    } break;
+                                    case GPUWorkloadType::Compute:
+                                    {
+                                        currentSync.Barrier.SrcStage = computeBarrier.SrcStage;
+                                        currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
+                                    } break;
+                                    case GPUWorkloadType::Transfer:
+                                    {
+                                        currentSync.Barrier.SrcStage = TRANSFER_BARRIER.SrcStage;
+                                        currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+                                    } break;
+                                }
                             }
 
                             m_LastWaitWrites[(u32)submission.WorkloadType] = resourceInfo.LastWriteIndex;
@@ -241,7 +259,8 @@ namespace Flourish::Vulkan
                     auto& resourceInfo = m_AllResources[write];
 
                     // Always do a write -> write sync if we are on the same workload
-                    if (resourceInfo.LastWriteIndex != -1 && resourceInfo.LastWriteWorkload == submission.WorkloadType)
+                    u32 lastWriteQueue = Context::Queues().QueueIndex(resourceInfo.LastWriteWorkload);
+                    if (resourceInfo.LastWriteIndex != -1 && lastWriteQueue == queueIndex)
                     {
                         // Need to initialize barrier if a read has not also occured
                         switch (submission.WorkloadType)
@@ -250,22 +269,38 @@ namespace Flourish::Vulkan
                             {
                                 if (!currentSync.Barrier.ShouldBarrier)
                                     currentSync.Barrier = GRAPHICS_BARRIER;
-                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
                                 currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
                             } break;
                             case GPUWorkloadType::Compute:
                             {
                                 if (!currentSync.Barrier.ShouldBarrier)
                                     currentSync.Barrier = computeBarrier;
-                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
                                 currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
                             } break;
                             case GPUWorkloadType::Transfer:
                             {
                                 if (!currentSync.Barrier.ShouldBarrier)
                                     currentSync.Barrier = TRANSFER_BARRIER;
-                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
                                 currentSync.Barrier.MemoryBarrier.dstAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+                            } break;
+                        }
+
+                        switch (resourceInfo.LastWriteWorkload)
+                        {
+                            case GPUWorkloadType::Graphics:
+                            {
+                                currentSync.Barrier.SrcStage = GRAPHICS_BARRIER.SrcStage;
+                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                            } break;
+                            case GPUWorkloadType::Compute:
+                            {
+                                currentSync.Barrier.SrcStage = computeBarrier.SrcStage;
+                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_MEMORY_WRITE_BIT;
+                            } break;
+                            case GPUWorkloadType::Transfer:
+                            {
+                                currentSync.Barrier.SrcStage = TRANSFER_BARRIER.SrcStage;
+                                currentSync.Barrier.MemoryBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
                             } break;
                         }
                     }
