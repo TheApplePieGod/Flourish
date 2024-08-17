@@ -177,11 +177,18 @@ namespace Flourish::Vulkan
         // Otherwise use first available
         if (m_Info.PresentMode != VK_PRESENT_MODE_MAX_ENUM_KHR)
             m_Info.PresentMode = presentModes[0];
+
+        FL_LOG_DEBUG("Swapchain present mode is %d", m_Info.PresentMode);
     }
 
     void Swapchain::RecreateSwapchain()
     {
         FL_PROFILE_FUNCTION();
+
+        if (m_Swapchain)
+        {
+            FL_LOG_TRACE("Swapchain %x recreating", m_Swapchain);
+        }
 
         m_Valid = false;
 

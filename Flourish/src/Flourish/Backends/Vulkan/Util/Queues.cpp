@@ -50,6 +50,10 @@ namespace Flourish::Vulkan
 
             physicalIdx++;
         }
+
+        FL_LOG_DEBUG("Graphics workloads assigned to queue %d", m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Graphics)]);
+        FL_LOG_DEBUG("Compute workloads assigned to queue %d", m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Compute)]);
+        FL_LOG_DEBUG("Transfer workloads assigned to queue %d", m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Transfer)]);
     }
 
     void Queues::Shutdown()
