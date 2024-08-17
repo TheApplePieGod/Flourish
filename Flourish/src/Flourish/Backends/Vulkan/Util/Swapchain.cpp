@@ -35,22 +35,29 @@ namespace Flourish::Vulkan
         PopulateSwapchainInfo();
         RecreateSwapchain();
         
-        // Initialize twice as many semaphores as technically necessary. This solves a strange
-        // validation error on MacOS (likely false positive) and doesn't really have any downsides 
-        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount() * 2; frame++)
+        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+        {
             m_ImageAvailableSemaphores[frame] = Synchronization::CreateSemaphore();
+            m_ImageAvailableFences[frame] = Synchronization::CreateFence();
+        }
     }
 
     void Swapchain::Shutdown()
     {
         CleanupSwapchain();
         
+        auto imageAvailableFences = m_ImageAvailableFences;
         auto imageAvailableSemaphores = m_ImageAvailableSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
-            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount() * 2; frame++)
-                if (imageAvailableSemaphores[frame])
-                    vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
+            // Ensure all images are acquired before shutting down
+            Synchronization::WaitForFences(imageAvailableFences.data(), Flourish::Context::FrameBufferCount());
+
+            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            {
+                vkDestroyFence(Context::Devices().Device(), imageAvailableFences[frame], nullptr);
+                vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
+            }
         }, "Swapchain shutdown");
     }
     
@@ -64,12 +71,16 @@ namespace Flourish::Vulkan
 
         if (!m_Valid) return;
 
+        VkFence currentFence = GetImageAvailableFence();
+        Synchronization::WaitForFences(&currentFence, 1);
+        Synchronization::ResetFences(&currentFence, 1);
+
         VkResult result = vkAcquireNextImageKHR(
             Context::Devices().Device(),
             m_Swapchain,
             UINT64_MAX,
             GetImageAvailableSemaphore(),
-            VK_NULL_HANDLE,
+            currentFence,
             &m_ActiveImageIndex
         );
     }
@@ -83,7 +94,12 @@ namespace Flourish::Vulkan
 
     VkSemaphore Swapchain::GetImageAvailableSemaphore() const
     {
-        return m_ImageAvailableSemaphores[Flourish::Context::FrameCount() % (Flourish::Context::FrameBufferCount() * 2)];
+        return m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()];
+    }
+
+    VkFence Swapchain::GetImageAvailableFence() const
+    {
+        return m_ImageAvailableFences[Flourish::Context::FrameIndex()];
     }
 
     void Swapchain::PopulateSwapchainInfo()

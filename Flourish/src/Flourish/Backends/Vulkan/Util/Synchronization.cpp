@@ -2,6 +2,7 @@
 #include "Synchronization.h"
 
 #include "Flourish/Backends/Vulkan/Context.h"
+#include "vulkan/vulkan_core.h"
 
 namespace Flourish::Vulkan
 {
@@ -55,5 +56,15 @@ namespace Flourish::Vulkan
         vkCreateEvent(Context::Devices().Device(), &createInfo, NULL, &event);
 
         return event;
+    }
+
+    void Synchronization::WaitForFences(const VkFence* fences, u32 count)
+    {
+        vkWaitForFences(Context::Devices().Device(), count, fences, true, UINT64_MAX);
+    }
+
+    void Synchronization::ResetFences(const VkFence* fences, u32 count)
+    {
+        vkResetFences(Context::Devices().Device(), count, fences);
     }
 }

@@ -26,6 +26,7 @@ namespace Flourish::Vulkan
 
         // TS
         VkSemaphore GetImageAvailableSemaphore() const;
+        VkFence GetImageAvailableFence() const;
         
         // TS
         inline VkSwapchainKHR GetSwapchain() const { return m_Swapchain; }
@@ -59,7 +60,8 @@ namespace Flourish::Vulkan
         std::shared_ptr<RenderPass> m_RenderPass;
         SwapchainInfo m_Info;
         u32 m_ActiveImageIndex = 0;
-        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount * 2> m_ImageAvailableSemaphores;
+        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> m_ImageAvailableSemaphores;
+        std::array<VkFence, Flourish::Context::MaxFrameBufferCount> m_ImageAvailableFences;
         bool m_ShouldRecreate = false;
         bool m_Valid = true;
 
