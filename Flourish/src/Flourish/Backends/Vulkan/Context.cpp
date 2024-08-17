@@ -84,6 +84,7 @@ namespace Flourish::Vulkan
 
     void Context::BeginFrame()
     {
+        vmaSetCurrentFrameIndex(s_Allocator, (u32)Flourish::Context::FrameCount());
         s_SubmissionHandler.WaitOnFrameSemaphores();
     }
 
@@ -91,6 +92,32 @@ namespace Flourish::Vulkan
     {
         s_FinalizerQueue.Iterate();
         s_SubmissionHandler.ProcessFrameSubmissions();
+    }
+
+    MemoryStatistics Context::ComputeMemoryStatistics()
+    {
+        MemoryStatistics stats{};
+
+        VmaBudget budgets[VK_MAX_MEMORY_HEAPS] = {};
+        vmaGetHeapBudgets(s_Allocator, budgets);
+
+        const VkPhysicalDeviceMemoryProperties* memProps;
+        vmaGetMemoryProperties(s_Allocator, &memProps);
+        
+        for (u32 i = 0; i < memProps->memoryHeapCount; i++)
+        {
+            const VmaBudget& budget = budgets[i];
+
+            stats.AllocationCount += budget.statistics.allocationCount;
+            stats.AllocationTotalSize += budget.statistics.allocationBytes;
+
+            stats.BlockCount += budget.statistics.blockCount;
+            stats.BlockTotalSize += budget.statistics.blockBytes;
+
+            stats.TotalAvailable += budget.budget;
+        }
+
+        return stats;
     }
 
     void Context::SetupInstance(const ContextInitializeInfo& initInfo)
@@ -165,8 +192,8 @@ namespace Flourish::Vulkan
 
             VkValidationFeatureEnableEXT enables[] = {
                 VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
-                VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
-                VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
+                //VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+                //VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
             };
             VkValidationFeaturesEXT features = {};
             features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
@@ -264,7 +291,9 @@ namespace Flourish::Vulkan
         createInfo.vulkanApiVersion = VulkanApiVersion;
         createInfo.pVulkanFunctions = &vulkanFunctions;
         if (Flourish::Context::FeatureTable().BufferGPUAddress)
-            createInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+            createInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+        if (Devices().SupportsMemoryBudget())
+            createInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
 
         FL_VK_ENSURE_RESULT(vmaCreateAllocator(&createInfo, &s_Allocator), "Vulkan create allocator");
     }

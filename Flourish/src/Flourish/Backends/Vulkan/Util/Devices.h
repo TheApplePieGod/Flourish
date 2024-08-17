@@ -34,6 +34,7 @@ namespace Flourish::Vulkan
         inline const auto& RayTracingProperties() const { return m_RayTracingProperties; }
         inline const auto& AccelStructureProperties() const { return m_AccelStructureProperties; }
         inline bool SupportsSpirv14() const { return m_SupportsSpirv14; }
+        inline bool SupportsMemoryBudget() const { return m_SupportsMemoryBudget; }
         inline bool SupportsFullScreenExclusive() const { return m_FullScreenExclusive; }
 
     private:
@@ -58,6 +59,7 @@ namespace Flourish::Vulkan
         VkDevice m_Device;
         DeviceFeatures m_Features;
         bool m_SupportsSpirv14 = false;
+        bool m_SupportsMemoryBudget = false;
         bool m_FullScreenExclusive = false;
     };
 }

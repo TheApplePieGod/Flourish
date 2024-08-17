@@ -244,9 +244,15 @@ namespace Flourish::Vulkan
         #endif
         
         #ifdef FL_DEBUG
-            if (Common::SupportsExtension(m_SupportedExtensions, "VK_NV_device_diagnostic_checkpoints"))
-                extensions.push_back("VK_NV_device_diagnostic_checkpoints");
+            if (Common::SupportsExtension(m_SupportedExtensions, VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME))
+                extensions.push_back(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
         #endif
+
+        if (Common::SupportsExtension(m_SupportedExtensions, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME))
+        {
+            extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+            m_SupportsMemoryBudget = true;
+        }
     }
 
     void Devices::PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)

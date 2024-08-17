@@ -13,6 +13,22 @@ namespace Flourish
         Metal
     };
 
+    struct MemoryStatistics
+    {
+        // Manually allocated objects (i.e. buffers, textures)
+        u32 AllocationCount;
+        u64 AllocationTotalSize;
+
+        // Pre-allocated block memory
+        u32 BlockCount;
+        u64 BlockTotalSize;
+
+        // Total reported GPU memory
+        u64 TotalAvailable;
+
+        std::string ToString() const;
+    };
+
     struct ContextInitializeInfo
     {
         BackendType Backend;
@@ -43,6 +59,9 @@ namespace Flourish
         static void PushFrameRenderContext(RenderContext* context);
         static void PushRenderGraph(RenderGraph* graph, std::function<void()> callback = nullptr);
         static void ExecuteRenderGraph(RenderGraph* graph);
+
+        // TS
+        static MemoryStatistics ComputeMemoryStatistics();
 
         // TS
         inline static BackendType BackendType() { return s_BackendType; }

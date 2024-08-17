@@ -33,6 +33,7 @@ namespace Flourish::Vulkan
         static void Shutdown(std::function<void()> finalizer = nullptr);
         static void BeginFrame();
         static void EndFrame();
+        static MemoryStatistics ComputeMemoryStatistics();
         static void SetupInstance(const ContextInitializeInfo& initInfo);
         static void SetupAllocator();
         static void ConfigureValidationLayers();

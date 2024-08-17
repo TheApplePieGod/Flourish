@@ -23,6 +23,29 @@ namespace Flourish
         return buffer;
     }
 
+    std::string MemoryStatistics::ToString() const
+    {
+        char buffer[300];
+
+        std::snprintf(
+            buffer,
+            sizeof(buffer),
+            "Memory Statistics:\n"
+            "Allocations: %u\n"
+            "Allocation Mem: %.1f MB\n"
+            "Blocks: %u\n"
+            "Block Mem: %.1f MB\n"
+            "Total Available: %.1f MB",
+            AllocationCount,
+            (float)AllocationTotalSize / 1e6,
+            BlockCount,
+            (float)BlockTotalSize / 1e6,
+            (float)TotalAvailable / 1e6
+        );
+
+        return std::string(buffer);
+    }
+
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
         FL_ASSERT(s_BackendType == BackendType::None, "Cannot initialize, context has already been initialized");
@@ -139,6 +162,16 @@ namespace Flourish
         switch (s_BackendType)
         {
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(graph); } break;
+        }
+    }
+
+    MemoryStatistics Context::ComputeMemoryStatistics()
+    {
+        FL_PROFILE_FUNCTION();
+
+        switch (s_BackendType)
+        {
+            case BackendType::Vulkan: { return Vulkan::Context::ComputeMemoryStatistics(); }
         }
     }
 }
