@@ -72,7 +72,14 @@ namespace Flourish::Vulkan
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
         {
             m_SignalFences[frame] = Synchronization::CreateFence();
-            m_SignalSemaphores[frame][0] = Synchronization::CreateSemaphore();
+
+            // Render finished semaphore
+            if (Context::Devices().SupportsTimelines())
+                m_SignalSemaphores[frame][0] = Synchronization::CreateTimelineSemaphore(0);
+            else
+                m_SignalSemaphores[frame][0] = Synchronization::CreateSemaphore();
+
+            // Swapchain semaphore
             m_SignalSemaphores[frame][1] = Synchronization::CreateSemaphore();
         }
     }
@@ -137,12 +144,12 @@ namespace Flourish::Vulkan
         return m_SignalFences[Flourish::Context::FrameIndex()];
     }
 
-    VkSemaphore RenderContext::GetTimelineSignalSemaphore() const
+    VkSemaphore RenderContext::GetRenderFinishedSignalSemaphore() const
     {
         return m_SignalSemaphores[Flourish::Context::FrameIndex()][0];
     }
 
-    VkSemaphore RenderContext::GetBinarySignalSemaphore() const
+    VkSemaphore RenderContext::GetSwapchainSignalSemaphore() const
     {
         return m_SignalSemaphores[Flourish::Context::FrameIndex()][1];
     }

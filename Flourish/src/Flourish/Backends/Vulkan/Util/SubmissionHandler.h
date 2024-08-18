@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Flourish/Api/RenderGraph.h"
+#include "Flourish/Backends/Vulkan/RenderGraph.h"
 #include "Flourish/Backends/Vulkan/Util/Common.h"
 #include "Flourish/Backends/Vulkan/Util/Synchronization.h"
 
@@ -21,7 +21,13 @@ namespace Flourish::Vulkan
         void ProcessPushSubmission(Flourish::RenderGraph* graph, std::function<void()> callback = nullptr);
         void ProcessExecuteSubmission(Flourish::RenderGraph* graph);
         
-    public:
+    private:
+        void PresentContext(RenderContext* context);
+        void ProcessGraph(
+            RenderGraph* graph,
+            bool frameScope,
+            std::function<void(bool, VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback
+        );
         void ProcessSubmission(
             Flourish::RenderGraph* const* graphs,
             u32 graphCount,
@@ -30,9 +36,19 @@ namespace Flourish::Vulkan
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
         );
-
-    private:
-        void PresentContext(RenderContext* context);
+        void ProcessSingleSubmissionSequential(
+            RenderGraph* graph,
+            bool frameScope,
+            std::vector<VkFence>* finalFences = nullptr,
+            std::vector<VkSemaphore>* finalSemaphores = nullptr
+        );
+        void ProcessSingleSubmissionWithTimelines(
+            RenderGraph* graph,
+            bool frameScope,
+            std::vector<VkFence>* finalFences = nullptr,
+            std::vector<VkSemaphore>* finalSemaphores = nullptr,
+            std::vector<u64>* finalSemaphoreValues = nullptr
+        );
 
     private:
         static void ExecuteRenderPassCommands(

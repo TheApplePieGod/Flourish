@@ -66,21 +66,33 @@ namespace Flourish::Vulkan
         void PrepareForSubmission();
 
         // TS
+        u32 GetExecutionFrameIndex() const;
+
+        // TS
         inline const auto& GetExecutionData() const { return m_ExecuteData; }
 
     private:
+        void ResetBuildVariables();
+        void PopulateSubmissionOrder();
+        VkPipelineStageFlags GetWorkloadStageFlags(GPUWorkloadType type);
+        void PopulateSubmisssionBarrier(SubmissionBarrier& barrier, GPUWorkloadType srcWorkload, GPUWorkloadType dstWorkload);
+        VkSemaphore GetSemaphore();
+        VkFence GetFence();
+
+    private:
+        // Execution data relevant for each submission
         GraphExecuteData m_ExecuteData;
         u64 m_CurrentSemaphoreValue = 0;
         u64 m_LastSubmissionFrame = 0;
         u64 m_LastBuildFrame = 0;
-        std::array<int, 3> m_LastWaitWrites;
+
+        // Temporary build data to be reset on each build
+        u32 m_FreeSemaphoreIndex = 0;
+        u32 m_FreeFenceIndex = 0;
         std::vector<VkSemaphore> m_AllSemaphores;
         std::vector<VkFence> m_AllFences;
-
-        // All resources that matter when syncing (aka writes)
+        std::unordered_map<u32, u32> m_LastWaitWrites;
         std::unordered_map<u64, ResourceSyncInfo> m_AllResources;
-
-        // Graph traversal data
         std::queue<u64> m_ProcessingNodes;
         std::unordered_set<u64> m_VisitedNodes;
         std::vector<u64> m_TemporarySubmissionOrder;

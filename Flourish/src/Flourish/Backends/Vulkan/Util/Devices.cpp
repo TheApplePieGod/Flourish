@@ -9,7 +9,7 @@
 
 namespace Flourish::Vulkan
 {
-    void Devices::DeviceFeatures::Populate(const FeatureTable& features, VkPhysicalDevice device)
+    void Devices::DeviceFeatures::Populate(const FeatureTable& features, const Devices* device, bool repopulate)
     {
         GeneralFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
         TimelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
@@ -19,11 +19,12 @@ namespace Flourish::Vulkan
         AccelFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         RtQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
         RtPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+        ScalarFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
 
         void** next = &GeneralFeatures.pNext;
 
-        // Required extensions
-        next = Common::IterateAndWriteNextChain(next, &TimelineFeatures);
+        if (repopulate || device->m_SupportsTimelines)
+            next = Common::IterateAndWriteNextChain(next, &TimelineFeatures);
         //next = Common::IterateAndWriteNextChain(next, &Sync2Features);
 
         if (features.RayTracing || features.BufferGPUAddress)
@@ -35,10 +36,11 @@ namespace Flourish::Vulkan
             next = Common::IterateAndWriteNextChain(next, &AccelFeatures);
             next = Common::IterateAndWriteNextChain(next, &RtQueryFeatures);
             next = Common::IterateAndWriteNextChain(next, &RtPipelineFeatures);
+            next = Common::IterateAndWriteNextChain(next, &ScalarFeatures);
         }
 
-        if (device)
-            vkGetPhysicalDeviceFeatures2(device, &GeneralFeatures);
+        if (repopulate)
+            vkGetPhysicalDeviceFeatures2(device->PhysicalDevice(), &GeneralFeatures);
     }
 
     void Devices::Initialize(const ContextInitializeInfo& initInfo)
@@ -50,7 +52,6 @@ namespace Flourish::Vulkan
         // Required physical device extensions
         std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-            VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, // VK 1.2
             VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME // VK 1.2
         };
 
@@ -258,13 +259,7 @@ namespace Flourish::Vulkan
     void Devices::PopulateFeatureTable(std::vector<const char*>& extensions, const ContextInitializeInfo& initInfo)
     {
         DeviceFeatures supported;
-        supported.Populate(initInfo.RequestedFeatures, m_PhysicalDevice);
-
-        FL_CRASH_ASSERT(
-            supported.TimelineFeatures.timelineSemaphore,
-            "Timeline semaphore feature is required to be supported"
-        );
-        m_Features.TimelineFeatures.timelineSemaphore = true;
+        supported.Populate(initInfo.RequestedFeatures, this, true);
 
         // We probably could put this behind a feature flag and check in the DrawInstanced command,
         // but the device support is so high it's probably unnecessary
@@ -273,6 +268,19 @@ namespace Flourish::Vulkan
             "DrawIndirectFirstInstance feature is required to be supported"
         );
         m_Features.GeneralFeatures.features.drawIndirectFirstInstance = true;
+
+        if (supported.TimelineFeatures.timelineSemaphore &&
+            Common::SupportsExtension(m_SupportedExtensions, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
+        {
+            // Do not enable this feature on android. Timeline semaphores seem to cause a lot of stability issues,
+            // at least from my testing on the Adreno GPU.
+
+            #ifndef FL_PLATFORM_ANDROID
+                m_SupportsTimelines = true;
+                m_Features.TimelineFeatures.timelineSemaphore = true;
+                extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+            #endif
+        }
         
         if (initInfo.RequestedFeatures.SamplerAnisotropy)
         {
@@ -325,10 +333,12 @@ namespace Flourish::Vulkan
                 supported.AccelFeatures.accelerationStructure &&
                 supported.RtQueryFeatures.rayQuery &&
                 supported.RtPipelineFeatures.rayTracingPipeline &&
+                supported.ScalarFeatures.scalarBlockLayout &&
                 Common::SupportsExtension(m_SupportedExtensions, "VK_EXT_descriptor_indexing") &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_SPIRV_1_4_EXTENSION_NAME) &&
+                Common::SupportsExtension(m_SupportedExtensions, VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) &&
                 Common::SupportsExtension(m_SupportedExtensions, VK_KHR_RAY_QUERY_EXTENSION_NAME) &&
@@ -340,10 +350,12 @@ namespace Flourish::Vulkan
                 m_Features.AccelFeatures.accelerationStructure = true;
                 m_Features.RtQueryFeatures.rayQuery = true;
                 m_Features.RtPipelineFeatures.rayTracingPipeline = true;
+                m_Features.ScalarFeatures.scalarBlockLayout = true;
                 extensions.push_back("VK_EXT_descriptor_indexing");
                 extensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+                extensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
                 extensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
@@ -405,7 +417,7 @@ namespace Flourish::Vulkan
         }
         */
 
-        m_Features.Populate(Flourish::Context::FeatureTable(), nullptr);
+        m_Features.Populate(Flourish::Context::FeatureTable(), this, false);
     }
 
     void Devices::PopulateDeviceProperties()

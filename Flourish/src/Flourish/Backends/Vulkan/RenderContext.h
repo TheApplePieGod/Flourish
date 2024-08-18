@@ -21,8 +21,8 @@ namespace Flourish::Vulkan
 
         // TS
         VkFence GetSignalFence() const;
-        VkSemaphore GetTimelineSignalSemaphore() const;
-        VkSemaphore GetBinarySignalSemaphore() const;
+        VkSemaphore GetRenderFinishedSignalSemaphore() const;
+        VkSemaphore GetSwapchainSignalSemaphore() const;
 
         // TS
         inline VkSurfaceKHR Surface() const { return m_Surface; }

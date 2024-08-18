@@ -93,8 +93,10 @@ namespace Flourish::Vulkan
         */
 
         std::vector<VkFence> fences;
+        std::vector<VkSemaphore> sems;
+        std::vector<u64> vals;
 
-        ProcessSubmission(&graph, 1, false, &fences);
+        ProcessSubmission(&graph, 1, false, &fences, &sems, &vals);
         
         if (!callback)
             return;
@@ -105,10 +107,181 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
     {
         std::vector<VkFence> fences;
+        std::vector<VkSemaphore> sems;
+        std::vector<u64> vals;
 
-        ProcessSubmission(&graph, 1, false, &fences);
+        ProcessSubmission(&graph, 1, false, &fences, &sems, &vals);
 
         Synchronization::WaitForFences(fences.data(), fences.size());
+    }
+
+    void SubmissionHandler::ProcessGraph(
+        RenderGraph* graph,
+        bool frameScope,
+        std::function<void(bool, VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback)
+    {
+        auto& executeData = graph->GetExecutionData();
+        u32 frameIndex = graph->GetExecutionFrameIndex();
+
+        VkCommandBufferBeginInfo cmdBeginInfo{};
+        cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        bool isFirstSubmit = true;
+        u32 totalIndex = 0;
+        int nextSubmit = -1;
+        VkCommandBuffer primaryBuf;
+        CommandBufferAllocInfo lastAlloc;
+        for (u32 orderIndex = 0; orderIndex <= executeData.SubmissionOrder.size(); orderIndex++)
+        {
+            bool finalIteration = orderIndex == executeData.SubmissionOrder.size();
+            const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[finalIteration ? 0 : orderIndex]);
+            CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
+            auto& submissions = buffer->GetEncoderSubmissions();
+            FL_ASSERT(
+                finalIteration || submissions.size() == node.EncoderNodes.size(),
+                "Command buffer submission count (%d) differs from specified size in render graph (%d)",
+                submissions.size(), node.EncoderNodes.size()
+            );
+            for (u32 subIndex = 0; subIndex < submissions.size() || finalIteration; subIndex++)
+            {
+                // We want to iterate for each submission, but also once more for the 'final iteration' so that we can
+                // end/submit the command buffer without having to duplicate the code
+
+                bool shouldSubmitBuffer = finalIteration || executeData.SubmissionSyncs[totalIndex].SubmitDataIndex != -1;
+                if (shouldSubmitBuffer)
+                {
+                    // If this is the final iteration or the current buffer is marked as submittable, we want to begin the
+                    // command buffer that we will eventually submit
+
+                    if (nextSubmit != -1)
+                    {
+                        // If we are currently processing a command buffer, we want to end it and submit it before processing the
+                        // new one
+
+                        auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
+
+                        vkEndCommandBuffer(primaryBuf);
+
+                        VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
+                        submitInfo.pCommandBuffers = &primaryBuf;
+                        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo = submitData.TimelineSubmitInfo;
+
+                        // Run the pre-submit callback. This exists due to differing behavior between synchronization modes. Essentially
+                        // all of the graph execution logic is identical, but how each mode handles wait and signal semaphores differ,
+                        // so we allow that flexibility here
+                        preSubmitCallback(isFirstSubmit, submitInfo, timelineSubmitInfo);
+                        isFirstSubmit = false;
+
+                        if (Context::Devices().SupportsTimelines())
+                            submitInfo.pNext = &timelineSubmitInfo;
+
+                        VkFence fence = submitData.SignalFences[frameIndex];
+                        Synchronization::ResetFences(&fence, 1);
+
+                        Context::Queues().LockQueue(submitData.Workload, true);
+                        FL_VK_ENSURE_RESULT(vkQueueSubmit(
+                            Context::Queues().Queue(submitData.Workload),
+                            1, &submitInfo, fence
+                        ), "Submission handler submit");
+                        Context::Queues().LockQueue(submitData.Workload, false);
+
+                        if (!frameScope)
+                        {
+                            // If the buffer is not within the frame scope, we need to add a finalizer which will free this individual
+                            // command buffer once the commands finish executing. Frame command buffers have their pools entirely reset at once
+
+                            Context::FinalizerQueue().PushAsync([lastAlloc, primaryBuf]()
+                            {
+                                Context::Commands().FreeBuffer(lastAlloc, primaryBuf);
+                            }, &fence, 1, "Submission free primary buffer");
+                        }
+                    }
+
+                    if (finalIteration)
+                        break;
+
+                    // Begin the next command buffer to process. We only need to do this if there are more things to process (i.e.
+                    // finalIteration is false)
+
+                    lastAlloc = Context::Commands().AllocateBuffers(
+                        submissions[subIndex].AllocInfo.WorkloadType,
+                        false,
+                        &primaryBuf, 1,
+                        !frameScope
+                    );   
+                    
+                    vkBeginCommandBuffer(primaryBuf, &cmdBeginInfo);
+
+                    nextSubmit = totalIndex;
+                }
+
+                auto& syncInfo = executeData.SubmissionSyncs[totalIndex];
+                auto& submission = submissions[subIndex];
+
+                FL_ASSERT(
+                    submission.AllocInfo.WorkloadType == node.EncoderNodes[subIndex].WorkloadType,
+                    "Command buffer submission type is different than specified in the graph"
+                );
+
+                if (syncInfo.Barrier.ShouldBarrier)
+                {
+                    // If we've determined a barrier should be here during the graph build process, insert it
+
+                    vkCmdPipelineBarrier(
+                        primaryBuf,
+                        syncInfo.Barrier.SrcStage,
+                        syncInfo.Barrier.DstStage,
+                        0,
+                        1, &syncInfo.Barrier.MemoryBarrier,
+                        0, nullptr,
+                        0, nullptr
+                    );
+                }
+
+                if (!submission.Buffers.empty())
+                {
+                    if (submission.Framebuffer)
+                    {
+                        // If the submission has a framebuffer, this indicates the following commands are associated with a renderpass,
+                        // so we must specifically handle all of the pass/subpass logic
+
+                        ExecuteRenderPassCommands(
+                            primaryBuf,
+                            submission.Framebuffer,
+                            submission.Buffers.data(),
+                            submission.Buffers.size()
+                        );
+                    }
+                    else
+                        // Otherwise we can just execute the commands normally
+                        vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
+
+                    if (!frameScope)
+                    {
+                        // Like before, if this submission is not frame scoped, we must manually free all of the buffers. Here,
+                        // we are freeing the secondary buffers rather than the primary.
+
+                        auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
+                        auto& submitInfo = submitData.SubmitInfos[frameIndex];
+
+                        Context::FinalizerQueue().PushAsync([submission]()
+                        {
+                            Context::Commands().FreeBuffers(
+                                submission.AllocInfo,
+                                submission.Buffers.data(),
+                                submission.Buffers.size()
+                            );
+                        }, &submitData.SignalFences[frameIndex], 1, "Submission free secondary buffers");
+                    }
+                }
+
+                totalIndex++;
+            }
+
+            // Cleanup the submissions once we've processed them so that they cannot be re-processed
+            buffer->ClearSubmissions();
+        }
     }
 
     void SubmissionHandler::ProcessSubmission(
@@ -121,177 +294,129 @@ namespace Flourish::Vulkan
     {
         FL_PROFILE_FUNCTION();
 
-        VkCommandBufferBeginInfo cmdBeginInfo{};
-        cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        // TODO: this whole system is not great, but for now we need all of them to be passed in
+        FL_ASSERT(finalFences && finalSemaphores && finalSemaphoreValues);
 
         for (u32 graphIdx = 0; graphIdx < graphCount; graphIdx++)
         {
             auto graph = static_cast<RenderGraph*>(graphs[graphIdx]);
             FL_ASSERT(graph->IsBuilt(), "Cannot submit non-built graph");
+
             graph->PrepareForSubmission();
 
             auto& executeData = graph->GetExecutionData();
-            u32 frameIndex = graph->GetUsage() == RenderGraphUsageType::PerFrame ? Flourish::Context::FrameIndex() : 0;
-
-            if (finalFences)
-            {
-                auto& fences = executeData.CompletionFences[frameIndex];
-                finalFences->insert(finalFences->end(), fences.begin(), fences.end());
-            }
-
-            if (finalSemaphores && finalSemaphoreValues)
-            {
-                auto& sems = executeData.CompletionSemaphores[frameIndex];
-                auto& vals = executeData.WaitSemaphoreValues;
-                finalSemaphores->insert(finalSemaphores->end(), sems.begin(), sems.end());
-                finalSemaphoreValues->insert(finalSemaphoreValues->end(), vals.begin(), vals.begin() + sems.size());
-            }
+            u32 frameIndex = graph->GetExecutionFrameIndex();
 
             if (executeData.SubmissionOrder.empty())
                 continue;
 
-            bool isFirstSubmit = true;
-            u32 totalIndex = 0;
-            int nextSubmit = -1;
-            VkCommandBuffer primaryBuf;
-            CommandBufferAllocInfo lastAlloc;
-            for (u32 orderIndex = 0; orderIndex <= executeData.SubmissionOrder.size(); orderIndex++)
-            {
-                bool finalIteration = orderIndex == executeData.SubmissionOrder.size();
-                const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[finalIteration ? 0 : orderIndex]);
-                CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
-                auto& submissions = buffer->GetEncoderSubmissions();
-                FL_ASSERT(
-                    finalIteration || submissions.size() == node.EncoderNodes.size(),
-                    "Command buffer submission count (%d) differs from specified size in render graph (%d)",
-                    submissions.size(), node.EncoderNodes.size()
-                );
-                for (u32 subIndex = 0; subIndex < submissions.size() || finalIteration; subIndex++)
-                {
-                    if (finalIteration || executeData.SubmissionSyncs[totalIndex].SubmitDataIndex != -1)
-                    {
-                        if (nextSubmit != -1)
-                        {
-                            auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
+            // Process the submission differently depending on what kind of synchronization we support
+            if (Context::Devices().SupportsTimelines())
+                ProcessSingleSubmissionWithTimelines(graph, frameScope, finalFences, finalSemaphores, finalSemaphoreValues);
+            else
+                ProcessSingleSubmissionSequential(graph, frameScope, finalFences, finalSemaphores);
 
-                            vkEndCommandBuffer(primaryBuf);
-
-                            VkSubmitInfo submitInfo = submitData.SubmitInfos[frameIndex];
-                            submitInfo.pCommandBuffers = &primaryBuf;
-
-                            // Wait on last frame to finish
-                            VkTimelineSemaphoreSubmitInfo timelineSubmitInfo = submitData.TimelineSubmitInfo;
-                            if (isFirstSubmit)
-                            {
-                                u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
-                                timelineSubmitInfo.waitSemaphoreValueCount = m_FrameWaitSemaphoreValues[lastFrameIndex].size();
-                                timelineSubmitInfo.pWaitSemaphoreValues = m_FrameWaitSemaphoreValues[lastFrameIndex].data();
-
-                                if (m_FrameWaitFlags.size() < timelineSubmitInfo.waitSemaphoreValueCount)
-                                    m_FrameWaitFlags.resize(timelineSubmitInfo.waitSemaphoreValueCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-
-                                submitInfo.waitSemaphoreCount = m_FrameWaitSemaphores[lastFrameIndex].size();
-                                submitInfo.pWaitSemaphores = m_FrameWaitSemaphores[lastFrameIndex].data();
-                                submitInfo.pWaitDstStageMask = m_FrameWaitFlags.data();
-
-                                isFirstSubmit = false;
-                            }
-
-                            VkFence fence = submitData.SignalFences[frameIndex];
-                            Synchronization::ResetFences(&fence, 1);
-
-                            Context::Queues().LockQueue(submitData.Workload, true);
-                            FL_VK_ENSURE_RESULT(vkQueueSubmit(
-                                Context::Queues().Queue(submitData.Workload),
-                                1, &submitInfo, fence
-                            ), "Submission handler submit");
-                            Context::Queues().LockQueue(submitData.Workload, false);
-
-                            // Need to free primary buffer
-                            if (!frameScope)
-                            {
-                                Context::FinalizerQueue().PushAsync([lastAlloc, primaryBuf]()
-                                {
-                                    Context::Commands().FreeBuffer(lastAlloc, primaryBuf);
-                                }, &fence, 1, "Frame free primary buffer");
-                            }
-                        }
-
-                        if (finalIteration)
-                            break;
-
-                        lastAlloc = Context::Commands().AllocateBuffers(
-                            submissions[subIndex].AllocInfo.WorkloadType,
-                            false,
-                            &primaryBuf, 1,
-                            !frameScope
-                        );   
-                        
-                        vkBeginCommandBuffer(primaryBuf, &cmdBeginInfo);
-
-                        nextSubmit = totalIndex;
-                    }
-
-                    auto& syncInfo = executeData.SubmissionSyncs[totalIndex];
-                    auto& submission = submissions[subIndex];
-
-                    FL_ASSERT(
-                        submission.AllocInfo.WorkloadType == node.EncoderNodes[subIndex].WorkloadType,
-                        "Command buffer submission type is different than specified in the graph"
-                    );
-
-                    if (syncInfo.Barrier.ShouldBarrier)
-                    {
-                        vkCmdPipelineBarrier(
-                            primaryBuf,
-                            syncInfo.Barrier.SrcStage,
-                            syncInfo.Barrier.DstStage,
-                            0,
-                            1, &syncInfo.Barrier.MemoryBarrier,
-                            0, nullptr,
-                            0, nullptr
-                        );
-                    }
-
-                    // Indicates do nothing
-                    if (!submission.Buffers.empty())
-                    {
-                        if (submission.Framebuffer)
-                        {
-                            ExecuteRenderPassCommands(
-                                primaryBuf,
-                                submission.Framebuffer,
-                                submission.Buffers.data(),
-                                submission.Buffers.size()
-                            );
-                        }
-                        else
-                            vkCmdExecuteCommands(primaryBuf, 1, &submission.Buffers[0]);
-
-                        // Free submitted buffers
-                        if (!frameScope)
-                        {
-                            auto& submitData = executeData.SubmitData[executeData.SubmissionSyncs[nextSubmit].SubmitDataIndex];
-                            auto& submitInfo = submitData.SubmitInfos[frameIndex];
-
-                            Context::FinalizerQueue().PushAsync([submission]()
-                            {
-                                Context::Commands().FreeBuffers(
-                                    submission.AllocInfo,
-                                    submission.Buffers.data(),
-                                    submission.Buffers.size()
-                                );
-                            }, &submitData.SignalFences[frameIndex], 1, "Frame free submissions");
-                        }
-                    }
-
-                    totalIndex++;
-                }
-
-                buffer->ClearSubmissions();
-            }
+            // Insert the completion synchronization objects for this graph so that we maintain an entire list
+            // of objects that need to be waited on to ensure command completion
+            auto& fences = executeData.CompletionFences[frameIndex];
+            auto& sems = executeData.CompletionSemaphores[frameIndex];
+            auto& vals = executeData.WaitSemaphoreValues;
+            finalFences->insert(finalFences->end(), fences.begin(), fences.end());
+            finalSemaphores->insert(finalSemaphores->end(), sems.begin(), sems.end());
+            finalSemaphoreValues->insert(finalSemaphoreValues->end(), vals.begin(), vals.end());
         }
+    }
+
+    void SubmissionHandler::ProcessSingleSubmissionSequential(
+        RenderGraph* graph,
+        bool frameScope,
+        std::vector<VkFence>* finalFences,
+        std::vector<VkSemaphore>* finalSemaphores)
+    {
+        FL_PROFILE_FUNCTION();
+
+        // Process the submissions sequentially. This does not rely on timeline semaphores, which means the execution process needs
+        // to be simplified immensely. Thus, every submission across all buffers and graphs will run in order, each depending on the
+        // last.
+
+        if (frameScope && finalSemaphores->empty())
+        {
+            // If this is the first submission of the frame, we want to insert the wait semaphores from last frame to wait on to
+            // ensure no work overlaps between frames.
+
+            u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
+            finalSemaphores->insert(finalSemaphores->end(), m_FrameWaitSemaphores[lastFrameIndex].begin(), m_FrameWaitSemaphores[lastFrameIndex].end());
+        }
+
+        auto waitFlags = &m_FrameWaitFlags;
+        ProcessGraph(
+            graph,
+            frameScope,
+            [finalSemaphores, waitFlags](bool isFirstSubmit, VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
+                if (isFirstSubmit)
+                {
+                    // If this is the first submission of this graph, we want to wait on last frame or graph to finish. We do this
+                    // by storing any relevant semaphores inside finalSemaphores, so that we can wait on them here. Inner-graph sync
+                    // is already handled by RenderGraph.
+
+                    if (waitFlags->size() < finalSemaphores->size())
+                        waitFlags->resize(finalSemaphores->size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                    submitInfo.waitSemaphoreCount = finalSemaphores->size();
+                    submitInfo.pWaitSemaphores = finalSemaphores->data();
+                    submitInfo.pWaitDstStageMask = waitFlags->data();
+                }
+            }
+        );
+
+        // Clear the previous final fences and semaphores. Since we are doing this sequential method of processing, whoever is waiting on
+        // this submission does not need to wait for every single sub-submission, since we are ensuring every graph and submission is
+        // sequential. Thus, we only need the sync objects from the last submission to be processed.
+        finalFences->clear();
+        finalSemaphores->clear();
+    }
+
+    void SubmissionHandler::ProcessSingleSubmissionWithTimelines(
+        RenderGraph* graph,
+        bool frameScope,
+        std::vector<VkFence>* finalFences,
+        std::vector<VkSemaphore>* finalSemaphores,
+        std::vector<u64>* finalSemaphoreValues)
+    {
+        FL_PROFILE_FUNCTION();
+
+        // Process the submissions using timeline semaphores. This allows for much more freedom in terms of how/when work is scheduled and
+        // how dependencies are managed. We can submit the work directly from the graph representation, meaning the GPU has freedom to
+        // schedule work as it sees fit, and we do not rely on any sequential ordering guarantees besides the ones explicitly defined in the graph.
+
+        auto waitFlags = &m_FrameWaitFlags;
+        auto frameSems = &m_FrameWaitSemaphores;
+        auto frameVals = &m_FrameWaitSemaphoreValues;
+        ProcessGraph(
+            graph,
+            frameScope,
+            [frameScope, waitFlags, frameSems, frameVals]
+            (bool isFirstSubmit, VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
+                if (isFirstSubmit && frameScope)
+                {
+                    // If this is the first submission of this graph, we want to wait on last frame to finish
+
+                    u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
+                    auto& lastSems = frameSems->at(lastFrameIndex);
+                    auto& lastVals = frameVals->at(lastFrameIndex);
+                    
+                    timelineSubmitInfo.waitSemaphoreValueCount = lastVals.size();
+                    timelineSubmitInfo.pWaitSemaphoreValues = lastVals.data();
+
+                    if (waitFlags->size() < lastSems.size())
+                        waitFlags->resize(lastSems.size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                    submitInfo.waitSemaphoreCount = lastSems.size();
+                    submitInfo.pWaitSemaphores = lastSems.data();
+                    submitInfo.pWaitDstStageMask = waitFlags->data();
+                }
+            }
+        );
     }
 
     void SubmissionHandler::PresentContext(RenderContext* context)
@@ -323,22 +448,36 @@ namespace Flourish::Vulkan
 
         vkEndCommandBuffer(finalBuf);
 
-        // Will be cleared later so can mutate
+        // Temporarily add this since we must wait on it before drawing to the swapchain images
         frameSems.push_back(context->GetImageAvailableSemaphore());
+        frameVals.push_back(0);
 
         while (m_RenderContextWaitFlags.size() < frameSems.size())
             m_RenderContextWaitFlags.emplace_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+
+        std::array<u64, 2> signalSemaphoreValues = { context->GetSignalValue(), 0 };
+        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
+        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+        timelineSubmitInfo.signalSemaphoreValueCount = signalSemaphoreValues.size();
+        timelineSubmitInfo.pSignalSemaphoreValues = signalSemaphoreValues.data();
+        timelineSubmitInfo.waitSemaphoreValueCount = frameVals.size();
+        timelineSubmitInfo.pWaitSemaphoreValues = frameVals.data();
     
-        VkSemaphore signalSemaphores[2] = { context->GetTimelineSignalSemaphore(), context->GetBinarySignalSemaphore() };
+        std::array<VkSemaphore, 2> signalSemaphores = {
+            context->GetRenderFinishedSignalSemaphore(),
+            context->GetSwapchainSignalSemaphore()
+        };
         VkSubmitInfo finalSubmitInfo{};
         finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         finalSubmitInfo.commandBufferCount = 1;
         finalSubmitInfo.pCommandBuffers = &finalBuf;
-        finalSubmitInfo.signalSemaphoreCount = 2;
-        finalSubmitInfo.pSignalSemaphores = signalSemaphores;
+        finalSubmitInfo.signalSemaphoreCount = signalSemaphores.size();
+        finalSubmitInfo.pSignalSemaphores = signalSemaphores.data();
         finalSubmitInfo.waitSemaphoreCount = frameSems.size();
         finalSubmitInfo.pWaitSemaphores = frameSems.data();
         finalSubmitInfo.pWaitDstStageMask = m_RenderContextWaitFlags.data();
+        if (Context::Devices().SupportsTimelines())
+            finalSubmitInfo.pNext = &timelineSubmitInfo;
 
         VkFence fence = context->GetSignalFence();
         Synchronization::ResetFences(&fence, 1);
@@ -353,7 +492,7 @@ namespace Flourish::Vulkan
         VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
         u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
 
-        VkSemaphore waitSemaphores[1] = { context->GetBinarySignalSemaphore() };
+        VkSemaphore waitSemaphores[1] = { context->GetSwapchainSignalSemaphore() };
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
@@ -373,11 +512,14 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
+        // Clear the previous sync objects since we already waited on them
+        frameFences.clear();
         frameSems.clear();
         frameVals.clear();
 
+        // Insert the new frontmost frame dependency, which is the final graphics submission
         frameFences.emplace_back(fence);
-        frameSems.emplace_back(context->GetTimelineSignalSemaphore());
+        frameSems.emplace_back(context->GetRenderFinishedSignalSemaphore());
         frameVals.emplace_back(context->GetSignalValue());
     }
 
