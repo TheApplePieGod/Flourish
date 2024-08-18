@@ -26,12 +26,13 @@ namespace Flourish::Vulkan
             Flourish::RenderGraph* const* graphs,
             u32 graphCount,
             bool frameScope,
+            std::vector<VkFence>* finalFences = nullptr,
             std::vector<VkSemaphore>* finalSemaphores = nullptr,
             std::vector<u64>* finalSemaphoreValues = nullptr
         );
 
     private:
-        void PresentContext(RenderContext* context, u32 waitSemaphoreCount);
+        void PresentContext(RenderContext* context);
 
     private:
         static void ExecuteRenderPassCommands(
@@ -44,6 +45,7 @@ namespace Flourish::Vulkan
     private:
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphores;
         std::array<std::vector<u64>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitSemaphoreValues;
+        std::array<std::vector<VkFence>, Flourish::Context::MaxFrameBufferCount> m_FrameWaitFences;
         std::vector<VkPipelineStageFlags> m_FrameWaitFlags;
         std::vector<VkPipelineStageFlags> m_RenderContextWaitFlags;
     };

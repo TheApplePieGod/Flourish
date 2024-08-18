@@ -67,4 +67,9 @@ namespace Flourish::Vulkan
     {
         vkResetFences(Context::Devices().Device(), count, fences);
     }
+
+    bool Synchronization::IsFenceSignalled(VkFence fence)
+    {
+        return vkGetFenceStatus(Context::Devices().Device(), fence) == VK_SUCCESS;
+    }
 }

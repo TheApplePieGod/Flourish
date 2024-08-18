@@ -60,8 +60,9 @@ namespace Flourish::Vulkan
         std::shared_ptr<RenderPass> m_RenderPass;
         SwapchainInfo m_Info;
         u32 m_ActiveImageIndex = 0;
-        std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> m_ImageAvailableSemaphores;
-        std::array<VkFence, Flourish::Context::MaxFrameBufferCount> m_ImageAvailableFences;
+        u32 m_SyncIndex = 0;
+        std::array<VkSemaphore, 16> m_ImageAvailableSemaphores;
+        std::array<VkFence, 16> m_ImageAvailableFences;
         bool m_ShouldRecreate = false;
         bool m_Valid = true;
 

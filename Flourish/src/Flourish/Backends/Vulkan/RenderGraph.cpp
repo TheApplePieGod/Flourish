@@ -65,7 +65,10 @@ namespace Flourish::Vulkan
         m_AllResources.clear();
         m_VisitedNodes.clear();
         for (u32 i = 0; i < m_SyncObjectCount; i++)
+        {
             m_ExecuteData.CompletionSemaphores[i].clear();
+            m_ExecuteData.CompletionFences[i].clear();
+        }
 
         for (auto& id : m_Leaves)
             m_ProcessingNodes.emplace(id);
@@ -108,6 +111,7 @@ namespace Flourish::Vulkan
             : COMPUTE_BARRIER;
 
         u32 semaphoreIndex = 0;
+        u32 fenceIndex = 0;
         u32 eventIndex = 0;
         u32 totalIndex = 0;
         int currentWorkloadIndex = -1;
@@ -140,8 +144,11 @@ namespace Flourish::Vulkan
                         submitInfo.commandBufferCount = 1;
                         submitInfo.signalSemaphoreCount = 1;
 
+                        if (fenceIndex >= m_AllFences.size())
+                            m_AllFences.emplace_back(Synchronization::CreateFence());
                         if (semaphoreIndex >= m_AllSemaphores.size())
-                            m_AllSemaphores.emplace_back(Synchronization::CreateTimelineSemaphore(m_CurrentSemaphoreValue));
+                            m_AllSemaphores.emplace_back(Synchronization::CreateSemaphore());
+                        submitData.SignalFences[i] = m_AllFences[fenceIndex++];
                         submitData.SignalSemaphores[i] = m_AllSemaphores[semaphoreIndex++];
                     }
 
@@ -324,7 +331,10 @@ namespace Flourish::Vulkan
                 info.SubmitInfos[i].pNext = &info.TimelineSubmitInfo;
                 info.SubmitInfos[i].pSignalSemaphores = &info.SignalSemaphores[i];
                 if (info.IsCompletion)
+                {
+                    m_ExecuteData.CompletionFences[i].emplace_back(info.SignalFences[i]);
                     m_ExecuteData.CompletionSemaphores[i].emplace_back(info.SignalSemaphores[i]);
+                }
             }
         }
 

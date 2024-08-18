@@ -60,59 +60,43 @@ namespace Flourish::Vulkan
     {
         FL_LOG_TRACE("Vulkan queues shutdown begin");
 
-        for (auto semaphore : m_UnusedSemaphores)
-            vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
+        for (auto fence : m_UnusedFences)
+            vkDestroyFence(Context::Devices().Device(), fence, nullptr);
     }
     
-    PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
+    VkFence Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
     {
-        VkSemaphore semaphore = RetrieveSemaphore();
-
-        m_SemaphoresLock.lock();
-        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
-        m_SemaphoresLock.unlock();
-
-        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
-        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        timelineSubmitInfo.signalSemaphoreValueCount = 1;
-        timelineSubmitInfo.pSignalSemaphoreValues = &signalValue;
+        VkFence fence = RetrieveFence();
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.pNext = &timelineSubmitInfo;
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &semaphore;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
 
+        Synchronization::ResetFences(&fence, 1);
+
         LockQueue(workloadType, true);
-        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, VK_NULL_HANDLE), "PushCommand queue submit");
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, fence), "PushCommand queue submit");
         LockQueue(workloadType, false);
 
-        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore]()
+        Context::FinalizerQueue().PushAsync([this, completionCallback, fence]()
         {
-            m_SemaphoresLock.lock();
-            m_UnusedSemaphores.push_back(semaphore);
-            m_SemaphoresLock.unlock();
+            m_FencesLock.lock();
+            m_UnusedFences.push_back(fence);
+            m_FencesLock.unlock();
 
             if (completionCallback)
                 completionCallback();
-        }, &semaphore, &signalValue, 1, debugName);
+        }, &fence, 1, debugName);
         
-        return { semaphore, signalValue };
+        return fence;
     }
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName)
     {
-        auto pushResult = PushCommand(workloadType, buffer, nullptr, debugName);
+        VkFence pushFence = PushCommand(workloadType, buffer, nullptr, debugName);
         
-        VkSemaphoreWaitInfo waitInfo{};
-        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-        waitInfo.semaphoreCount = 1;
-        waitInfo.pSemaphores = &pushResult.SignalSemaphore;
-        waitInfo.pValues = &pushResult.SignalValue;
-
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        Synchronization::WaitForFences(&pushFence, 1);
     }
 
     VkQueue Queues::PresentQueue() const
@@ -233,18 +217,18 @@ namespace Flourish::Vulkan
         return m_PhysicalQueues[m_VirtualQueues[static_cast<u32>(workloadType)]];
     }
 
-    VkSemaphore Queues::RetrieveSemaphore()
+    VkFence Queues::RetrieveFence()
     {
-        m_SemaphoresLock.lock();
-        if (m_UnusedSemaphores.size() > 0)
+        m_FencesLock.lock();
+        if (m_UnusedFences.size() > 0)
         {
-            auto semaphore = m_UnusedSemaphores.back();
-            m_UnusedSemaphores.pop_back();
-            m_SemaphoresLock.unlock();
-            return semaphore;
+            VkFence fence = m_UnusedFences.back();
+            m_UnusedFences.pop_back();
+            m_FencesLock.unlock();
+            return fence;
         }
-        m_SemaphoresLock.unlock();
+        m_FencesLock.unlock();
 
-        return Synchronization::CreateTimelineSemaphore(0);
+        return Synchronization::CreateFence();
     }
 }

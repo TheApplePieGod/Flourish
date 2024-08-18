@@ -18,6 +18,7 @@ namespace Flourish::Vulkan
         std::vector<int> WaitingWorkloads;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> WaitSemaphores;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
+        std::array<VkFence, Flourish::Context::MaxFrameBufferCount> SignalFences;
         u64 SignalSemaphoreValue;
         std::vector<VkPipelineStageFlags> WaitStageFlags;
         std::array<VkSubmitInfo, Flourish::Context::MaxFrameBufferCount> SubmitInfos;
@@ -46,6 +47,7 @@ namespace Flourish::Vulkan
         std::vector<SubmissionSyncInfo> SubmissionSyncs;
         std::vector<SubmissionSubmitInfo> SubmitData;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> CompletionSemaphores;
+        std::array<std::vector<VkFence>, Flourish::Context::MaxFrameBufferCount> CompletionFences;
 
         // Will be the same across all semaphores, so just needs to be
         // set to the current frame count each submit
@@ -73,6 +75,7 @@ namespace Flourish::Vulkan
         u64 m_LastBuildFrame = 0;
         std::array<int, 3> m_LastWaitWrites;
         std::vector<VkSemaphore> m_AllSemaphores;
+        std::vector<VkFence> m_AllFences;
 
         // All resources that matter when syncing (aka writes)
         std::unordered_map<u64, ResourceSyncInfo> m_AllResources;

@@ -21,5 +21,6 @@ namespace Flourish::Vulkan
         // TS
         static void WaitForFences(const VkFence* fences, u32 count);
         static void ResetFences(const VkFence* fences, u32 count);
+        static bool IsFenceSignalled(VkFence fence);
     };
 }

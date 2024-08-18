@@ -71,7 +71,8 @@ namespace Flourish::Vulkan
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
         {
-            m_SignalSemaphores[frame][0] = Synchronization::CreateTimelineSemaphore(0);
+            m_SignalFences[frame] = Synchronization::CreateFence();
+            m_SignalSemaphores[frame][0] = Synchronization::CreateSemaphore();
             m_SignalSemaphores[frame][1] = Synchronization::CreateSemaphore();
         }
     }
@@ -81,6 +82,7 @@ namespace Flourish::Vulkan
         m_Swapchain.Shutdown();
 
         auto surface = m_Surface;
+        auto fences = m_SignalFences;
         auto semaphores = m_SignalSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
@@ -88,6 +90,7 @@ namespace Flourish::Vulkan
                 vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
+                vkDestroyFence(Context::Devices().Device(), fences[frame], nullptr);
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
             }
@@ -128,6 +131,11 @@ namespace Flourish::Vulkan
 
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
+
+    VkFence RenderContext::GetSignalFence() const
+    {
+        return m_SignalFences[Flourish::Context::FrameIndex()];
+    }
 
     VkSemaphore RenderContext::GetTimelineSignalSemaphore() const
     {

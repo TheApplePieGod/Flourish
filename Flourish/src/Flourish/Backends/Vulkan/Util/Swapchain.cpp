@@ -35,7 +35,7 @@ namespace Flourish::Vulkan
         PopulateSwapchainInfo();
         RecreateSwapchain();
         
-        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+        for (u32 frame = 0; frame < m_ImageAvailableSemaphores.size(); frame++)
         {
             m_ImageAvailableSemaphores[frame] = Synchronization::CreateSemaphore();
             m_ImageAvailableFences[frame] = Synchronization::CreateFence();
@@ -51,9 +51,9 @@ namespace Flourish::Vulkan
         Context::FinalizerQueue().Push([=]()
         {
             // Ensure all images are acquired before shutting down
-            Synchronization::WaitForFences(imageAvailableFences.data(), Flourish::Context::FrameBufferCount());
+            Synchronization::WaitForFences(imageAvailableFences.data(), m_ImageAvailableFences.size());
 
-            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            for (u32 frame = 0; frame < m_ImageAvailableSemaphores.size(); frame++)
             {
                 vkDestroyFence(Context::Devices().Device(), imageAvailableFences[frame], nullptr);
                 vkDestroySemaphore(Context::Devices().Device(), imageAvailableSemaphores[frame], nullptr);
@@ -71,6 +71,9 @@ namespace Flourish::Vulkan
 
         if (!m_Valid) return;
 
+        m_SyncIndex = Flourish::Context::FrameIndex();
+
+        VkSemaphore currentSemaphore = GetImageAvailableSemaphore();
         VkFence currentFence = GetImageAvailableFence();
         Synchronization::WaitForFences(&currentFence, 1);
         Synchronization::ResetFences(&currentFence, 1);
@@ -79,7 +82,7 @@ namespace Flourish::Vulkan
             Context::Devices().Device(),
             m_Swapchain,
             UINT64_MAX,
-            GetImageAvailableSemaphore(),
+            currentSemaphore,
             currentFence,
             &m_ActiveImageIndex
         );
@@ -94,12 +97,12 @@ namespace Flourish::Vulkan
 
     VkSemaphore Swapchain::GetImageAvailableSemaphore() const
     {
-        return m_ImageAvailableSemaphores[Flourish::Context::FrameIndex()];
+        return m_ImageAvailableSemaphores[m_SyncIndex];
     }
 
     VkFence Swapchain::GetImageAvailableFence() const
     {
-        return m_ImageAvailableFences[Flourish::Context::FrameIndex()];
+        return m_ImageAvailableFences[m_SyncIndex];
     }
 
     void Swapchain::PopulateSwapchainInfo()
@@ -237,9 +240,11 @@ namespace Flourish::Vulkan
             return;
 
         // Choose an image count (this may differ from frame buffer count but optimally it is the same)
-        u32 imageCount = Flourish::Context::FrameBufferCount();
+        u32 imageCount = Flourish::Context::FrameBufferCount() + 1;
         if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount)
             imageCount = capabilities.maxImageCount;
+
+        FL_LOG_TRACE("Creating swapchain with %d images", imageCount);
 
         VkSwapchainCreateInfoKHR createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;

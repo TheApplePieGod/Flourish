@@ -21,18 +21,15 @@ namespace Flourish::Vulkan
 
     void SubmissionHandler::WaitOnFrameSemaphores()
     {
+        auto& fences = m_FrameWaitFences[Flourish::Context::FrameIndex()];
         auto& sems = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()];
         auto& vals = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()];
-        if (sems.empty()) return;
 
-        VkSemaphoreWaitInfo waitInfo{};
-        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-        waitInfo.semaphoreCount = sems.size();
-        waitInfo.pSemaphores = sems.data();
-        waitInfo.pValues = vals.data();
+        if (fences.empty()) return;
+        
+        Synchronization::WaitForFences(fences.data(), fences.size());
 
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
-
+        fences.clear();
         sems.clear();
         vals.clear();
     }
@@ -56,24 +53,25 @@ namespace Flourish::Vulkan
         }
         */
 
+        auto& frameFences = m_FrameWaitFences[Flourish::Context::FrameIndex()];
         auto& frameSems = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()];
         auto& frameVals = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()];
         ProcessSubmission(
             Flourish::Context::FrameGraphSubmissions().data(),
             Flourish::Context::FrameGraphSubmissions().size(),
             true,
+            &frameFences,
             &frameSems,
             &frameVals
         );
 
-        u32 frameSemsSize = frameSems.size();
         for (Flourish::RenderContext* _context : Flourish::Context::FrameContextSubmissions())
         {
             auto context = static_cast<RenderContext*>(_context);
             if (!context->Swapchain().IsValid())
                 continue;
 
-            PresentContext(context, frameSemsSize);
+            PresentContext(context);
         }
     }
 
@@ -94,45 +92,30 @@ namespace Flourish::Vulkan
         }
         */
 
-        std::vector<VkSemaphore> semaphores;
-        std::vector<u64> values;
+        std::vector<VkFence> fences;
 
-        ProcessSubmission(
-            &graph, 1, false,
-            &semaphores,
-            &values
-        );
+        ProcessSubmission(&graph, 1, false, &fences);
         
         if (!callback)
             return;
 
-        Context::FinalizerQueue().PushAsync(callback, semaphores.data(), values.data(), semaphores.size(), "Push submission finalizer");
+        Context::FinalizerQueue().PushAsync(callback, fences.data(), fences.size(), "Push submission finalizer");
     }
 
     void SubmissionHandler::ProcessExecuteSubmission(Flourish::RenderGraph* graph)
     {
-        std::vector<VkSemaphore> semaphores;
-        std::vector<u64> values;
+        std::vector<VkFence> fences;
 
-        ProcessSubmission(
-            &graph, 1, false,
-            &semaphores,
-            &values
-        );
-        
-        VkSemaphoreWaitInfo waitInfo{};
-        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-        waitInfo.semaphoreCount = semaphores.size();
-        waitInfo.pSemaphores = semaphores.data();
-        waitInfo.pValues = values.data();
+        ProcessSubmission(&graph, 1, false, &fences);
 
-        vkWaitSemaphoresKHR(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        Synchronization::WaitForFences(fences.data(), fences.size());
     }
 
     void SubmissionHandler::ProcessSubmission(
         Flourish::RenderGraph* const* graphs,
         u32 graphCount,
         bool frameScope,
+        std::vector<VkFence>* finalFences,
         std::vector<VkSemaphore>* finalSemaphores,
         std::vector<u64>* finalSemaphoreValues)
     {
@@ -150,6 +133,12 @@ namespace Flourish::Vulkan
 
             auto& executeData = graph->GetExecutionData();
             u32 frameIndex = graph->GetUsage() == RenderGraphUsageType::PerFrame ? Flourish::Context::FrameIndex() : 0;
+
+            if (finalFences)
+            {
+                auto& fences = executeData.CompletionFences[frameIndex];
+                finalFences->insert(finalFences->end(), fences.begin(), fences.end());
+            }
 
             if (finalSemaphores && finalSemaphoreValues)
             {
@@ -202,7 +191,6 @@ namespace Flourish::Vulkan
                                 if (m_FrameWaitFlags.size() < timelineSubmitInfo.waitSemaphoreValueCount)
                                     m_FrameWaitFlags.resize(timelineSubmitInfo.waitSemaphoreValueCount, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 
-                                submitInfo.pNext = &timelineSubmitInfo;
                                 submitInfo.waitSemaphoreCount = m_FrameWaitSemaphores[lastFrameIndex].size();
                                 submitInfo.pWaitSemaphores = m_FrameWaitSemaphores[lastFrameIndex].data();
                                 submitInfo.pWaitDstStageMask = m_FrameWaitFlags.data();
@@ -210,12 +198,14 @@ namespace Flourish::Vulkan
                                 isFirstSubmit = false;
                             }
 
+                            VkFence fence = submitData.SignalFences[frameIndex];
+                            Synchronization::ResetFences(&fence, 1);
+
                             Context::Queues().LockQueue(submitData.Workload, true);
                             FL_VK_ENSURE_RESULT(vkQueueSubmit(
                                 Context::Queues().Queue(submitData.Workload),
-                                1, &submitInfo,
-                                VK_NULL_HANDLE
-                            ), "Submission handler 2 submit");
+                                1, &submitInfo, fence
+                            ), "Submission handler submit");
                             Context::Queues().LockQueue(submitData.Workload, false);
 
                             // Need to free primary buffer
@@ -224,7 +214,7 @@ namespace Flourish::Vulkan
                                 Context::FinalizerQueue().PushAsync([lastAlloc, primaryBuf]()
                                 {
                                     Context::Commands().FreeBuffer(lastAlloc, primaryBuf);
-                                }, submitInfo.pSignalSemaphores, &submitData.SignalSemaphoreValue, 1);
+                                }, &fence, 1, "Frame free primary buffer");
                             }
                         }
 
@@ -292,7 +282,7 @@ namespace Flourish::Vulkan
                                     submission.Buffers.data(),
                                     submission.Buffers.size()
                                 );
-                            }, submitInfo.pSignalSemaphores, &submitData.SignalSemaphoreValue, 1);
+                            }, &submitData.SignalFences[frameIndex], 1, "Frame free submissions");
                         }
                     }
 
@@ -304,8 +294,9 @@ namespace Flourish::Vulkan
         }
     }
 
-    void SubmissionHandler::PresentContext(RenderContext* context, u32 waitSemaphoreCount)
+    void SubmissionHandler::PresentContext(RenderContext* context)
     {
+        auto& frameFences = m_FrameWaitFences[Flourish::Context::FrameIndex()];
         auto& frameSems = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()];
         auto& frameVals = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()];
         auto& submissions = context->CommandBuffer().GetEncoderSubmissions();
@@ -313,9 +304,6 @@ namespace Flourish::Vulkan
             // TODO: revisit this
             return;
         auto& submission = submissions[0];
-
-        while (m_RenderContextWaitFlags.size() < waitSemaphoreCount)
-            m_RenderContextWaitFlags.emplace_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 
         VkCommandBuffer finalBuf;
         Context::Commands().AllocateBuffers(GPUWorkloadType::Graphics, false, &finalBuf, 1, false);   
@@ -335,41 +323,40 @@ namespace Flourish::Vulkan
 
         vkEndCommandBuffer(finalBuf);
 
-        u64 signalSemaphoreValues[2] = { context->GetSignalValue(), 0 };
-        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
-        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        timelineSubmitInfo.signalSemaphoreValueCount = 2;
-        timelineSubmitInfo.pSignalSemaphoreValues = signalSemaphoreValues;
-        timelineSubmitInfo.waitSemaphoreValueCount = waitSemaphoreCount;
-        timelineSubmitInfo.pWaitSemaphoreValues = frameVals.data();
+        // Will be cleared later so can mutate
+        frameSems.push_back(context->GetImageAvailableSemaphore());
+
+        while (m_RenderContextWaitFlags.size() < frameSems.size())
+            m_RenderContextWaitFlags.emplace_back(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
     
         VkSemaphore signalSemaphores[2] = { context->GetTimelineSignalSemaphore(), context->GetBinarySignalSemaphore() };
         VkSubmitInfo finalSubmitInfo{};
         finalSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        finalSubmitInfo.pNext = &timelineSubmitInfo;
         finalSubmitInfo.commandBufferCount = 1;
         finalSubmitInfo.pCommandBuffers = &finalBuf;
         finalSubmitInfo.signalSemaphoreCount = 2;
         finalSubmitInfo.pSignalSemaphores = signalSemaphores;
-        finalSubmitInfo.waitSemaphoreCount = waitSemaphoreCount;
+        finalSubmitInfo.waitSemaphoreCount = frameSems.size();
         finalSubmitInfo.pWaitSemaphores = frameSems.data();
         finalSubmitInfo.pWaitDstStageMask = m_RenderContextWaitFlags.data();
+
+        VkFence fence = context->GetSignalFence();
+        Synchronization::ResetFences(&fence, 1);
 
         Context::Queues().LockQueue(GPUWorkloadType::Graphics, true);
         FL_VK_ENSURE_RESULT(vkQueueSubmit(
             Context::Queues().Queue(GPUWorkloadType::Graphics),
-            1, &finalSubmitInfo,
-            VK_NULL_HANDLE
-        ), "Submission handler 2 submit");
+            1, &finalSubmitInfo, fence
+        ), "Present context graphics submit");
         Context::Queues().LockQueue(GPUWorkloadType::Graphics, false);
 
         VkSwapchainKHR swapchain[1] = { context->Swapchain().GetSwapchain() };
         u32 imageIndex[1] = { context->Swapchain().GetActiveImageIndex() };
 
-        VkSemaphore waitSemaphores[2] = { context->GetBinarySignalSemaphore(), context->GetImageAvailableSemaphore() };
+        VkSemaphore waitSemaphores[1] = { context->GetBinarySignalSemaphore() };
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 2;
+        presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = waitSemaphores;
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapchain;
@@ -386,6 +373,10 @@ namespace Flourish::Vulkan
             throw std::exception();
         }
 
+        frameSems.clear();
+        frameVals.clear();
+
+        frameFences.emplace_back(fence);
         frameSems.emplace_back(context->GetTimelineSignalSemaphore());
         frameVals.emplace_back(context->GetSignalValue());
     }
