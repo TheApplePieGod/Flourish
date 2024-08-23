@@ -505,7 +505,10 @@ namespace Flourish::Vulkan
         auto result = vkQueuePresentKHR(Context::Queues().PresentQueue(), &presentInfo);
         Context::Queues().LockPresentQueue(false);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        {
+            FL_LOG_DEBUG("Swapchain %x out of date or suboptimal, marking for recreation");
             context->Swapchain().Recreate();
+        }
         else if (result != VK_SUCCESS)
         {
             FL_LOG_CRITICAL("Failed to present with error %d", result);

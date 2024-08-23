@@ -134,7 +134,10 @@ namespace Flourish::Vulkan
             m_SignalValue++;
         }
         else
+        {
+            FL_LOG_ERROR("Cannot re-encode render commands in the same frame");
             throw std::exception();
+        }
 
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
