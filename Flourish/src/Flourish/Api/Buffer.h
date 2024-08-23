@@ -39,6 +39,7 @@ namespace Flourish
     {
         switch (type)
         {
+            default: break;
             case BufferDataType::Bool: return 4;
             case BufferDataType::UInt: return 4;
             case BufferDataType::UInt8: return 1;
@@ -73,6 +74,7 @@ namespace Flourish
     {
         switch (type)
         {
+            default: break;
             case BufferDataType::Bool: return 1;
             case BufferDataType::UInt: return 1;
             case BufferDataType::UInt8: return 1;

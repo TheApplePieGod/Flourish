@@ -77,6 +77,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::Shutdown(finalizer); } return;
         }
 
@@ -91,6 +92,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } break;
         }
     }
@@ -103,6 +105,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
@@ -120,12 +123,6 @@ namespace Flourish
         s_FrameMutex.lock();
         s_GraphSubmissions.emplace_back(graph);
         s_FrameMutex.unlock();
-
-        switch (s_BackendType)
-        {
-            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
-            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
-        }
     }
 
     void Context::PushFrameRenderContext(RenderContext* context)
@@ -143,6 +140,7 @@ namespace Flourish
         
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessPushSubmission(graph, callback); } break;
         }
     }
@@ -161,6 +159,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(graph); } break;
         }
     }
@@ -171,6 +170,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return MemoryStatistics();
             case BackendType::Vulkan: { return Vulkan::Context::ComputeMemoryStatistics(); }
         }
     }
