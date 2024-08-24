@@ -126,29 +126,6 @@ namespace Flourish::Vulkan
             m_BufferCount = Flourish::Context::FrameBufferCount();
 
         m_Stride = m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride;
-        m_UnalignedStride = m_Stride;
-
-        // Validate alignment & update stride if necessary
-        if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
-        {
-            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
-            u32 correction = (minAlignment - m_Stride % minAlignment) % minAlignment;
-            if (correction > 0)
-            {
-                FL_LOG_DEBUG("Uniform buffer stride %d aligned to be %d", m_Stride, m_Stride + correction);
-                m_Stride += correction;
-            }
-        }
-        if ((usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) && m_Info.ElementCount > 1)
-        {
-            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
-            u32 correction = (minAlignment - m_Stride % minAlignment) % minAlignment;
-            if (correction > 0)
-            {
-                FL_LOG_DEBUG("Storage buffer stride %d aligned to be %d", m_Stride, m_Stride + correction);
-                m_Stride += correction;
-            }
-        }
 
         if (GetAllocatedSize() == 0)
         {

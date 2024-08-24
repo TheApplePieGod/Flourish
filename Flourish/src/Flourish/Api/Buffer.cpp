@@ -37,23 +37,7 @@ namespace Flourish
     void Buffer::SetElements(const void* data, u32 elementCount, u32 elementOffset)
     {
         FL_ASSERT(elementCount + elementOffset <= m_Info.ElementCount, "Attempting to set data on buffer which is larger than allocated size");
-
-        if (m_Stride == m_UnalignedStride)
-            SetBytes(data, GetStride() * elementCount, GetStride() * elementOffset);
-        else
-        {
-            // If strides mismatch, we need to ensure we don't overrun the input data and
-            // that the output locations properly respects alignment
-
-            for (u32 i = 0; i < elementCount; i++)
-            {
-                SetBytes(
-                    (char*)data + GetUnalignedStride() * i,
-                    GetUnalignedStride(),
-                    GetStride() * (elementOffset + i)
-                );
-            }
-        }
+        SetBytes(data, GetStride() * elementCount, GetStride() * elementOffset);
     }
 
     std::shared_ptr<Buffer> Buffer::Create(const BufferCreateInfo& createInfo)
