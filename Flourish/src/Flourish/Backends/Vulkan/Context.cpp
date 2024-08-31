@@ -229,7 +229,7 @@ namespace Flourish::Vulkan
             u32 useMetalArgumentBuffers = 1;
             settings.type = VK_LAYER_SETTING_TYPE_UINT32_EXT;
             settings.pLayerName = kMVKMoltenVKDriverLayerName;
-            settings.pSettingName = "useMetalArgumentBuffers";
+            settings.pSettingName = "MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS";
             settings.pValues = &useMetalArgumentBuffers;
             settings.valueCount = 1;
         #endif
