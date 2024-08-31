@@ -269,6 +269,10 @@ namespace Flourish::Vulkan
         );
         m_Features.GeneralFeatures.features.drawIndirectFirstInstance = true;
 
+        // This is useful and widely supported, so just enable it if available
+        m_Features.GeneralFeatures.features.shaderStorageImageReadWithoutFormat = supported.GeneralFeatures.features.shaderStorageImageReadWithoutFormat;
+        m_Features.GeneralFeatures.features.shaderStorageImageWriteWithoutFormat = supported.GeneralFeatures.features.shaderStorageImageWriteWithoutFormat;
+
         if (supported.TimelineFeatures.timelineSemaphore &&
             Common::SupportsExtension(m_SupportedExtensions, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
         {
