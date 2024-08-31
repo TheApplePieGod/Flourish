@@ -276,6 +276,8 @@ namespace Flourish::Vulkan
             if (hasInitialData)
                 vmaDestroyBuffer(Context::Allocator(), stagingBuffer, stagingAlloc);
         }
+
+        m_Initialized = true;
     }
 
     Texture::Texture(const TextureCreateInfo& createInfo, VkImageView imageView)
@@ -293,39 +295,32 @@ namespace Flourish::Vulkan
         imageData = ImageData{};
         imageData.ImageView = imageView;
         imageData.SliceViews.push_back(imageView);
+
+        m_Initialized = true;
+    }
+
+    void Texture::operator=(Texture&& other)
+    {
+        Cleanup();
+
+        Flourish::Texture::operator=(std::move(other));
+
+        m_Images = std::move(other.m_Images);
+        m_Format = other.m_Format;
+        m_FeatureFlags = other.m_FeatureFlags;
+        m_Sampler = other.m_Sampler;
+        m_ImageCount = other.m_ImageCount;
+        m_IsDepthImage = other.m_IsDepthImage;
+        m_IsStorageImage = other.m_IsStorageImage;
+        m_IsReady = other.m_IsReady;
+
+        other.m_Initialized = false;
+        m_Initialized = true;
     }
 
     Texture::~Texture()
     {
-        auto imageCount = m_ImageCount;
-        auto sampler = m_Sampler;
-        auto images = m_Images;
-        Context::FinalizerQueue().Push([=]()
-        {
-            auto device = Context::Devices().Device();
-            for (u32 frame = 0; frame < imageCount; frame++)
-            {
-                auto& imageData = images[frame];
-                
-                #ifdef FL_USE_IMGUI
-                s_ImGuiMutex.lock();
-                for (auto handle : imageData.ImGuiHandles)
-                    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
-                s_ImGuiMutex.unlock();
-                #endif
-                
-                // Texture objects wrapping preexisting textures will not have an allocation
-                // so there will be nothing to free
-                if (!imageData.Allocation) continue;
-
-                for (auto view : imageData.SliceViews)
-                    vkDestroyImageView(device, view, nullptr);
-                vkDestroyImageView(device, imageData.ImageView, nullptr);
-                vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
-            }
-            if (sampler) 
-                vkDestroySampler(device, sampler, nullptr);
-        }, "Texture free");
+        Cleanup();
     }
 
     bool Texture::IsReady() const
@@ -812,5 +807,42 @@ namespace Flourish::Vulkan
             &m_Sampler
         ), "Texture create sampler"))
             throw std::exception();
+    }
+
+    void Texture::Cleanup()
+    {
+        if (!m_Initialized) return;
+        m_Initialized = false;
+
+        auto imageCount = m_ImageCount;
+        auto sampler = m_Sampler;
+        auto images = m_Images;
+        Context::FinalizerQueue().Push([=]()
+        {
+            auto device = Context::Devices().Device();
+            for (u32 frame = 0; frame < imageCount; frame++)
+            {
+                auto& imageData = images[frame];
+                
+                #ifdef FL_USE_IMGUI
+                s_ImGuiMutex.lock();
+                for (auto handle : imageData.ImGuiHandles)
+                    if (handle)
+                        ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
+                s_ImGuiMutex.unlock();
+                #endif
+                
+                // Texture objects wrapping preexisting textures will not have an allocation
+                // so there will be nothing to free
+                if (!imageData.Allocation) continue;
+
+                for (auto view : imageData.SliceViews)
+                    vkDestroyImageView(device, view, nullptr);
+                vkDestroyImageView(device, imageData.ImageView, nullptr);
+                vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
+            }
+            if (sampler) 
+                vkDestroySampler(device, sampler, nullptr);
+        }, "Texture free");
     }
 }

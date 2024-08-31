@@ -89,6 +89,7 @@ namespace Flourish
     public:
         Texture(const TextureCreateInfo& createInfo);
         virtual ~Texture() = default;
+        void operator=(Texture&& other);
         
         // TS
         virtual bool IsReady() const = 0;
@@ -113,6 +114,8 @@ namespace Flourish
     public:
         // TS
         static std::shared_ptr<Texture> Create(const TextureCreateInfo& createInfo);
+        static std::shared_ptr<Texture> CreatePlaceholder(ColorFormat format);
+        static void Replace(std::shared_ptr<Texture>& ptr, const TextureCreateInfo& createInfo);
         static u32 ColorFormatSize(ColorFormat format);
         static u32 ColorFormatComponentCount(ColorFormat format);
         static BufferDataType ColorFormatBufferDataType(ColorFormat format);

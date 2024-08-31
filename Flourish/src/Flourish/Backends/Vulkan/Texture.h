@@ -22,6 +22,7 @@ namespace Flourish::Vulkan
         Texture(const TextureCreateInfo& createInfo);
         Texture(const TextureCreateInfo& createInfo, VkImageView imageView);
         ~Texture() override;
+        void operator=(Texture&& other);
 
         // TS
         bool IsReady() const override;
@@ -112,6 +113,7 @@ namespace Flourish::Vulkan
         const ImageData& GetImageData() const;
         void PopulateFeatures();
         void CreateSampler();
+        void Cleanup();
 
     private:
         std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
@@ -121,6 +123,7 @@ namespace Flourish::Vulkan
         u32 m_ImageCount = 0;
         bool m_IsDepthImage = false;
         bool m_IsStorageImage = false;
+        bool m_Initialized = false;
 
         // TODO: remove this and use an upload system like buffers 
         std::shared_ptr<bool> m_IsReady = nullptr;
