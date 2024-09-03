@@ -64,6 +64,11 @@ namespace Flourish::Vulkan
         bool colorLoad = false;
         for (auto& attachment : createInfo.ColorAttachments)
         {
+            FL_ASSERT(
+                !Common::IsColorFormatCompressed(attachment.Format),
+                "RenderPass attachment must not be a compressed image format"
+            );
+
             VkFormat colorFormat = Common::ConvertColorFormat(attachment.Format);
 
             if (attachment.Initialization == AttachmentInitialization::Preserve)

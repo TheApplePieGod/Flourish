@@ -91,8 +91,7 @@ namespace Flourish::Vulkan
         m_Info.Height = newHeight;
         m_Info.ArrayCount = newArrayCount;
 
-        VkDeviceSize imageSize = m_Info.Width * m_Info.Height * m_Channels;
-        u32 componentSize = BufferDataTypeSize(ColorFormatBufferDataType(m_Info.Format));
+        VkDeviceSize imageSize = ComputeTextureSize(m_Info.Format, m_Info.Width, m_Info.Height);
         m_ImageCount = m_Info.Writability == TextureWritability::PerFrame ? Flourish::Context::FrameBufferCount() : 1;
         
         CreateSampler();
@@ -112,7 +111,7 @@ namespace Flourish::Vulkan
                 stagingBuffer,
                 stagingAlloc,
                 stagingAllocInfo,
-                imageSize * componentSize
+                std::max(imageSize, (VkDeviceSize)m_Info.InitialDataSize)
             );
             memcpy(stagingAllocInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
         }
@@ -188,6 +187,7 @@ namespace Flourish::Vulkan
             // If we have initial data, we need to perform the data transfer and generate
             // the mipmaps (which can only occur on the graphics queue)
             VkImageAspectFlags aspect = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+            VkImageLayout finalLayout = m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             if (hasInitialData)
             {
                 TransitionImageLayout(
@@ -206,33 +206,76 @@ namespace Flourish::Vulkan
                     stagingBuffer,
                     imageData.Image,
                     aspect,
+                    0,
                     m_Info.Width,
                     m_Info.Height,
                     0, 0,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     cmdBuffer
                 );
+                
+                if (!Common::IsColorFormatCompressed(m_Info.Format))
+                {
+                    GenerateMipmaps(
+                        imageData.Image,
+                        m_Format,
+                        aspect,
+                        m_Info.Width,
+                        m_Info.Height,
+                        m_MipLevels,
+                        m_Info.ArrayCount,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        finalLayout,
+                        VK_FILTER_LINEAR,
+                        cmdBuffer
+                    );
+                }
+                else
+                {
+                    // Cannot generate mips for a compressed texture, so we assume they
+                    // were passed in
 
-                GenerateMipmaps(
-                    imageData.Image,
-                    m_Format,
-                    aspect,
-                    m_Info.Width,
-                    m_Info.Height,
-                    m_MipLevels,
-                    m_Info.ArrayCount,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    VK_FILTER_LINEAR,
-                    cmdBuffer
-                );
+                    u32 curWidth = m_Info.Width / 2;
+                    u32 curHeight = m_Info.Height / 2;
+                    u32 curOffset = imageSize;
+                    for (u32 i = 1; i < m_MipLevels; i++)
+                    {
+                        Buffer::CopyBufferToImage(
+                            stagingBuffer,
+                            imageData.Image,
+                            aspect,
+                            curOffset,
+                            curWidth,
+                            curHeight,
+                            i, 0,
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            cmdBuffer
+                        );
+
+                        curOffset += ComputeTextureSize(m_Info.Format, curWidth, curHeight);
+                        curWidth /= 2;
+                        curHeight /= 2;
+                    }
+
+                    TransitionImageLayout(
+                        imageData.Image,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        finalLayout,
+                        aspect,
+                        0, m_MipLevels,
+                        0, m_Info.ArrayCount,
+                        0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        cmdBuffer
+                    );
+                }
             }
             else
             {
                 TransitionImageLayout(
                     imageData.Image,
                     currentLayout,
-                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    finalLayout,
                     aspect,
                     0, m_MipLevels,
                     0, m_Info.ArrayCount,
@@ -436,8 +479,7 @@ namespace Flourish::Vulkan
         {
             // Emulate blit by first copying to a temporary buffer, then transferring the buffer into the dst texture
 
-            u32 formatSize = ColorFormatSize(Common::RevertColorFormat(srcFormat));
-            u32 bufferSize = formatSize * width * height;
+            u32 bufferSize = ComputeTextureSize(Common::RevertColorFormat(srcFormat), width, height);
 
             // Create a temporary buffer which will deallocate out of scope
             // TODO: this is not great, we really should have a temporary allocation for transient buffers
@@ -457,6 +499,7 @@ namespace Flourish::Vulkan
                 srcImage,
                 srcAspect,
                 tempBuffer.GetBuffer(),
+                0,
                 width, height,
                 srcMip, srcLayer,
                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -485,6 +528,7 @@ namespace Flourish::Vulkan
                 tempBuffer.GetBuffer(),
                 dstImage,
                 dstAspect,
+                0,
                 width, height,
                 dstMip, dstLayer,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

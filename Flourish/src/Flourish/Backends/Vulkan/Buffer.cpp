@@ -288,6 +288,7 @@ namespace Flourish::Vulkan
         VkBuffer src,
         VkImage dst,
         VkImageAspectFlags dstAspect,
+        u32 bufferOffset,
         u32 imageWidth,
         u32 imageHeight,
         u32 dstMipLevel,
@@ -295,13 +296,14 @@ namespace Flourish::Vulkan
         VkImageLayout imageLayout,
         VkCommandBuffer buffer)
     {
-        ImageBufferCopyInternal(dst, dstAspect, src, imageWidth, imageHeight, dstMipLevel, dstLayerIndex, imageLayout, false, buffer);
+        ImageBufferCopyInternal(dst, dstAspect, src, bufferOffset, imageWidth, imageHeight, dstMipLevel, dstLayerIndex, imageLayout, false, buffer);
     }
 
     void Buffer::CopyImageToBuffer(
         VkImage src,
         VkImageAspectFlags srcAspect,
         VkBuffer dst,
+        u32 bufferOffset,
         u32 imageWidth,
         u32 imageHeight,
         u32 srcMipLevel,
@@ -309,7 +311,7 @@ namespace Flourish::Vulkan
         VkImageLayout imageLayout,
         VkCommandBuffer buffer)
     {
-        ImageBufferCopyInternal(src, srcAspect, dst, imageWidth, imageHeight, srcMipLevel, srcLayerIndex, imageLayout, true, buffer);
+        ImageBufferCopyInternal(src, srcAspect, dst, bufferOffset, imageWidth, imageHeight, srcMipLevel, srcLayerIndex, imageLayout, true, buffer);
     }
 
     void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size)
@@ -338,6 +340,7 @@ namespace Flourish::Vulkan
         VkImage image,
         VkImageAspectFlags aspect,
         VkBuffer buffer,
+        u32 bufferOffset,
         u32 imageWidth,
         u32 imageHeight,
         u32 mipLevel,
@@ -362,7 +365,7 @@ namespace Flourish::Vulkan
         }
 
         VkBufferImageCopy region{};
-        region.bufferOffset = 0;
+        region.bufferOffset = bufferOffset;
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
         region.imageSubresource.aspectMask = aspect;

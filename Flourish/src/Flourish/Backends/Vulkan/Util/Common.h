@@ -20,6 +20,7 @@ namespace Flourish::Vulkan
         static void** IterateAndWriteNextChain(const void** base, const void* pNext);
         static VkFormat ConvertColorFormat(ColorFormat format);
         static ColorFormat RevertColorFormat(VkFormat format);
+        static bool IsColorFormatCompressed(ColorFormat format);
         static VkAttachmentLoadOp ConvertAttachmentInitialization(AttachmentInitialization init);
         static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
         static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);

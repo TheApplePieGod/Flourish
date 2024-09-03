@@ -90,6 +90,7 @@ namespace Flourish::Vulkan
             texture->GetImage(),
             aspect,
             buffer->GetBuffer(),
+            0, // TODO: parameterize
             texture->GetWidth(),
             texture->GetHeight(),
             mipLevel, layerIndex,
@@ -138,6 +139,7 @@ namespace Flourish::Vulkan
             buffer->GetBuffer(),
             texture->GetImage(),
             aspect,
+            0, // TODO: parameterize
             texture->GetWidth(),
             texture->GetHeight(),
             mipLevel, layerIndex,
