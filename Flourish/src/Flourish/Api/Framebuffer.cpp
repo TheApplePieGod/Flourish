@@ -14,6 +14,7 @@ namespace Flourish
         {
             switch (Context::BackendType())
             {
+                default: return nullptr;
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::Framebuffer>(createInfo); }
             }
         }

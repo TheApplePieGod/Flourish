@@ -11,21 +11,18 @@ namespace Flourish::Vulkan
             u32 lifetime, 
             std::function<void()> execute,
             const char* debugName,
-            const VkSemaphore* semaphores = nullptr,
-            const u64* values = nullptr,
-            u32 semaphoreCount = 0
+            const VkFence* fences = nullptr,
+            u32 fenceCount = 0
         )
             : Lifetime(lifetime), Execute(execute), DebugName(debugName)
         {
-            WaitSemaphores.assign(semaphores, semaphores + semaphoreCount);
-            WaitValues.assign(values, values + semaphoreCount);
+            WaitFences.assign(fences, fences + fenceCount);
         }
 
         u32 Lifetime = 0; // Frames
         std::function<void()> Execute;
         const char* DebugName;
-        std::vector<VkSemaphore> WaitSemaphores;
-        std::vector<u64> WaitValues;
+        std::vector<VkFence> WaitFences;
     };
 
     class FinalizerQueue
@@ -42,9 +39,8 @@ namespace Flourish::Vulkan
         void Push(std::function<void()> executeFunc, const char* debugName = nullptr);
         void PushAsync(
             std::function<void()> executeFunc,
-            const VkSemaphore* semaphores = nullptr,
-            const u64* waitValues = nullptr,
-            u32 semaphoreCount = 0,
+            const VkFence* fences = nullptr,
+            u32 fenceCount = 0,
             const char* debugName = nullptr
         );
         void Iterate(bool force = false);

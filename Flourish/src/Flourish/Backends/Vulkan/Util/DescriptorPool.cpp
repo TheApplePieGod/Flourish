@@ -45,6 +45,7 @@ namespace Flourish::Vulkan
 
             bindingData.Type = binding.descriptorType;
             bindingData.ArrayCount = binding.descriptorCount;
+            bindingData.Access = binding.stageFlags;
 
             // TODO: this really is unnecessary on all bindings. We should have some
             // sort of preprocess in the shader that detects this intent
@@ -86,10 +87,17 @@ namespace Flourish::Vulkan
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.pNext = &flags;
         layoutInfo.bindingCount = static_cast<u32>(bindings.size());
         layoutInfo.pBindings = bindings.data();
-        layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+        if (Flourish::Context::FeatureTable().PartiallyBoundResourceSets)
+        {
+            // Since this feature enables argument buffers on macos, we need to add this
+            // flag so the validation layers use the proper limits
+            #ifdef FL_PLATFORM_MACOS
+                layoutInfo.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+            #endif
+            layoutInfo.pNext = &flags;
+        }
 
         if(!FL_VK_CHECK_RESULT(vkCreateDescriptorSetLayout(
             Context::Devices().Device(),
@@ -189,7 +197,6 @@ namespace Flourish::Vulkan
     }
 
     // TODO: hashing? compatability table?
-    // TODO: should also check accesstype compatability
     bool DescriptorPool::CheckCompatibility(const DescriptorPool* other) const
     {
         const auto& l = m_Bindings;
@@ -203,7 +210,8 @@ namespace Flourish::Vulkan
             if (l[i].Exists != r[i].Exists)
                 return false;
             if (l[i].Type != r[i].Type ||
-                l[i].ArrayCount != r[i].ArrayCount)
+                l[i].ArrayCount != r[i].ArrayCount ||
+                l[i].Access != r[i].Access)
                 return false;
         }
 
@@ -217,8 +225,12 @@ namespace Flourish::Vulkan
         poolInfo.poolSizeCount = static_cast<u32>(m_CachedPoolSizes.size());
         poolInfo.pPoolSizes = m_CachedPoolSizes.data();
         poolInfo.maxSets = MaxSetsPerPool;
-        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
-                         VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        
+        #ifdef FL_PLATFORM_MACOS
+        if (Flourish::Context::FeatureTable().PartiallyBoundResourceSets)
+            poolInfo.flags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+        #endif
 
         VkDescriptorPool pool;
         FL_VK_ENSURE_RESULT(vkCreateDescriptorPool(

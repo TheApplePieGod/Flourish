@@ -12,119 +12,106 @@ namespace Flourish::Vulkan
 
         auto indices = GetQueueFamilies(Context::Devices().PhysicalDevice());
 
-        m_GraphicsQueue.QueueIndex = indices.GraphicsFamily.value();
-        m_PresentQueue.QueueIndex = indices.PresentFamily.value();
-        m_ComputeQueue.QueueIndex = indices.ComputeFamily.value();
-        m_TransferQueue.QueueIndex = indices.TransferFamily.value();
+        std::unordered_map<u32, u32> uniqueFamilies;
+        uniqueFamilies.insert({ indices.GraphicsFamily.value(), indices.GraphicsQueueCount });
+        uniqueFamilies.insert({ indices.ComputeFamily.value(), indices.ComputeQueueCount });
+        uniqueFamilies.insert({ indices.TransferFamily.value(), indices.TransferQueueCount });
+        uniqueFamilies.insert({ indices.PresentFamily.value(), indices.PresentQueueCount });
 
-        for (u32 i = 0; i < Flourish::Context::FrameBufferCount(); i++)
+        if (indices.PresentFamily.value() != indices.GraphicsFamily.value())
         {
-            vkGetDeviceQueue(Context::Devices().Device(), m_PresentQueue.QueueIndex, std::min(i, indices.PresentQueueCount - 1), &m_PresentQueue.Queues[i]);
-            vkGetDeviceQueue(Context::Devices().Device(), m_GraphicsQueue.QueueIndex, std::min(i, indices.GraphicsQueueCount - 1), &m_GraphicsQueue.Queues[i]);
-            vkGetDeviceQueue(Context::Devices().Device(), m_ComputeQueue.QueueIndex, std::min(i, indices.ComputeQueueCount - 1), &m_ComputeQueue.Queues[i]);
-            vkGetDeviceQueue(Context::Devices().Device(), m_TransferQueue.QueueIndex, std::min(i, indices.TransferQueueCount - 1), &m_TransferQueue.Queues[i]);
+            FL_LOG_WARN("Present queue and graphics queue are different"); 
         }
+
+        u32 physicalIdx = 0;
+        for (auto& fam : uniqueFamilies)
+        {
+            auto& physical = m_PhysicalQueues[physicalIdx];
+            for (u32 i = 0; i < Flourish::Context::FrameBufferCount(); i++)
+            {
+                vkGetDeviceQueue(
+                    Context::Devices().Device(),
+                    fam.first,
+                    i % fam.second,
+                    &physical.Queues[i]
+                );
+            }
+
+            physical.QueueIndex = fam.first;
+
+            if (indices.GraphicsFamily.value() == fam.first)
+                m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Graphics)] = physicalIdx;
+            if (indices.ComputeFamily.value() == fam.first)
+                m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Compute)] = physicalIdx;
+            if (indices.TransferFamily.value() == fam.first)
+                m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Transfer)] = physicalIdx;
+            if (indices.PresentFamily.value() == fam.first)
+                m_PresentQueue = physicalIdx;
+
+            physicalIdx++;
+        }
+
+        FL_LOG_DEBUG("Graphics workloads assigned to queue %d", m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Graphics)]);
+        FL_LOG_DEBUG("Compute workloads assigned to queue %d", m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Compute)]);
+        FL_LOG_DEBUG("Transfer workloads assigned to queue %d", m_VirtualQueues[static_cast<u32>(GPUWorkloadType::Transfer)]);
     }
 
     void Queues::Shutdown()
     {
         FL_LOG_TRACE("Vulkan queues shutdown begin");
 
-        for (auto semaphore : m_UnusedSemaphores)
-            vkDestroySemaphore(Context::Devices().Device(), semaphore, nullptr);
+        for (auto fence : m_UnusedFences)
+            vkDestroyFence(Context::Devices().Device(), fence, nullptr);
     }
     
-    PushCommandResult Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
+    VkFence Queues::PushCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, std::function<void()> completionCallback, const char* debugName)
     {
-        VkSemaphore semaphore = RetrieveSemaphore();
-
-        m_SemaphoresLock.lock();
-        u64 signalValue = ++m_ExecuteSemaphoreSignalValue;
-        m_SemaphoresLock.unlock();
-
-        VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
-        timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        timelineSubmitInfo.signalSemaphoreValueCount = 1;
-        timelineSubmitInfo.pSignalSemaphoreValues = &signalValue;
+        VkFence fence = RetrieveFence();
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.pNext = &timelineSubmitInfo;
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &semaphore;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &buffer;
 
-        // Lock queues here to ensure we don't submit to the same queue on different threads concurrently. Additionally, lock the present queue
-        // because it is likely that the present queue is just an alias for a different queue and is not its own thing
-        LockPresentQueue(true);
-        LockQueue(workloadType, true);
-        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, nullptr), "PushCommand queue submit");
-        LockQueue(workloadType, false);
-        LockPresentQueue(false);
+        Synchronization::ResetFences(&fence, 1);
 
-        Context::FinalizerQueue().PushAsync([this, completionCallback, semaphore]()
+        LockQueue(workloadType, true);
+        FL_VK_ENSURE_RESULT(vkQueueSubmit(Queue(workloadType), 1, &submitInfo, fence), "PushCommand queue submit");
+        LockQueue(workloadType, false);
+
+        Context::FinalizerQueue().PushAsync([this, completionCallback, fence]()
         {
-            m_SemaphoresLock.lock();
-            m_UnusedSemaphores.push_back(semaphore);
-            m_SemaphoresLock.unlock();
+            m_FencesLock.lock();
+            m_UnusedFences.push_back(fence);
+            m_FencesLock.unlock();
 
             if (completionCallback)
                 completionCallback();
-        }, &semaphore, &signalValue, 1, debugName);
+        }, &fence, 1, debugName);
         
-        return { semaphore, signalValue };
+        return fence;
     }
 
     void Queues::ExecuteCommand(GPUWorkloadType workloadType, VkCommandBuffer buffer, const char* debugName)
     {
-        auto pushResult = PushCommand(workloadType, buffer, nullptr, debugName);
+        VkFence pushFence = PushCommand(workloadType, buffer, nullptr, debugName);
         
-        VkSemaphoreWaitInfo waitInfo{};
-        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-        waitInfo.semaphoreCount = 1;
-        waitInfo.pSemaphores = &pushResult.SignalSemaphore;
-        waitInfo.pValues = &pushResult.SignalValue;
-
-        vkWaitSemaphores(Context::Devices().Device(), &waitInfo, UINT64_MAX);
+        Synchronization::WaitForFences(&pushFence, 1);
     }
 
     VkQueue Queues::PresentQueue() const
     {
-        return m_PresentQueue.Queues[Flourish::Context::FrameIndex()];
+        return m_PhysicalQueues[m_PresentQueue].Queues[Flourish::Context::FrameIndex()];
     }
 
     VkQueue Queues::Queue(GPUWorkloadType workloadType, u32 frameIndex) const
     {
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { return m_GraphicsQueue.Queues[frameIndex]; }
-            case GPUWorkloadType::Transfer:
-            { return m_TransferQueue.Queues[frameIndex]; }
-            case GPUWorkloadType::Compute:
-            { return m_ComputeQueue.Queues[frameIndex]; }
-        }
-
-        FL_ASSERT(false, "Queue for workload not supported");
-        return nullptr;
+        return GetQueueData(workloadType).Queues[frameIndex];
     }
 
     void Queues::LockQueue(GPUWorkloadType workloadType, bool lock)
     {
-        std::mutex* mutex;
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { mutex = &m_GraphicsQueue.AccessMutex; }
-            case GPUWorkloadType::Transfer:
-            { mutex = &m_TransferQueue.AccessMutex; }
-            case GPUWorkloadType::Compute:
-            { mutex = &m_ComputeQueue.AccessMutex; }
-        }
-
-        FL_ASSERT(mutex, "Queue for workload not supported");
-
+        std::mutex* mutex = &GetQueueData(workloadType).AccessMutex;
         if (lock)
             mutex->lock();
         else
@@ -133,26 +120,16 @@ namespace Flourish::Vulkan
 
     void Queues::LockPresentQueue(bool lock)
     {
+        std::mutex* mutex = &m_PhysicalQueues[m_PresentQueue].AccessMutex;
         if (lock)
-            m_PresentQueue.AccessMutex.lock();
+            mutex->lock();
         else
-            m_PresentQueue.AccessMutex.unlock();
+            mutex->unlock();
     }
     
     u32 Queues::QueueIndex(GPUWorkloadType workloadType) const
     {
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { return m_GraphicsQueue.QueueIndex; }
-            case GPUWorkloadType::Transfer:
-            { return m_TransferQueue.QueueIndex; }
-            case GPUWorkloadType::Compute:
-            { return m_ComputeQueue.QueueIndex; }
-        }
-
-        FL_ASSERT(false, "QueueIndex for workload not supported");
-        return 0;
+        return GetQueueData(workloadType).QueueIndex;
     }
 
     QueueFamilyIndices Queues::GetQueueFamilies(VkPhysicalDevice device)
@@ -182,11 +159,9 @@ namespace Flourish::Vulkan
                 indices.ComputeQueueCount = family.queueCount;
             }
 
-            if (family.queueFlags & VK_QUEUE_TRANSFER_BIT)
-            {
-                indices.TransferFamily = i;
-                indices.TransferQueueCount = family.queueCount;
-            }
+            // All queues support transfer
+            indices.TransferFamily = i;
+            indices.TransferQueueCount = family.queueCount;
 
             VkBool32 presentSupport = false;
             #ifdef FL_PLATFORM_WINDOWS
@@ -197,7 +172,7 @@ namespace Flourish::Vulkan
                 presentSupport = true;
             #else
                 // Doesn't seem to be any function to verify, so it should always be true
-                presentSupport = true;
+                presentSupport = family.queueFlags & VK_QUEUE_GRAPHICS_BIT;
             #endif
 
             if (presentSupport)
@@ -234,32 +209,26 @@ namespace Flourish::Vulkan
 
     Queues::QueueData& Queues::GetQueueData(GPUWorkloadType workloadType)
     {
-        switch (workloadType)
-        {
-            case GPUWorkloadType::Graphics:
-            { return m_GraphicsQueue; }
-            case GPUWorkloadType::Transfer:
-            { return m_TransferQueue; }
-            case GPUWorkloadType::Compute:
-            { return m_ComputeQueue; }
-        }
-
-        FL_ASSERT(false, "Queue data for workload not supported");
-        return m_GraphicsQueue;
+        return m_PhysicalQueues[m_VirtualQueues[static_cast<u32>(workloadType)]];
     }
 
-    VkSemaphore Queues::RetrieveSemaphore()
+    const Queues::QueueData& Queues::GetQueueData(GPUWorkloadType workloadType) const
     {
-        m_SemaphoresLock.lock();
-        if (m_UnusedSemaphores.size() > 0)
-        {
-            auto semaphore = m_UnusedSemaphores.back();
-            m_UnusedSemaphores.pop_back();
-            m_SemaphoresLock.unlock();
-            return semaphore;
-        }
-        m_SemaphoresLock.unlock();
+        return m_PhysicalQueues[m_VirtualQueues[static_cast<u32>(workloadType)]];
+    }
 
-        return Synchronization::CreateTimelineSemaphore(0);
+    VkFence Queues::RetrieveFence()
+    {
+        m_FencesLock.lock();
+        if (m_UnusedFences.size() > 0)
+        {
+            VkFence fence = m_UnusedFences.back();
+            m_UnusedFences.pop_back();
+            m_FencesLock.unlock();
+            return fence;
+        }
+        m_FencesLock.unlock();
+
+        return Synchronization::CreateFence();
     }
 }

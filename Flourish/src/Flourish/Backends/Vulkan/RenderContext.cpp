@@ -27,6 +27,14 @@ namespace Flourish::Vulkan
             #ifdef FL_PLATFORM_WINDOWS
                 windowHandle = glfwGetWin32Window(createInfo.Window);
             #endif
+        #elif defined(FL_PLATFORM_ANDROID)
+	        VkAndroidSurfaceCreateInfoKHR surfaceInfo;
+            surfaceInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+            surfaceInfo.pNext = nullptr;
+            surfaceInfo.flags = 0;
+            surfaceInfo.window = createInfo.Window;
+
+        	auto result = vkCreateAndroidSurfaceKHR(instance, &surfaceInfo, nullptr, &m_Surface);
         #elif defined(FL_PLATFORM_WINDOWS)
             VkWin32SurfaceCreateInfoKHR surfaceInfo{};
             surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -63,7 +71,15 @@ namespace Flourish::Vulkan
         
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
         {
-            m_SignalSemaphores[frame][0] = Synchronization::CreateTimelineSemaphore(0);
+            m_SignalFences[frame] = Synchronization::CreateFence();
+
+            // Render finished semaphore
+            if (Context::Devices().SupportsTimelines())
+                m_SignalSemaphores[frame][0] = Synchronization::CreateTimelineSemaphore(0);
+            else
+                m_SignalSemaphores[frame][0] = Synchronization::CreateSemaphore();
+
+            // Swapchain semaphore
             m_SignalSemaphores[frame][1] = Synchronization::CreateSemaphore();
         }
     }
@@ -73,6 +89,7 @@ namespace Flourish::Vulkan
         m_Swapchain.Shutdown();
 
         auto surface = m_Surface;
+        auto fences = m_SignalFences;
         auto semaphores = m_SignalSemaphores;
         Context::FinalizerQueue().Push([=]()
         {
@@ -80,6 +97,7 @@ namespace Flourish::Vulkan
                 vkDestroySurfaceKHR(Context::Instance(), surface, nullptr);
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
             {
+                vkDestroyFence(Context::Devices().Device(), fences[frame], nullptr);
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][0], nullptr);
                 vkDestroySemaphore(Context::Devices().Device(), semaphores[frame][1], nullptr);
             }
@@ -116,17 +134,25 @@ namespace Flourish::Vulkan
             m_SignalValue++;
         }
         else
+        {
+            FL_LOG_ERROR("Cannot re-encode render commands in the same frame");
             throw std::exception();
+        }
 
         return m_CommandBuffer.EncodeRenderCommands(m_Swapchain.GetFramebuffer());
     } 
 
-    VkSemaphore RenderContext::GetTimelineSignalSemaphore() const
+    VkFence RenderContext::GetSignalFence() const
+    {
+        return m_SignalFences[Flourish::Context::FrameIndex()];
+    }
+
+    VkSemaphore RenderContext::GetRenderFinishedSignalSemaphore() const
     {
         return m_SignalSemaphores[Flourish::Context::FrameIndex()][0];
     }
 
-    VkSemaphore RenderContext::GetBinarySignalSemaphore() const
+    VkSemaphore RenderContext::GetSwapchainSignalSemaphore() const
     {
         return m_SignalSemaphores[Flourish::Context::FrameIndex()][1];
     }

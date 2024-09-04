@@ -11,17 +11,38 @@ namespace Flourish::Vulkan
     RayTracingPipeline::RayTracingPipeline(const RayTracingPipelineCreateInfo& createInfo)
         : Flourish::RayTracingPipeline(createInfo)
     {
+        Recreate();
+    }
+
+    RayTracingPipeline::~RayTracingPipeline()
+    {
+        Cleanup();
+    }
+
+    // TODO: we don't really need to recompute all of this but it's fine for now
+    void RayTracingPipeline::Recreate()
+    {
+        if (m_Created)
+            FL_LOG_DEBUG("Recreating ray tracing pipeline");
+
         std::vector<VkPipelineShaderStageCreateInfo> stages;
         std::vector<Shader*> shaders;
         std::vector<std::vector<SpecializationConstant>> specs;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> groups;
 
-        for (auto& _shader : m_Info.Shaders)
+        for (u32 i = 0; i < m_Info.Shaders.size(); i++)
         {
-            auto shader = static_cast<Shader*>(_shader.Shader.get());
+            auto shader = static_cast<Shader*>(m_Info.Shaders[i].Shader.get());
             stages.emplace_back(shader->DefineShaderStage());
             shaders.emplace_back(shader);
-            specs.emplace_back(_shader.Specializations);
+            specs.emplace_back(m_Info.Shaders[i].Specializations);
+
+            if (i >= m_ShaderRevisions.size())
+                m_ShaderRevisions.emplace_back();
+
+            // Update revision count immediately to ensure we don't continually try
+            // and recreate if this revision fails
+            m_ShaderRevisions[i] = shader->GetRevisionCount();
         };
 
         // Populate specialization constants
@@ -66,14 +87,31 @@ namespace Flourish::Vulkan
             groups.back().closestHitShader = group.ClosestHitShader == -1 ? VK_SHADER_UNUSED_KHR : group.ClosestHitShader;
         }
 
-        m_DescriptorData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
-        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::RayTracing;
+        // Populate descriptor data
+        PipelineDescriptorData newDescData;
+        newDescData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
+        newDescData.Compatability = ResourceSetPipelineCompatabilityFlags::RayTracing;
+
+        if (m_Created && !(newDescData == m_DescriptorData))
+        {
+            FL_LOG_ERROR("Cannot recreate ray tracing pipeline because new shader bindings are different or incompatible");
+            return;
+        }
+
+        if (m_Created)
+            Cleanup();
+
+        m_DescriptorData = std::move(newDescData);
 
         u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
         for (u32 i = 0; i < setCount; i++)
+        {
             if (m_DescriptorData.SetData[i].Exists)
                 layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
+            else
+                layouts[i] = m_DescriptorData.EmptySetLayout;
+        }
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -125,9 +163,11 @@ namespace Flourish::Vulkan
             m_GroupHandles.data()
         ), "RayTracingPipeline get group handles"))
             throw std::exception();
+
+        m_Created = true;
     }
 
-    RayTracingPipeline::~RayTracingPipeline()
+    void RayTracingPipeline::Cleanup()
     {
         auto pipeline = m_Pipeline;
         auto layout = m_PipelineLayout;
@@ -138,6 +178,24 @@ namespace Flourish::Vulkan
             if (layout)
                 vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "RayTracing pipeline free");
+
+        m_Pipeline = VK_NULL_HANDLE;
+        m_PipelineLayout = VK_NULL_HANDLE;
+    }
+
+    bool RayTracingPipeline::ValidateShaders()
+    {
+        for (u32 i = 0; i < m_Info.Shaders.size(); i++)
+        {
+            auto shader = static_cast<Shader*>(m_Info.Shaders[i].Shader.get());
+            if (shader->GetRevisionCount() != m_ShaderRevisions[i])
+            {
+                Recreate();
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     std::shared_ptr<Flourish::ResourceSet> RayTracingPipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)

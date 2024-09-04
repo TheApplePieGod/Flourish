@@ -14,16 +14,17 @@ namespace Flourish::Vulkan
         // TS
         inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
         inline bool RendersToSwapchain() const { return m_RendersToSwapchain; }
+        inline VkSampleCountFlagBits GetConvertedSampleCount() const { return m_SampleCount; }
 
         inline static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
 
     protected:
-        std::shared_ptr<Flourish::GraphicsPipeline> CreatePipeline(const GraphicsPipelineCreateInfo& createInfo) override;
+        std::unique_ptr<Flourish::GraphicsPipeline> CreatePipeline(const GraphicsPipelineCreateInfo& createInfo) override;
 
     private:
         VkSampleCountFlagBits m_SampleCount;
         bool m_UseResolve;
         bool m_RendersToSwapchain;
-        VkRenderPass m_RenderPass = nullptr;
+        VkRenderPass m_RenderPass = VK_NULL_HANDLE;
     };
 }

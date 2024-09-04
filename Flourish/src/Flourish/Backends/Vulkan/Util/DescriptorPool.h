@@ -52,6 +52,7 @@ namespace Flourish::Vulkan
             bool Exists = false;
             u32 ArrayCount;
             VkDescriptorType Type;
+            VkShaderStageFlags Access;
             u32 BufferArrayIndex = 0;
             u32 AccelArrayIndex = 0;
             u32 ImageArrayIndex = 0;
@@ -59,7 +60,7 @@ namespace Flourish::Vulkan
 
         struct PoolData
         {
-            VkDescriptorPool Pool = nullptr;
+            VkDescriptorPool Pool = VK_NULL_HANDLE;
             u32 AllocatedCount = 0;
         };
 
@@ -67,7 +68,7 @@ namespace Flourish::Vulkan
         void CreateDescriptorPool();
 
     private:
-        VkDescriptorSetLayout m_Layout = nullptr;
+        VkDescriptorSetLayout m_Layout = VK_NULL_HANDLE;
 
         std::vector<PoolData> m_DescriptorPools;
         std::vector<u32> m_AvailablePools;

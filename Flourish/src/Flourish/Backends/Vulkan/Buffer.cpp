@@ -18,47 +18,49 @@ namespace Flourish::Vulkan
             FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
         #endif
 
-        VkBufferUsageFlags usage;
+        VkBufferUsageFlags usage = 0;
         MemoryDirection memDirection;
         switch (m_Info.Type)
         {
             default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
             case BufferType::Uniform:
             {
-                usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Storage:
             {
-                usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Pixel:
             {
-                usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
                 memDirection = MemoryDirection::GPUToCPU;
             } break;
 
             case BufferType::Indirect:
             {
-                usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Vertex:
             {
-                usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
 
             case BufferType::Index:
             {
-                usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+                usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
                 memDirection = MemoryDirection::CPUToGPU;
             } break;
         }
+
+        // TODO: this probably isn't great but we have no good way of specifying this in the api
+        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
         if (m_Info.CanCreateAccelerationStructure)
         {
@@ -147,26 +149,6 @@ namespace Flourish::Vulkan
             bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
-        // Validate alignment
-        if ((usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) && m_Info.ElementCount > 1)
-        {
-            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
-            if (GetStride() % minAlignment != 0)
-            {
-                FL_LOG_ERROR("Uniform buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
-                throw std::exception();
-            }
-        }
-        if ((usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) && m_Info.ElementCount > 1)
-        {
-            VkDeviceSize minAlignment = Context::Devices().PhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
-            if (GetStride() % minAlignment != 0)
-            {
-                FL_LOG_ERROR("Storage buffer layout must be a multiple of %d but is %d", minAlignment, GetStride());
-                throw std::exception();
-            }
-        }
-        
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
         if (m_MemoryDirection == MemoryDirection::GPUToCPU && m_Info.InitialData)
             FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have");
@@ -211,9 +193,9 @@ namespace Flourish::Vulkan
 
         // GPU -> CPU will transfer Regular -> Staging while CPU -> GPU will do the reverse
         if (m_MemoryDirection == MemoryDirection::GPUToCPU)
-            CopyBufferToBuffer(GetBuffer(), GetStagingBuffer(), GetAllocatedSize(), buffer, execute);
+            CopyBufferToBuffer(GetBuffer(), GetStagingBuffer(), 0, 0, GetAllocatedSize(), buffer, execute);
         else
-            CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), GetAllocatedSize(), buffer, execute);
+            CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), 0, 0, GetAllocatedSize(), buffer, execute);
     }
 
     VkBuffer Buffer::GetBuffer() const
@@ -246,7 +228,16 @@ namespace Flourish::Vulkan
         return (void*)m_Buffers[Flourish::Context::FrameIndex()].DeviceAddress;
     }
 
-    void Buffer::CopyBufferToBuffer(VkBuffer src, VkBuffer dst, u64 size, VkCommandBuffer buffer, bool execute, std::function<void()> callback)
+    void Buffer::CopyBufferToBuffer(
+        VkBuffer src,
+        VkBuffer dst,
+        u32 srcOffset,
+        u32 dstOffset,
+        u32 size,
+        VkCommandBuffer buffer,
+        bool execute,
+        std::function<void()> callback
+    )
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = buffer;
@@ -264,8 +255,8 @@ namespace Flourish::Vulkan
         }
 
         VkBufferCopy copy{};
-        copy.srcOffset = 0;
-        copy.dstOffset = 0;
+        copy.srcOffset = srcOffset;
+        copy.dstOffset = dstOffset;
         copy.size = size;
 
         vkCmdCopyBuffer(cmdBuffer, src, dst, 1, &copy);
@@ -291,14 +282,34 @@ namespace Flourish::Vulkan
         }
     }
 
-    void Buffer::CopyBufferToImage(VkBuffer src, VkImage dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
+    void Buffer::CopyBufferToImage(
+        VkBuffer src,
+        VkImage dst,
+        VkImageAspectFlags dstAspect,
+        u32 bufferOffset,
+        u32 imageWidth,
+        u32 imageHeight,
+        u32 dstMipLevel,
+        u32 dstLayerIndex,
+        VkImageLayout imageLayout,
+        VkCommandBuffer buffer)
     {
-        ImageBufferCopyInternal(dst, src, imageWidth, imageHeight, imageLayout, false, buffer);
+        ImageBufferCopyInternal(dst, dstAspect, src, bufferOffset, imageWidth, imageHeight, dstMipLevel, dstLayerIndex, imageLayout, false, buffer);
     }
 
-    void Buffer::CopyImageToBuffer(VkImage src, VkBuffer dst, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, VkCommandBuffer buffer)
+    void Buffer::CopyImageToBuffer(
+        VkImage src,
+        VkImageAspectFlags srcAspect,
+        VkBuffer dst,
+        u32 bufferOffset,
+        u32 imageWidth,
+        u32 imageHeight,
+        u32 srcMipLevel,
+        u32 srcLayerIndex,
+        VkImageLayout imageLayout,
+        VkCommandBuffer buffer)
     {
-        ImageBufferCopyInternal(src, dst, imageWidth, imageHeight, imageLayout, true, buffer);
+        ImageBufferCopyInternal(src, srcAspect, dst, bufferOffset, imageWidth, imageHeight, srcMipLevel, srcLayerIndex, imageLayout, true, buffer);
     }
 
     void Buffer::AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size)
@@ -323,7 +334,18 @@ namespace Flourish::Vulkan
             throw std::exception();
     }
 
-    void Buffer::ImageBufferCopyInternal(VkImage image, VkBuffer buffer, u32 imageWidth, u32 imageHeight, VkImageLayout imageLayout, bool imageSrc, VkCommandBuffer cmdBuf)
+    void Buffer::ImageBufferCopyInternal(
+        VkImage image,
+        VkImageAspectFlags aspect,
+        VkBuffer buffer,
+        u32 bufferOffset,
+        u32 imageWidth,
+        u32 imageHeight,
+        u32 mipLevel,
+        u32 layerIndex,
+        VkImageLayout imageLayout,
+        bool imageSrc,
+        VkCommandBuffer cmdBuf)
     {
         // Create and start command buffer if it wasn't passed in
         VkCommandBuffer cmdBuffer = cmdBuf;
@@ -341,12 +363,12 @@ namespace Flourish::Vulkan
         }
 
         VkBufferImageCopy region{};
-        region.bufferOffset = 0;
+        region.bufferOffset = bufferOffset;
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.aspectMask = aspect;
+        region.imageSubresource.mipLevel = mipLevel;
+        region.imageSubresource.baseArrayLayer = layerIndex;
         region.imageSubresource.layerCount = 1;
         region.imageOffset = { 0, 0, 0 };
         region.imageExtent = { imageWidth, imageHeight, 1 };
@@ -418,7 +440,7 @@ namespace Flourish::Vulkan
                 VkBufferDeviceAddressInfo addInfo{};
                 addInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
                 addInfo.buffer = m_Buffers[i].Buffer;
-                m_Buffers[i].DeviceAddress = vkGetBufferDeviceAddress(Context::Devices().Device(), &addInfo);
+                m_Buffers[i].DeviceAddress = vkGetBufferDeviceAddressKHR(Context::Devices().Device(), &addInfo);
             }
 
             if (dynamicHostBuffer)
@@ -479,6 +501,7 @@ namespace Flourish::Vulkan
                     CopyBufferToBuffer(
                         srcBuffer,
                         m_Buffers[i].Buffer,
+                        0, 0,
                         m_Info.InitialDataSize,
                         uploadBuffer,
                         true,

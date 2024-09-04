@@ -20,13 +20,24 @@ namespace Flourish
     enum class ColorFormat
     {
         None = 0,
+
+        // Uncompressed formats
         RGBA8_UNORM, RGBA8_SRGB,
         BGRA8_UNORM, 
         RGB8_UNORM,
         BGR8_UNORM,
         R16_FLOAT, RGBA16_FLOAT,
         R32_FLOAT, RGBA32_FLOAT,
-        Depth
+        Depth,
+
+        // Compressed formats
+        BC1,
+        BC2,
+        BC3,
+        BC4, BC4_SIGNED,
+        BC5, BC5_SIGNED,
+        BC6H, BC6H_SIGNED,
+        BC7,
     };
     
     enum class TextureWritability
@@ -89,6 +100,7 @@ namespace Flourish
     public:
         Texture(const TextureCreateInfo& createInfo);
         virtual ~Texture() = default;
+        void operator=(Texture&& other);
         
         // TS
         virtual bool IsReady() const = 0;
@@ -113,6 +125,9 @@ namespace Flourish
     public:
         // TS
         static std::shared_ptr<Texture> Create(const TextureCreateInfo& createInfo);
+        static std::shared_ptr<Texture> CreatePlaceholder(ColorFormat format);
+        static void Replace(std::shared_ptr<Texture>& ptr, const TextureCreateInfo& createInfo);
+        static u32 ComputeTextureSize(ColorFormat format, u32 width, u32 height);
         static u32 ColorFormatComponentCount(ColorFormat format);
         static BufferDataType ColorFormatBufferDataType(ColorFormat format);
 

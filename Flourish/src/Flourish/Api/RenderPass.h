@@ -67,8 +67,8 @@ namespace Flourish
         virtual ~RenderPass() = default;
         
         // TS
-        std::shared_ptr<GraphicsPipeline> CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo);
-        std::shared_ptr<GraphicsPipeline> GetPipeline(std::string_view name);
+        GraphicsPipeline* CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo);
+        GraphicsPipeline* GetPipeline(std::string_view name);
         u32 GetColorAttachmentCount(u32 subpassIndex);
 
         // TS
@@ -82,11 +82,11 @@ namespace Flourish
         static std::shared_ptr<RenderPass> Create(const RenderPassCreateInfo& createInfo);
     
     protected:
-        virtual std::shared_ptr<GraphicsPipeline> CreatePipeline(const GraphicsPipelineCreateInfo& createInfo) = 0; 
+        virtual std::unique_ptr<GraphicsPipeline> CreatePipeline(const GraphicsPipelineCreateInfo& createInfo) = 0; 
 
     protected:
         RenderPassCreateInfo m_Info;
-        std::unordered_map<std::string, std::shared_ptr<GraphicsPipeline>> m_Pipelines;
+        std::unordered_map<std::string, std::unique_ptr<GraphicsPipeline>> m_Pipelines;
         std::shared_mutex m_PipelineLock;
     };
 }

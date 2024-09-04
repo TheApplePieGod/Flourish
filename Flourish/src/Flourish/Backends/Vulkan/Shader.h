@@ -28,6 +28,8 @@ namespace Flourish::Vulkan
         Shader(const ShaderCreateInfo& createInfo);
         ~Shader() override;
 
+        void Reload() override;
+
         // TS
         VkPipelineShaderStageCreateInfo DefineShaderStage(const char* entrypoint = "main");
         bool CheckSpecializationCompatability(const SpecializationConstant& spec);
@@ -37,16 +39,21 @@ namespace Flourish::Vulkan
         inline const auto& GetReflectionData() const { return m_ReflectionData; }
         inline const auto& GetPushConstantReflection() const { return m_PushConstantReflection; }
         inline u32 GetTotalSpecializationSize() const { return m_TotalSpecializationSize; }
+        inline u32 GetRevisionCount() const { return m_Revisions; }
 
     private:
+        void Recreate();
+        void Cleanup();
         void Reflect(const std::vector<u32>& compiledData);
 
     private:
-        VkShaderModule m_ShaderModule = nullptr;
+        VkShaderModule m_ShaderModule = VK_NULL_HANDLE;
 
         std::vector<ReflectionDataElement> m_ReflectionData;
         ReflectionDataElement m_PushConstantReflection;
         std::vector<SpecializationConstant> m_SpecializationReflection;
         u32 m_TotalSpecializationSize = 0;
+
+        u32 m_Revisions = 0;
     };
 }

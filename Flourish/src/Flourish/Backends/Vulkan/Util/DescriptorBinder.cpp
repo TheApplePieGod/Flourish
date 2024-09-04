@@ -1,6 +1,7 @@
 #include "flpch.h"
 #include "DescriptorBinder.h"
 
+#include "Flourish/Backends/Vulkan/Context.h"
 #include "Flourish/Backends/Vulkan/ResourceSet.h"
 #include "Flourish/Backends/Vulkan/Shader.h"
 #include "Flourish/Backends/Vulkan/Util/DescriptorPool.h"
@@ -111,6 +112,50 @@ namespace Flourish::Vulkan
 
         auto& data = SetData[setIndex];
         return std::make_shared<ResourceSet>(createInfo, compatability, data.Pool);
+    }
+
+    bool PipelineDescriptorData::operator==(const PipelineDescriptorData& other) const
+    {
+        bool earlyChecks = SetData.size() == other.SetData.size() &&
+                           TotalDynamicOffsets == other.TotalDynamicOffsets &&
+                           Compatability == other.Compatability;
+        if (!earlyChecks)
+            return false;
+
+        for (u32 i = 0; i < SetData.size(); i++)
+        {
+            auto& l = SetData[i];
+            auto& r = other.SetData[i];
+            if (l.Exists != r.Exists ||
+                l.DynamicOffsetCount != r.DynamicOffsetCount ||
+                !l.Pool->CheckCompatibility(r.Pool.get()))
+                return false;
+        }
+
+        return true;
+    }
+
+    void PipelineDescriptorData::Initialize()
+    {
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+        if(!FL_VK_CHECK_RESULT(vkCreateDescriptorSetLayout(
+            Context::Devices().Device(),
+            &layoutInfo,
+            nullptr,
+            &EmptySetLayout
+        ), "Create empty layout"))
+            throw std::exception();
+    }
+
+    void PipelineDescriptorData::Shutdown()
+    {
+        auto layout = EmptySetLayout;
+        Context::FinalizerQueue().Push([=]()
+        {
+            vkDestroyDescriptorSetLayout(Context::Devices().Device(), layout, nullptr);
+        }, "Free empty layout");
     }
 
     void PipelineSpecializationHelper::Populate(Shader** shaders, std::vector<SpecializationConstant>* specs, u32 count)

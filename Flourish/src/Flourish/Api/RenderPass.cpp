@@ -6,7 +6,7 @@
 
 namespace Flourish
 {
-    std::shared_ptr<GraphicsPipeline> RenderPass::CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo)
+    GraphicsPipeline* RenderPass::CreatePipeline(std::string_view name, const GraphicsPipelineCreateInfo& createInfo)
     {
         std::lock_guard lock(m_PipelineLock);
         std::string nameStr(name.data(), name.size());
@@ -18,7 +18,7 @@ namespace Flourish
 
         FL_LOG_DEBUG("Registering graphics pipeline '%s' to RenderPass", name.data());
 
-        std::shared_ptr<GraphicsPipeline> newPipeline;
+        std::unique_ptr<GraphicsPipeline> newPipeline;
         try
         {
             newPipeline = CreatePipeline(createInfo);
@@ -29,11 +29,11 @@ namespace Flourish
             return nullptr;
         }
 
-        m_Pipelines[nameStr] = newPipeline;
-        return newPipeline;
+        m_Pipelines[nameStr] = std::move(newPipeline);
+        return m_Pipelines[nameStr].get();
     }
 
-    std::shared_ptr<GraphicsPipeline> RenderPass::GetPipeline(std::string_view name)
+    GraphicsPipeline* RenderPass::GetPipeline(std::string_view name)
     {
         std::shared_lock lock(m_PipelineLock);
         std::string nameStr(name.data(), name.size());
@@ -43,7 +43,7 @@ namespace Flourish
             name.data()
         );
 
-        return m_Pipelines[nameStr];
+        return m_Pipelines[nameStr].get();
     }
 
     u32 RenderPass::GetColorAttachmentCount(u32 subpassIndex)
@@ -61,6 +61,7 @@ namespace Flourish
 
         switch (Context::BackendType())
         {
+            default: return nullptr;
             case BackendType::Vulkan: { return std::make_shared<Vulkan::RenderPass>(createInfo); }
         }
 

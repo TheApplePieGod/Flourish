@@ -259,7 +259,7 @@ namespace Flourish::Vulkan
         for (auto& pool : *pools)
         {
             vkDestroyCommandPool(device, pool, nullptr);
-            pool = nullptr;
+            pool = VK_NULL_HANDLE;
         }
     }
 

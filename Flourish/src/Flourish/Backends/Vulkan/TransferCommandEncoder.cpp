@@ -88,9 +88,12 @@ namespace Flourish::Vulkan
 
         Buffer::CopyImageToBuffer(
             texture->GetImage(),
+            aspect,
             buffer->GetBuffer(),
+            0, // TODO: parameterize
             texture->GetWidth(),
             texture->GetHeight(),
+            mipLevel, layerIndex,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             m_CommandBuffer
         );
@@ -135,8 +138,11 @@ namespace Flourish::Vulkan
         Buffer::CopyBufferToImage(
             buffer->GetBuffer(),
             texture->GetImage(),
+            aspect,
+            0, // TODO: parameterize
             texture->GetWidth(),
             texture->GetHeight(),
+            mipLevel, layerIndex,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             m_CommandBuffer
         );
@@ -152,6 +158,25 @@ namespace Flourish::Vulkan
             0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             m_CommandBuffer
         );
+        m_AnyCommandRecorded = true;
+    }
+
+    void TransferCommandEncoder::CopyBufferToBuffer(Flourish::Buffer* _src, Flourish::Buffer* _dst, u32 srcOffset, u32 dstOffset, u32 size)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode CopyBufferToBuffer after encoding has ended");
+        
+        Buffer* src = static_cast<Buffer*>(_src);
+        Buffer* dst = static_cast<Buffer*>(_dst);
+
+        Buffer::CopyBufferToBuffer(
+            src->GetBuffer(),
+            dst->GetBuffer(),
+            srcOffset,
+            dstOffset,
+            size,
+            m_CommandBuffer
+        );
+
         m_AnyCommandRecorded = true;
     }
 }

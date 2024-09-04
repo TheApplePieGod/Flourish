@@ -70,9 +70,8 @@ namespace Flourish::Vulkan
             if (m_UseResolve)
                 m_CachedClearValues.emplace_back(clearValue);
 
-            imageInfo.format = Common::ConvertColorFormat(
-                renderPass->GetDepthAttachment(i).Format
-            );
+            ColorFormat passFormat = renderPass->GetDepthAttachment(i).Format;
+            imageInfo.format = Common::ConvertColorFormat(passFormat);
             viewCreateInfo.Format = imageInfo.format;
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
@@ -87,6 +86,10 @@ namespace Flourish::Vulkan
                 if (attachment.Texture)
                 {
                     auto texture = static_cast<Texture*>(attachment.Texture.get());
+                    FL_ASSERT(
+                        texture->GetColorFormat() == passFormat,
+                        "RenderPass and Framebuffer depth attachments must have matching color formats"
+                    );
                     FL_ASSERT(
                         texture->GetUsageType() & TextureUsageFlags::Graphics,
                         "Cannot use texture in framebuffer that does not have the graphics usage flag"
@@ -127,9 +130,8 @@ namespace Flourish::Vulkan
             if (m_UseResolve)
                 m_CachedClearValues.emplace_back(clearValue);
 
-            imageInfo.format = Common::ConvertColorFormat(
-                renderPass->GetColorAttachment(i).Format
-            );
+            ColorFormat passFormat = renderPass->GetColorAttachment(i).Format;
+            imageInfo.format = Common::ConvertColorFormat(passFormat);
             viewCreateInfo.Format = imageInfo.format;
 
             for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
@@ -144,6 +146,10 @@ namespace Flourish::Vulkan
                 if (attachment.Texture)
                 {
                     auto texture = static_cast<Texture*>(attachment.Texture.get());
+                    FL_ASSERT(
+                        texture->GetColorFormat() == passFormat,
+                        "RenderPass and Framebuffer color attachments must have matching color formats"
+                    );
                     FL_ASSERT(
                         texture->GetUsageType() & TextureUsageFlags::Graphics,
                         "Cannot use texture in framebuffer that does not have the graphics usage flag"
