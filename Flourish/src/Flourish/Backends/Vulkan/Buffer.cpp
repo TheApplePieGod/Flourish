@@ -125,8 +125,6 @@ namespace Flourish::Vulkan
         if (m_Info.Usage == BufferUsageType::Dynamic)
             m_BufferCount = Flourish::Context::FrameBufferCount();
 
-        m_Stride = m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride;
-
         if (GetAllocatedSize() == 0)
         {
             FL_LOG_ERROR("Cannot create a buffer with zero size");
