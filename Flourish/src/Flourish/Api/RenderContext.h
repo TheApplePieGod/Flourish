@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Flourish/Api/Context.h"
+#include "Flourish/Core/PlatformDetection.h"
 
 class GLFWwindow;
 namespace Flourish
@@ -9,13 +10,15 @@ namespace Flourish
     {
         #ifdef FL_USE_GLFW
         GLFWwindow* Window;        
+        #elif defined(FL_PLATFORM_ANDROID)
+        ANativeWindow* Window;
         #elif defined(FL_PLATFORM_WINDOWS)
         HINSTANCE Instance;
         HWND Window;
         #elif defined(FL_PLATFORM_LINUX)
         xcb_connection_t* Connection;
         xcb_window_t Window;
-        #else
+        #elif defined(FL_PLATFORM_MACOS)
         void* CAMetalLayer;
         #endif
         u32 Width;

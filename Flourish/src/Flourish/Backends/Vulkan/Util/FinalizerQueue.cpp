@@ -19,7 +19,7 @@ namespace Flourish::Vulkan
     {
         m_QueueLock.lock();
         m_Queue.emplace_back(
-            Flourish::Context::FrameBufferCount() + 1,
+            Flourish::Context::FrameBufferCount() * 2 + 1,
             executeFunc,
             debugName
         );
@@ -28,9 +28,8 @@ namespace Flourish::Vulkan
 
     void FinalizerQueue::PushAsync(
         std::function<void()> executeFunc,
-        const VkSemaphore* semaphores,
-        const u64* waitValues,
-        u32 semaphoreCount,
+        const VkFence* fences,
+        u32 fenceCount,
         const char* debugName)
     {
         m_QueueLock.lock();
@@ -38,8 +37,8 @@ namespace Flourish::Vulkan
             Flourish::Context::FrameBufferCount() + 1,
             executeFunc,
             debugName,
-            semaphores,
-            waitValues
+            fences,
+            fenceCount
         );
         m_QueueLock.unlock();
     }
@@ -54,14 +53,12 @@ namespace Flourish::Vulkan
             auto& value = m_Queue.at(i);
             
             bool execute = false;
-            if (!value.WaitSemaphores.empty())
+            if (!value.WaitFences.empty())
             {
-                // Check all semaphores for completion
-                u64 semaphoreVal;
-                for (u32 j = 0; j < value.WaitSemaphores.size(); j++)
+                // Check all fences for completion
+                for (VkFence fence : value.WaitFences)
                 {
-                    vkGetSemaphoreCounterValue(Context::Devices().Device(), value.WaitSemaphores[j], &semaphoreVal);
-                    execute = semaphoreVal >= value.WaitValues[j]; // Completed
+                    execute = Synchronization::IsFenceSignalled(fence); // Completed
                     if (!execute) break; // If any fail then all fail
                 }
             }

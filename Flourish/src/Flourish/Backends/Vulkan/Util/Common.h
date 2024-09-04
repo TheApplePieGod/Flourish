@@ -6,6 +6,9 @@
 #include "Flourish/Api/Texture.h"
 #include "Flourish/Api/RayTracing/AccelerationStructure.h"
 #include "volk/volk.h"
+
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #include "vk_mem_alloc.h"
 
 namespace Flourish::Vulkan
@@ -13,8 +16,11 @@ namespace Flourish::Vulkan
     struct Common
     {
         static bool SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension);
+        static void** IterateAndWriteNextChain(void** base, const void* pNext);
+        static void** IterateAndWriteNextChain(const void** base, const void* pNext);
         static VkFormat ConvertColorFormat(ColorFormat format);
         static ColorFormat RevertColorFormat(VkFormat format);
+        static bool IsColorFormatCompressed(ColorFormat format);
         static VkAttachmentLoadOp ConvertAttachmentInitialization(AttachmentInitialization init);
         static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
         static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);

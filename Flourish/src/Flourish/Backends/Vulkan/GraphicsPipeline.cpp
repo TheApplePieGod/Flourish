@@ -36,20 +36,50 @@ namespace Flourish::Vulkan
         return attributeDescriptions;
     }
 
-    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass, VkSampleCountFlagBits sampleCount)
+    GraphicsPipeline::GraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, RenderPass* renderPass)
         : Flourish::GraphicsPipeline(createInfo)
     {
-        auto vertShader = static_cast<Shader*>(createInfo.VertexShader.Shader.get());
-        auto fragShader = static_cast<Shader*>(createInfo.FragmentShader.Shader.get());
+        m_RenderPass = renderPass;
+        Recreate();
+    }
+
+    GraphicsPipeline::~GraphicsPipeline()
+    {
+        Cleanup();
+    }
+
+    void GraphicsPipeline::Recreate()
+    {
+        if (m_Created)
+            FL_LOG_DEBUG("Recreating graphics pipeline");
+
+        auto vertShader = static_cast<Shader*>(m_Info.VertexShader.Shader.get());
+        auto fragShader = static_cast<Shader*>(m_Info.FragmentShader.Shader.get());
         VkPipelineShaderStageCreateInfo shaderStages[] = {
             vertShader->DefineShaderStage(),
             fragShader->DefineShaderStage()
         };
 
+        // Update revision count immediately to ensure we don't continually try
+        // and recreate if this revision fails
+        m_ShaderRevisions = { vertShader->GetRevisionCount(), fragShader->GetRevisionCount() };
+
         // Populate descriptor data
+        PipelineDescriptorData newDescData;
         std::array<Shader*, 2> shaders = { vertShader, fragShader };
-        m_DescriptorData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
-        m_DescriptorData.Compatability = ResourceSetPipelineCompatabilityFlags::Graphics;
+        newDescData.Populate(shaders.data(), shaders.size(), m_Info.AccessOverrides);
+        newDescData.Compatability = ResourceSetPipelineCompatabilityFlags::Graphics;
+
+        if (m_Created && !(newDescData == m_DescriptorData))
+        {
+            FL_LOG_ERROR("Cannot recreate graphics pipeline because new shader bindings are different or incompatible");
+            return;
+        }
+
+        if (m_Created)
+            Cleanup();
+
+        m_DescriptorData = std::move(newDescData);
 
         // Populate specialization constants
         std::array<std::vector<SpecializationConstant>, 2> specs = { m_Info.VertexShader.Specializations, m_Info.FragmentShader.Specializations };
@@ -58,19 +88,19 @@ namespace Flourish::Vulkan
         shaderStages[0].pSpecializationInfo = &specHelper.SpecInfos[0];
         shaderStages[1].pSpecializationInfo = &specHelper.SpecInfos[1];
 
-        auto bindingDescription = GenerateVertexBindingDescription(createInfo.VertexLayout);
-        auto attributeDescriptions = GenerateVertexAttributeDescriptions(createInfo.VertexLayout.GetElements());
+        auto bindingDescription = GenerateVertexBindingDescription(m_Info.VertexLayout);
+        auto attributeDescriptions = GenerateVertexAttributeDescriptions(m_Info.VertexLayout.GetElements());
 
         VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = createInfo.VertexInput ? 1 : 0;
+        vertexInputInfo.vertexBindingDescriptionCount = m_Info.VertexInput ? 1 : 0;
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-        vertexInputInfo.vertexAttributeDescriptionCount = createInfo.VertexInput ? static_cast<u32>(attributeDescriptions.size()) : 0;
+        vertexInputInfo.vertexAttributeDescriptionCount = m_Info.VertexInput ? static_cast<u32>(attributeDescriptions.size()) : 0;
         vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
         
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = createInfo.VertexInput ? Common::ConvertVertexTopology(createInfo.VertexTopology) : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly.topology = m_Info.VertexInput ? Common::ConvertVertexTopology(m_Info.VertexTopology) : VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
         VkViewport viewport{};
@@ -98,8 +128,8 @@ namespace Flourish::Vulkan
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = Common::ConvertCullMode(createInfo.CullMode);
-        rasterizer.frontFace = Common::ConvertWindingOrder(createInfo.WindingOrder);
+        rasterizer.cullMode = Common::ConvertCullMode(m_Info.CullMode);
+        rasterizer.frontFace = Common::ConvertWindingOrder(m_Info.WindingOrder);
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f;
         rasterizer.depthBiasClamp = 0.0f;
@@ -108,23 +138,23 @@ namespace Flourish::Vulkan
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = sampleCount;
+        multisampling.rasterizationSamples = m_RenderPass->GetConvertedSampleCount();
         multisampling.minSampleShading = 1.0f;
         multisampling.pSampleMask = nullptr;
         multisampling.alphaToCoverageEnable = VK_FALSE;
         multisampling.alphaToOneEnable = VK_FALSE;
 
-        std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(createInfo.BlendStates.size());
-        for (u32 i = 0; i < createInfo.BlendStates.size(); i++)
+        std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(m_Info.BlendStates.size());
+        for (u32 i = 0; i < m_Info.BlendStates.size(); i++)
         {
             colorBlendAttachments[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            colorBlendAttachments[i].blendEnable = createInfo.BlendStates[i].BlendEnable;
-            colorBlendAttachments[i].srcColorBlendFactor = Common::ConvertBlendFactor(createInfo.BlendStates[i].SrcColorBlendFactor);
-            colorBlendAttachments[i].dstColorBlendFactor = Common::ConvertBlendFactor(createInfo.BlendStates[i].DstColorBlendFactor);
-            colorBlendAttachments[i].colorBlendOp = Common::ConvertBlendOperation(createInfo.BlendStates[i].ColorBlendOperation);
-            colorBlendAttachments[i].srcAlphaBlendFactor = Common::ConvertBlendFactor(createInfo.BlendStates[i].SrcAlphaBlendFactor);
-            colorBlendAttachments[i].dstAlphaBlendFactor = Common::ConvertBlendFactor(createInfo.BlendStates[i].DstAlphaBlendFactor);
-            colorBlendAttachments[i].alphaBlendOp = Common::ConvertBlendOperation(createInfo.BlendStates[i].AlphaBlendOperation);
+            colorBlendAttachments[i].blendEnable = m_Info.BlendStates[i].BlendEnable;
+            colorBlendAttachments[i].srcColorBlendFactor = Common::ConvertBlendFactor(m_Info.BlendStates[i].SrcColorBlendFactor);
+            colorBlendAttachments[i].dstColorBlendFactor = Common::ConvertBlendFactor(m_Info.BlendStates[i].DstColorBlendFactor);
+            colorBlendAttachments[i].colorBlendOp = Common::ConvertBlendOperation(m_Info.BlendStates[i].ColorBlendOperation);
+            colorBlendAttachments[i].srcAlphaBlendFactor = Common::ConvertBlendFactor(m_Info.BlendStates[i].SrcAlphaBlendFactor);
+            colorBlendAttachments[i].dstAlphaBlendFactor = Common::ConvertBlendFactor(m_Info.BlendStates[i].DstAlphaBlendFactor);
+            colorBlendAttachments[i].alphaBlendOp = Common::ConvertBlendOperation(m_Info.BlendStates[i].AlphaBlendOperation);
         }
 
         VkPipelineColorBlendStateCreateInfo colorBlending{};
@@ -151,8 +181,12 @@ namespace Flourish::Vulkan
         u32 setCount = m_DescriptorData.SetData.size();
         std::vector<VkDescriptorSetLayout> layouts(setCount, VK_NULL_HANDLE);
         for (u32 i = 0; i < setCount; i++)
+        {
             if (m_DescriptorData.SetData[i].Exists)
                 layouts[i] = m_DescriptorData.SetData[i].Pool->GetLayout();
+            else
+                layouts[i] = m_DescriptorData.EmptySetLayout;
+        }
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -173,9 +207,9 @@ namespace Flourish::Vulkan
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{};
         depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencil.depthTestEnable = createInfo.DepthConfig.DepthTest;
-        depthStencil.depthWriteEnable = createInfo.DepthConfig.DepthWrite;
-        depthStencil.depthCompareOp = Common::ConvertDepthComparison(createInfo.DepthConfig.CompareOperation);
+        depthStencil.depthTestEnable = m_Info.DepthConfig.DepthTest;
+        depthStencil.depthWriteEnable = m_Info.DepthConfig.DepthWrite;
+        depthStencil.depthCompareOp = Common::ConvertDepthComparison(m_Info.DepthConfig.CompareOperation);
         depthStencil.depthBoundsTestEnable = VK_FALSE;
         depthStencil.minDepthBounds = 0.0f;
         depthStencil.maxDepthBounds = 1.0f;
@@ -197,12 +231,12 @@ namespace Flourish::Vulkan
         pipelineInfo.pColorBlendState = &colorBlending;
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.layout = m_PipelineLayout;
-        pipelineInfo.renderPass = renderPass->GetRenderPass();
+        pipelineInfo.renderPass = m_RenderPass->GetRenderPass();
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
         pipelineInfo.basePipelineIndex = -1;
 
         bool fillCompatible = m_Info.CompatibleSubpasses.empty();
-        u32 subpassCount = fillCompatible ? renderPass->GetSubpasses().size() : m_Info.CompatibleSubpasses.size();
+        u32 subpassCount = fillCompatible ? m_RenderPass->GetSubpasses().size() : m_Info.CompatibleSubpasses.size();
         for (u32 i = 0; i < subpassCount; i++)
         {
             if (fillCompatible)
@@ -210,7 +244,7 @@ namespace Flourish::Vulkan
             pipelineInfo.subpass = m_Info.CompatibleSubpasses[i];
 
             // Ensure Compatability
-            if (renderPass->GetColorAttachmentCount(m_Info.CompatibleSubpasses[i]) != m_Info.BlendStates.size())
+            if (m_RenderPass->GetColorAttachmentCount(m_Info.CompatibleSubpasses[i]) != m_Info.BlendStates.size())
             {
                 FL_LOG_ERROR("Pipeline has blend state count that does not match with a compatible subpass");
                 throw std::exception();
@@ -235,9 +269,11 @@ namespace Flourish::Vulkan
 
             m_Pipelines[m_Info.CompatibleSubpasses[i]] = pipeline;
         }
+
+        m_Created = true;
     }
 
-    GraphicsPipeline::~GraphicsPipeline()
+    void GraphicsPipeline::Cleanup()
     {
         auto pipelines = m_Pipelines;
         auto layout = m_PipelineLayout;
@@ -248,6 +284,23 @@ namespace Flourish::Vulkan
             if (layout)
                 vkDestroyPipelineLayout(Context::Devices().Device(), layout, nullptr);
         }, "Graphics pipeline free");
+
+        m_Pipelines.clear();
+        m_PipelineLayout = VK_NULL_HANDLE;
+    }
+
+    bool GraphicsPipeline::ValidateShaders()
+    {
+        auto vertShader = static_cast<Shader*>(m_Info.VertexShader.Shader.get());
+        auto fragShader = static_cast<Shader*>(m_Info.FragmentShader.Shader.get());
+        if (vertShader->GetRevisionCount() != m_ShaderRevisions[0] ||
+            fragShader->GetRevisionCount() != m_ShaderRevisions[1])
+        {
+            Recreate();
+            return true;
+        }
+        
+        return false;
     }
 
     std::shared_ptr<Flourish::ResourceSet> GraphicsPipeline::CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo)

@@ -64,6 +64,11 @@ namespace Flourish::Vulkan
         bool colorLoad = false;
         for (auto& attachment : createInfo.ColorAttachments)
         {
+            FL_ASSERT(
+                !Common::IsColorFormatCompressed(attachment.Format),
+                "RenderPass attachment must not be a compressed image format"
+            );
+
             VkFormat colorFormat = Common::ConvertColorFormat(attachment.Format);
 
             if (attachment.Initialization == AttachmentInitialization::Preserve)
@@ -290,7 +295,7 @@ namespace Flourish::Vulkan
         renderPassInfo.dependencyCount = static_cast<u32>(dependencies.size());;
         renderPassInfo.pDependencies = dependencies.data();
         
-        if (!FL_VK_CHECK_RESULT(vkCreateRenderPass2(
+        if (!FL_VK_CHECK_RESULT(vkCreateRenderPass2KHR(
             Context::Devices().Device(),
             &renderPassInfo,
             nullptr,
@@ -309,7 +314,7 @@ namespace Flourish::Vulkan
         }, "RenderPass free");
     }
 
-    std::shared_ptr<Flourish::GraphicsPipeline> RenderPass::CreatePipeline(const GraphicsPipelineCreateInfo& createInfo)
+    std::unique_ptr<Flourish::GraphicsPipeline> RenderPass::CreatePipeline(const GraphicsPipelineCreateInfo& createInfo)
     {
         #ifdef FL_ENABLE_ASSERTS
         for (u32 subpass : createInfo.CompatibleSubpasses)
@@ -336,10 +341,6 @@ namespace Flourish::Vulkan
         }
         #endif
 
-        return std::make_shared<GraphicsPipeline>(
-            createInfo,
-            this,
-            m_SampleCount
-        );
+        return std::make_unique<GraphicsPipeline>(createInfo, this);
     }
 }

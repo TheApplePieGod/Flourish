@@ -32,6 +32,7 @@ namespace Flourish
         : m_Info(createInfo)
     {
         m_Id = Context::GetNextId();
+        m_Stride = m_Info.Stride == 0 ? m_Info.Layout.GetCalculatedStride() : m_Info.Stride;
     }
 
     void Buffer::SetElements(const void* data, u32 elementCount, u32 elementOffset)
@@ -48,6 +49,7 @@ namespace Flourish
         {
             switch (Context::BackendType())
             {
+                default: return nullptr;
                 case BackendType::Vulkan: { return std::make_shared<Vulkan::Buffer>(createInfo); }
             }
         }

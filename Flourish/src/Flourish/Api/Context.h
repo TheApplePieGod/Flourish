@@ -4,11 +4,29 @@
 
 namespace Flourish
 {
+    using ReadFileFn = std::function<unsigned char*(std::string_view, u32&)>;
+
     enum class BackendType
     {
         None = 0,
         Vulkan,
         Metal
+    };
+
+    struct MemoryStatistics
+    {
+        // Manually allocated objects (i.e. buffers, textures)
+        u32 AllocationCount;
+        u64 AllocationTotalSize;
+
+        // Pre-allocated block memory
+        u32 BlockCount;
+        u64 BlockTotalSize;
+
+        // Total reported GPU memory
+        u64 TotalAvailable;
+
+        std::string ToString() const;
     };
 
     struct ContextInitializeInfo
@@ -21,6 +39,9 @@ namespace Flourish
         u32 FrameBufferCount = 2;
         bool UseReversedZBuffer = true;
         FeatureTable RequestedFeatures;
+
+        // Custom file read handler. Defaults to standard std::ifstream
+        ReadFileFn ReadFile = nullptr;
     };
 
     class RenderGraph;
@@ -40,6 +61,9 @@ namespace Flourish
         static void ExecuteRenderGraph(RenderGraph* graph);
 
         // TS
+        static MemoryStatistics ComputeMemoryStatistics();
+
+        // TS
         inline static BackendType BackendType() { return s_BackendType; }
         inline static u32 FrameBufferCount() { return s_FrameBufferCount; }
         inline static u64 FrameCount() { return s_FrameCount; }
@@ -47,6 +71,7 @@ namespace Flourish
         inline static u32 LastFrameIndex() { return s_LastFrameIndex; }
         inline static bool ReversedZBuffer() { return s_ReversedZBuffer; }
         inline static FeatureTable& FeatureTable() { return s_FeatureTable; }
+        inline static const auto& ReadFile() { return s_ReadFile; }
         inline static const auto& FrameGraphSubmissions() { return s_GraphSubmissions; }
         inline static const auto& FrameContextSubmissions() { return s_ContextSubmissions; }
         inline static u64 GetNextId() { return s_IdCounter++; }
@@ -65,5 +90,6 @@ namespace Flourish
         inline static std::vector<RenderContext*> s_ContextSubmissions;
         inline static std::mutex s_FrameMutex;
         inline static std::atomic<u64> s_IdCounter = { 1 };
+        inline static ReadFileFn s_ReadFile;
     };
 }

@@ -64,10 +64,13 @@ namespace Flourish::Vulkan
         m_BoundPipelineName = pipelineName;
 
         GraphicsPipeline* pipeline = static_cast<GraphicsPipeline*>(
-            m_Submission.Framebuffer->GetRenderPass()->GetPipeline(pipelineName).get()
+            m_Submission.Framebuffer->GetRenderPass()->GetPipeline(pipelineName)
         );
         FL_ASSERT(pipeline, "BindPipeline() pipeline not found");
         m_BoundPipeline = pipeline;
+
+        // TODO: compile-time constant for enabling this feature
+        pipeline->ValidateShaders();
 
         m_DescriptorBinder.BindPipelineData(m_BoundPipeline->GetDescriptorData());
 

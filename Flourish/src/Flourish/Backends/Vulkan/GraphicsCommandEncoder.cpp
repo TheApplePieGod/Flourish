@@ -122,11 +122,13 @@ namespace Flourish::Vulkan
         Texture::Blit(
             src->GetImage(),
             Common::ConvertColorFormat(src->GetColorFormat()),
+            src->GetFormatFeatures(),
             srcAspect,
             srcMipLevel,
             srcLayerIndex,
             dst->GetImage(),
             Common::ConvertColorFormat(dst->GetColorFormat()),
+            dst->GetFormatFeatures(),
             dstAspect,
             dstMipLevel,
             dstLayerIndex,

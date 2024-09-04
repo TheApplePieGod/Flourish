@@ -5,6 +5,46 @@
 
 namespace Flourish
 {
+    unsigned char* ReadFileImpl(std::string_view path, u32& outLength)
+    {
+        std::ifstream file(path.data(), std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            return nullptr;
+        
+        u32 fileSize = static_cast<u32>(file.tellg());
+        unsigned char* buffer = new unsigned char[fileSize + 1];
+        file.seekg(0, std::ios::beg);
+        file.read((char*)buffer, fileSize);
+        file.close();
+
+        buffer[fileSize] = 0;
+
+        outLength = fileSize;
+        return buffer;
+    }
+
+    std::string MemoryStatistics::ToString() const
+    {
+        char buffer[300];
+
+        std::snprintf(
+            buffer,
+            sizeof(buffer),
+            "Memory Statistics:\n"
+            "Allocations: %u\n"
+            "Allocation Mem: %.1f MB\n"
+            "Blocks: %u\n"
+            "Block Mem: %.1f MB\n"
+            "Total Available: %.1f MB",
+            AllocationCount,
+            (float)AllocationTotalSize / 1e6,
+            BlockCount,
+            (float)BlockTotalSize / 1e6,
+            (float)TotalAvailable / 1e6
+        );
+
+        return std::string(buffer);
+    }
 
     void Context::Initialize(const ContextInitializeInfo& initInfo)
     {
@@ -18,6 +58,10 @@ namespace Flourish
             FL_LOG_WARN("Frame buffer count is limited to %d", MaxFrameBufferCount);
             s_FrameBufferCount = MaxFrameBufferCount;
         }
+
+        s_ReadFile = initInfo.ReadFile;
+        if (!s_ReadFile)
+            s_ReadFile = ReadFileImpl;
 
         s_BackendType = initInfo.Backend;
         switch (s_BackendType)
@@ -33,6 +77,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::Shutdown(finalizer); } return;
         }
 
@@ -47,6 +92,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::BeginFrame(); } break;
         }
     }
@@ -59,6 +105,7 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::EndFrame(); } break;
         }
 
@@ -76,12 +123,6 @@ namespace Flourish
         s_FrameMutex.lock();
         s_GraphSubmissions.emplace_back(graph);
         s_FrameMutex.unlock();
-
-        switch (s_BackendType)
-        {
-            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions(buffers, false); } break;
-            //case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessFrameSubmissions2(buffers, bufferCount, false); } break;
-        }
     }
 
     void Context::PushFrameRenderContext(RenderContext* context)
@@ -99,6 +140,7 @@ namespace Flourish
         
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessPushSubmission(graph, callback); } break;
         }
     }
@@ -117,7 +159,19 @@ namespace Flourish
 
         switch (s_BackendType)
         {
+            default: return;
             case BackendType::Vulkan: { Vulkan::Context::SubmissionHandler().ProcessExecuteSubmission(graph); } break;
+        }
+    }
+
+    MemoryStatistics Context::ComputeMemoryStatistics()
+    {
+        FL_PROFILE_FUNCTION();
+
+        switch (s_BackendType)
+        {
+            default: return MemoryStatistics();
+            case BackendType::Vulkan: { return Vulkan::Context::ComputeMemoryStatistics(); }
         }
     }
 }

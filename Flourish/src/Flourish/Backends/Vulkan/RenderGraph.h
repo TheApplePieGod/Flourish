@@ -18,6 +18,7 @@ namespace Flourish::Vulkan
         std::vector<int> WaitingWorkloads;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> WaitSemaphores;
         std::array<VkSemaphore, Flourish::Context::MaxFrameBufferCount> SignalSemaphores;
+        std::array<VkFence, Flourish::Context::MaxFrameBufferCount> SignalFences;
         u64 SignalSemaphoreValue;
         std::vector<VkPipelineStageFlags> WaitStageFlags;
         std::array<VkSubmitInfo, Flourish::Context::MaxFrameBufferCount> SubmitInfos;
@@ -46,6 +47,7 @@ namespace Flourish::Vulkan
         std::vector<SubmissionSyncInfo> SubmissionSyncs;
         std::vector<SubmissionSubmitInfo> SubmitData;
         std::array<std::vector<VkSemaphore>, Flourish::Context::MaxFrameBufferCount> CompletionSemaphores;
+        std::array<std::vector<VkFence>, Flourish::Context::MaxFrameBufferCount> CompletionFences;
 
         // Will be the same across all semaphores, so just needs to be
         // set to the current frame count each submit
@@ -64,20 +66,33 @@ namespace Flourish::Vulkan
         void PrepareForSubmission();
 
         // TS
+        u32 GetExecutionFrameIndex() const;
+
+        // TS
         inline const auto& GetExecutionData() const { return m_ExecuteData; }
 
     private:
+        void ResetBuildVariables();
+        void PopulateSubmissionOrder();
+        VkPipelineStageFlags GetWorkloadStageFlags(GPUWorkloadType type);
+        void PopulateSubmisssionBarrier(SubmissionBarrier& barrier, GPUWorkloadType srcWorkload, GPUWorkloadType dstWorkload);
+        VkSemaphore GetSemaphore();
+        VkFence GetFence();
+
+    private:
+        // Execution data relevant for each submission
         GraphExecuteData m_ExecuteData;
         u64 m_CurrentSemaphoreValue = 0;
         u64 m_LastSubmissionFrame = 0;
         u64 m_LastBuildFrame = 0;
-        std::array<int, 3> m_LastWaitWrites;
+
+        // Temporary build data to be reset on each build
+        u32 m_FreeSemaphoreIndex = 0;
+        u32 m_FreeFenceIndex = 0;
         std::vector<VkSemaphore> m_AllSemaphores;
-
-        // All resources that matter when syncing (aka writes)
+        std::vector<VkFence> m_AllFences;
+        std::unordered_map<u32, u32> m_LastWaitWrites;
         std::unordered_map<u64, ResourceSyncInfo> m_AllResources;
-
-        // Graph traversal data
         std::queue<u64> m_ProcessingNodes;
         std::unordered_set<u64> m_VisitedNodes;
         std::vector<u64> m_TemporarySubmissionOrder;

@@ -4,12 +4,7 @@
 #include "Flourish/Backends/Vulkan/Util/DebugCheckpoints.h"
 
 #define VMA_IMPLEMENTATION
-#define VMA_STATIC_VULKAN_FUNCTIONS 0
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #include "vk_mem_alloc.h"
-
-#define VOLK_IMPLEMENTATION
-#include "volk/volk.h"
 
 namespace Flourish::Vulkan
 {
@@ -23,6 +18,20 @@ namespace Flourish::Vulkan
                 return strcmp(arg.extensionName, extension) == 0;
             }
         ) != extensions.end();
+    }
+
+    void** Common::IterateAndWriteNextChain(void** base, const void* pNext)
+    {
+        return IterateAndWriteNextChain((const void**)base, pNext);
+    }
+
+    void** Common::IterateAndWriteNextChain(const void** base, const void* pNext)
+    {
+        VkBaseOutStructure** next = (VkBaseOutStructure**)base;
+        while (*next != nullptr)
+            next = &(*next)->pNext;
+        *next = (VkBaseOutStructure*)pNext;
+        return (void**)&(*next)->pNext;
     }
 
     VkFormat Common::ConvertColorFormat(ColorFormat format)
@@ -41,6 +50,17 @@ namespace Flourish::Vulkan
             case ColorFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
             case ColorFormat::RGBA32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
             case ColorFormat::Depth: return VK_FORMAT_D32_SFLOAT;
+
+            case ColorFormat::BC1: return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
+            case ColorFormat::BC2: return VK_FORMAT_BC2_UNORM_BLOCK;
+            case ColorFormat::BC3: return VK_FORMAT_BC3_UNORM_BLOCK;
+            case ColorFormat::BC4: return VK_FORMAT_BC4_UNORM_BLOCK;
+            case ColorFormat::BC4_SIGNED: return VK_FORMAT_BC4_SNORM_BLOCK;
+            case ColorFormat::BC5: return VK_FORMAT_BC5_UNORM_BLOCK;
+            case ColorFormat::BC5_SIGNED: return VK_FORMAT_BC5_SNORM_BLOCK;
+            case ColorFormat::BC6H: return VK_FORMAT_BC6H_UFLOAT_BLOCK;
+            case ColorFormat::BC6H_SIGNED: return VK_FORMAT_BC6H_SFLOAT_BLOCK;
+            case ColorFormat::BC7: return VK_FORMAT_BC7_UNORM_BLOCK;
         }
 
         return VK_FORMAT_UNDEFINED;
@@ -62,9 +82,39 @@ namespace Flourish::Vulkan
             case VK_FORMAT_R32_SFLOAT: return ColorFormat::R32_FLOAT;
             case VK_FORMAT_R32G32B32A32_SFLOAT: return ColorFormat::RGBA32_FLOAT;
             case VK_FORMAT_D32_SFLOAT: return ColorFormat::Depth;
+
+            case VK_FORMAT_BC1_RGBA_UNORM_BLOCK: return ColorFormat::BC1;
+            case VK_FORMAT_BC2_UNORM_BLOCK: return ColorFormat::BC2;
+            case VK_FORMAT_BC3_UNORM_BLOCK: return ColorFormat::BC3;
+            case VK_FORMAT_BC4_UNORM_BLOCK: return ColorFormat::BC4;
+            case VK_FORMAT_BC4_SNORM_BLOCK: return ColorFormat::BC4_SIGNED;
+            case VK_FORMAT_BC5_UNORM_BLOCK: return ColorFormat::BC5;
+            case VK_FORMAT_BC5_SNORM_BLOCK: return ColorFormat::BC5_SIGNED;
+            case VK_FORMAT_BC6H_UFLOAT_BLOCK: return ColorFormat::BC6H;
+            case VK_FORMAT_BC6H_SFLOAT_BLOCK: return ColorFormat::BC6H_SIGNED;
+            case VK_FORMAT_BC7_UNORM_BLOCK: return ColorFormat::BC7;
         }
 
         return ColorFormat::None;
+    }
+
+    bool Common::IsColorFormatCompressed(ColorFormat format)
+    {
+        switch (format)
+        {
+            default: return false;
+            case ColorFormat::BC1:
+            case ColorFormat::BC2:
+            case ColorFormat::BC3:
+            case ColorFormat::BC4:
+            case ColorFormat::BC4_SIGNED:
+            case ColorFormat::BC5:
+            case ColorFormat::BC5_SIGNED:
+            case ColorFormat::BC6H:
+            case ColorFormat::BC6H_SIGNED:
+            case ColorFormat::BC7:
+                return true;
+        }
     }
 
     VkAttachmentLoadOp Common::ConvertAttachmentInitialization(AttachmentInitialization init)

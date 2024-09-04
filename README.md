@@ -18,6 +18,10 @@ Flourish is a cross-platform 3D rendering library. It is designed to allow both 
 
 This library was written to replace the internal one used in the [Heart](https://github.com/TheApplePieGod/Heart) game engine. It is a work in progress, but it is currently has numerous features.
 
+## Motivation
+
+Flourish is intended to be used as a medium-level abstraction for the underlying graphics APIs on semi-modern devices. As it is an abstraction, some extremely fine-grained and targeted features or optimizations may not be available to the user. Additionally, in order to create a clean and simplified API, some assumptions here and there are made, which may mean older or esoteric hardware will not work correctly.
+
 ## Features
 
 - Render graph based GPU execution model
@@ -30,9 +34,16 @@ This library was written to replace the internal one used in the [Heart](https:/
 - Queryable features depending on user hardware
     - ALPHA support for hardware-accelerated ray tracing
     - (Partial) bindless descriptor model
-- In-app GLSL shader compilation and reflection
+- Built-in GLSL shader compilation and reflection
 - Automatic lifetime management for most resources
-- Sync or async data uploads to and from the GPU 
+- Sync or async data uploads to and from the GPU
+- Texture compression support
+
+## Platforms
+
+Flourish has been tested on the following platforms: `windows`, `android arm64`, `macos arm64`.
+
+Flourish currently supports Vulkan 1.1 with a minimal amount of required extensions, which should be supported on most platforms.
 
 
 # Getting Started
@@ -43,12 +54,13 @@ Setting up Flourish is relatively simple, and it utilizes CMake and git submodul
 
 - Compiler using C++17
 - [CMake](https://cmake.org/download/) >= 3.23
-- [VulkanSDK](https://vulkan.lunarg.com/) >= 1.3.250
+- [VulkanSDK](https://vulkan.lunarg.com/) >= 1.3.290
 
 ## Setup
 
 1. Clone the repo using the `--recursive` flag to ensure all submodules are downloaded
 2. Make sure the VulkanSDK is accessible via the `${VULKAN_SDK}` environment variable (this should happen automatically with the installer on Windows)
+ - On MacOS, this should be <sdk_version>/macOS
 
 ## Usage
 
@@ -85,7 +97,7 @@ Coming soon
 
 # License
 
-Copyright (C) 2023 [Evan Thompson](https://evanthompson.site/)
+Copyright (C) 2024 [Evan Thompson](https://evanthompson.site/)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

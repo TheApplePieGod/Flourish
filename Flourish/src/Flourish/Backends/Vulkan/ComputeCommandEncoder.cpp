@@ -67,6 +67,9 @@ namespace Flourish::Vulkan
         m_BoundComputePipeline = static_cast<ComputePipeline*>(pipeline);
         m_BoundRayTracingPipeline = nullptr;
 
+        // TODO: compile-time constant for enabling this feature
+        pipeline->ValidateShaders();
+
         m_DescriptorBinder.BindPipelineData(m_BoundComputePipeline->GetDescriptorData());
 
         vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_BoundComputePipeline->GetPipeline());
@@ -101,6 +104,9 @@ namespace Flourish::Vulkan
         if (m_BoundRayTracingPipeline == static_cast<RayTracingPipeline*>(pipeline)) return;
         m_BoundRayTracingPipeline = static_cast<RayTracingPipeline*>(pipeline);
         m_BoundComputePipeline = nullptr;
+
+        // TODO: compile-time constant for enabling this feature
+        pipeline->ValidateShaders();
 
         m_DescriptorBinder.BindPipelineData(m_BoundRayTracingPipeline->GetDescriptorData());
 

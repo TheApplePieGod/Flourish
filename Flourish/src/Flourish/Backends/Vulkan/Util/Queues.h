@@ -28,12 +28,6 @@ namespace Flourish::Vulkan
         }
     };
 
-    struct PushCommandResult
-    {
-        VkSemaphore SignalSemaphore;
-        u64 SignalValue;
-    };
-
     class Queues
     {
     public:
@@ -41,7 +35,7 @@ namespace Flourish::Vulkan
         void Shutdown();
 
         // TS
-        PushCommandResult PushCommand(
+        VkFence PushCommand(
             GPUWorkloadType workloadType,
             VkCommandBuffer buffer,
             std::function<void()> completionCallback = nullptr,
@@ -54,7 +48,7 @@ namespace Flourish::Vulkan
         VkQueue Queue(GPUWorkloadType workloadType, u32 frameIndex = Flourish::Context::FrameIndex()) const;
         void LockQueue(GPUWorkloadType workloadType, bool lock);
         void LockPresentQueue(bool lock);
-        inline u32 PresentQueueIndex() const { return m_PresentQueue.QueueIndex; }
+        inline u32 PresentQueueIndex() const { return m_PhysicalQueues[m_PresentQueue].QueueIndex; }
         u32 QueueIndex(GPUWorkloadType workloadType) const;
 
     public:
@@ -84,12 +78,14 @@ namespace Flourish::Vulkan
 
     private:
         QueueData& GetQueueData(GPUWorkloadType workloadType);
-        VkSemaphore RetrieveSemaphore();
+        const QueueData& GetQueueData(GPUWorkloadType workloadType) const;
+        VkFence RetrieveFence();
 
     private:
-        QueueData m_GraphicsQueue, m_ComputeQueue, m_TransferQueue, m_PresentQueue;
-        std::vector<VkSemaphore> m_UnusedSemaphores;
-        std::mutex m_SemaphoresLock;
-        u64 m_ExecuteSemaphoreSignalValue = 0;
+        std::array<QueueData, 4> m_PhysicalQueues;
+        std::array<u32, 4> m_VirtualQueues;
+        u32 m_PresentQueue;
+        std::vector<VkFence> m_UnusedFences;
+        std::mutex m_FencesLock;
     };
 }

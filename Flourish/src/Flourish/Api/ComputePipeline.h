@@ -23,6 +23,11 @@ namespace Flourish
             FL_ASSERT(createInfo.Shader.Shader, "Must specify a compute shader asset");
         }
         virtual ~ComputePipeline() = default;
+
+        // Run when shaders potentially have been reloaded and the pipeline needs
+        // to be recreated. Handled automatically in encoders. Returns true if
+        // pipeline needed to be recreated.
+        virtual bool ValidateShaders() = 0;
         
         // TS
         // NOTE: Try to keep binding & set indices as low as possible

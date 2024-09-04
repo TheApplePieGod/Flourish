@@ -20,7 +20,7 @@ namespace Flourish::Vulkan
             const BufferCreateInfo& createInfo,
             VkBufferUsageFlags usageFlags,
             MemoryDirection memoryDirection,
-            VkCommandBuffer uploadBuffer = nullptr,
+            VkCommandBuffer uploadBuffer = VK_NULL_HANDLE,
             bool forceDeviceMemory = false
         );
         ~Buffer() override;
@@ -42,44 +42,58 @@ namespace Flourish::Vulkan
         static void CopyBufferToBuffer(
             VkBuffer src,
             VkBuffer dst,
-            u64 size,
-            VkCommandBuffer buffer = nullptr,
+            u32 srcOffset,
+            u32 dstOffset,
+            u32 size,
+            VkCommandBuffer buffer = VK_NULL_HANDLE,
             bool execute = false,
             std::function<void()> callback = nullptr
         );
         static void CopyBufferToImage(
             VkBuffer src,
             VkImage dst,
+            VkImageAspectFlags dstAspect,
+            u32 bufferOffset,
             u32 imageWidth,
             u32 imageHeight,
+            u32 dstMipLevel,
+            u32 dstLayerIndex,
             VkImageLayout imageLayout,
-            VkCommandBuffer buffer = nullptr
+            VkCommandBuffer buffer = VK_NULL_HANDLE
         );
         static void CopyImageToBuffer(
             VkImage src,
+            VkImageAspectFlags srcAspect,
             VkBuffer dst,
+            u32 bufferOffset,
             u32 imageWidth,
             u32 imageHeight,
+            u32 srcMipLevel,
+            u32 srcLayerIndex,
             VkImageLayout imageLayout,
-            VkCommandBuffer buffer = nullptr
+            VkCommandBuffer buffer = VK_NULL_HANDLE
         );
         static void AllocateStagingBuffer(VkBuffer& buffer, VmaAllocation& alloc, VmaAllocationInfo& allocInfo, u64 size);
 
     private:
         static void ImageBufferCopyInternal(
             VkImage image,
+            VkImageAspectFlags aspect,
             VkBuffer buffer,
+            u32 bufferOffset,
             u32 imageWidth,
             u32 imageHeight,
+            u32 mipLevel,
+            u32 layerIndex,
             VkImageLayout imageLayout,
             bool imageSrc,
-            VkCommandBuffer cmdBuf = nullptr
+            VkCommandBuffer cmdBuf = VK_NULL_HANDLE
         );
 
     private:
         struct BufferData
         {
-            VkBuffer Buffer = nullptr;
+            VkBuffer Buffer = VK_NULL_HANDLE;
             VkDeviceAddress DeviceAddress = 0;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;

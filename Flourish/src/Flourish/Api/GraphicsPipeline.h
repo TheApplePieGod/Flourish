@@ -107,6 +107,11 @@ namespace Flourish
         }
         virtual ~GraphicsPipeline() = default;
 
+        // Run when shaders potentially have been reloaded and the pipeline needs
+        // to be recreated. Handled automatically in encoders. Returns true if
+        // pipeline needed to be recreated.
+        virtual bool ValidateShaders() = 0;
+
         // TS
         // NOTE: Try to keep binding & set indices as low as possible
         virtual std::shared_ptr<ResourceSet> CreateResourceSet(u32 setIndex, const ResourceSetCreateInfo& createInfo) = 0;
