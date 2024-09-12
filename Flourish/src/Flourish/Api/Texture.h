@@ -40,13 +40,6 @@ namespace Flourish
         BC7,
     };
     
-    enum class TextureWritability
-    {
-        None = 0,
-        Once,
-        PerFrame
-    };
-
     enum class SamplerFilter
     {
         None = 0,
@@ -85,7 +78,6 @@ namespace Flourish
         u32 Width, Height;
         ColorFormat Format;
         TextureUsage Usage = TextureUsageFlags::Readonly;
-        TextureWritability Writability = TextureWritability::None;
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
         TextureSamplerState SamplerState;
@@ -118,7 +110,6 @@ namespace Flourish
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Channels; }
         inline TextureUsage GetUsageType() const { return m_Info.Usage; }
-        inline TextureWritability GetWritability() const { return m_Info.Writability; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
         inline ColorFormat GetColorFormat() const { return m_Info.Format; }
 

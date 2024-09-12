@@ -92,7 +92,6 @@ namespace Flourish::Vulkan
         m_Info.ArrayCount = newArrayCount;
 
         VkDeviceSize imageSize = ComputeTextureSize(m_Info.Format, m_Info.Width, m_Info.Height);
-        m_ImageCount = m_Info.Writability == TextureWritability::PerFrame ? Flourish::Context::FrameBufferCount() : 1;
         
         CreateSampler();
 
@@ -102,11 +101,6 @@ namespace Flourish::Vulkan
         VmaAllocationInfo stagingAllocInfo;
         if (hasInitialData)
         {
-            #if defined(FL_DEBUG) && defined(FL_LOGGING)
-            if (m_Info.Writability == TextureWritability::PerFrame)
-                FL_LOG_WARN("Creating per-frame writable texture that has initial data may not work as expected");
-            #endif
-
             Buffer::AllocateStagingBuffer(
                 stagingBuffer,
                 stagingAlloc,
@@ -137,144 +131,124 @@ namespace Flourish::Vulkan
         imageInfo.initialLayout = currentLayout;
         VmaAllocationCreateInfo allocCreateInfo{};
         allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        for (u32 frame = 0; frame < m_ImageCount; frame++)
+        if (!FL_VK_CHECK_RESULT(vmaCreateImage(
+            Context::Allocator(),
+            &imageInfo,
+            &allocCreateInfo,
+            &m_Image.Image,
+            &m_Image.Allocation,
+            &m_Image.AllocationInfo
+        ), "Texture create image"))
+            throw std::exception();
+
+        // Create the image view representing the entire texture but also
+        // one for each slice of the image (mip / layer)
+        ImageViewCreateInfo viewCreateInfo;
+        viewCreateInfo.Image = m_Image.Image;
+        viewCreateInfo.Format = m_Format;
+        viewCreateInfo.MipLevels = m_MipLevels;
+        viewCreateInfo.LayerCount = m_Info.ArrayCount;
+        viewCreateInfo.AspectFlags = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        m_Image.ImageView = CreateImageView(viewCreateInfo);
+        viewCreateInfo.LayerCount = 1;
+        viewCreateInfo.MipLevels = 1;
+        for (u32 i = 0; i < m_Info.ArrayCount; i++)
         {
-            ImageData& imageData = m_Images[frame];
-
-            // Create the image
-            if (!FL_VK_CHECK_RESULT(vmaCreateImage(
-                Context::Allocator(),
-                &imageInfo,
-                &allocCreateInfo,
-                &imageData.Image,
-                &imageData.Allocation,
-                &imageData.AllocationInfo
-            ), "Texture create image"))
-                throw std::exception();
-
-            // Create the image view representing the entire texture but also
-            // one for each slice of the image (mip / layer)
-            ImageViewCreateInfo viewCreateInfo;
-            viewCreateInfo.Image = imageData.Image;
-            viewCreateInfo.Format = m_Format;
-            viewCreateInfo.MipLevels = m_MipLevels;
-            viewCreateInfo.LayerCount = m_Info.ArrayCount;
-            viewCreateInfo.AspectFlags = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-            imageData.ImageView = CreateImageView(viewCreateInfo);
-            viewCreateInfo.LayerCount = 1;
-            viewCreateInfo.MipLevels = 1;
-            for (u32 i = 0; i < m_Info.ArrayCount; i++)
+            for (u32 j = 0; j < m_MipLevels; j++)
             {
-                for (u32 j = 0; j < m_MipLevels; j++)
-                {
-                    viewCreateInfo.BaseArrayLayer = i;
-                    viewCreateInfo.BaseMip = j;
-                    VkImageView layerView = CreateImageView(viewCreateInfo);
-                    imageData.SliceViews.push_back(layerView);
-                    
-                    #ifdef FL_USE_IMGUI
-                    s_ImGuiMutex.lock();
-                    imageData.ImGuiHandles.push_back((void*)ImGui_ImplVulkan_AddTexture(
-                        m_Sampler,
-                        layerView,
-                        m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-                    ));
-                    s_ImGuiMutex.unlock();
-                    #endif
-                }
+                viewCreateInfo.BaseArrayLayer = i;
+                viewCreateInfo.BaseMip = j;
+                VkImageView layerView = CreateImageView(viewCreateInfo);
+                m_Image.SliceViews.push_back(layerView);
+                
+                #ifdef FL_USE_IMGUI
+                s_ImGuiMutex.lock();
+                m_Image.ImGuiHandles.push_back((void*)ImGui_ImplVulkan_AddTexture(
+                    m_Sampler,
+                    layerView,
+                    m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                ));
+                s_ImGuiMutex.unlock();
+                #endif
             }
+        }
 
-            // If we have initial data, we need to perform the data transfer and generate
-            // the mipmaps (which can only occur on the graphics queue)
-            VkImageAspectFlags aspect = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-            VkImageLayout finalLayout = m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            if (hasInitialData)
+        // If we have initial data, we need to perform the data transfer and generate
+        // the mipmaps (which can only occur on the graphics queue)
+        VkImageAspectFlags aspect = m_IsDepthImage ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+        VkImageLayout finalLayout = m_IsStorageImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        if (hasInitialData)
+        {
+            TransitionImageLayout(
+                m_Image.Image,
+                currentLayout,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                aspect,
+                0, m_MipLevels,
+                0, m_Info.ArrayCount,
+                0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                cmdBuffer
+            );
+
+            Buffer::CopyBufferToImage(
+                stagingBuffer,
+                m_Image.Image,
+                aspect,
+                0,
+                m_Info.Width,
+                m_Info.Height,
+                0, 0,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                cmdBuffer
+            );
+            
+            if (!Common::IsColorFormatCompressed(m_Info.Format))
             {
-                TransitionImageLayout(
-                    imageData.Image,
-                    currentLayout,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                GenerateMipmaps(
+                    m_Image.Image,
+                    m_Format,
                     aspect,
-                    0, m_MipLevels,
-                    0, m_Info.ArrayCount,
-                    0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                    VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                    cmdBuffer
-                );
-
-                Buffer::CopyBufferToImage(
-                    stagingBuffer,
-                    imageData.Image,
-                    aspect,
-                    0,
                     m_Info.Width,
                     m_Info.Height,
-                    0, 0,
+                    m_MipLevels,
+                    m_Info.ArrayCount,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    finalLayout,
+                    VK_FILTER_LINEAR,
                     cmdBuffer
                 );
-                
-                if (!Common::IsColorFormatCompressed(m_Info.Format))
-                {
-                    GenerateMipmaps(
-                        imageData.Image,
-                        m_Format,
-                        aspect,
-                        m_Info.Width,
-                        m_Info.Height,
-                        m_MipLevels,
-                        m_Info.ArrayCount,
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        finalLayout,
-                        VK_FILTER_LINEAR,
-                        cmdBuffer
-                    );
-                }
-                else
-                {
-                    // Cannot generate mips for a compressed texture, so we assume they
-                    // were passed in
-
-                    u32 curWidth = m_Info.Width / 2;
-                    u32 curHeight = m_Info.Height / 2;
-                    u32 curOffset = imageSize;
-                    for (u32 i = 1; i < m_MipLevels; i++)
-                    {
-                        Buffer::CopyBufferToImage(
-                            stagingBuffer,
-                            imageData.Image,
-                            aspect,
-                            curOffset,
-                            curWidth,
-                            curHeight,
-                            i, 0,
-                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                            cmdBuffer
-                        );
-
-                        curOffset += ComputeTextureSize(m_Info.Format, curWidth, curHeight);
-                        curWidth /= 2;
-                        curHeight /= 2;
-                    }
-
-                    TransitionImageLayout(
-                        imageData.Image,
-                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                        finalLayout,
-                        aspect,
-                        0, m_MipLevels,
-                        0, m_Info.ArrayCount,
-                        0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                        VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                        cmdBuffer
-                    );
-                }
             }
             else
             {
+                // Cannot generate mips for a compressed texture, so we assume they
+                // were passed in
+
+                u32 curWidth = m_Info.Width / 2;
+                u32 curHeight = m_Info.Height / 2;
+                u32 curOffset = imageSize;
+                for (u32 i = 1; i < m_MipLevels; i++)
+                {
+                    Buffer::CopyBufferToImage(
+                        stagingBuffer,
+                        m_Image.Image,
+                        aspect,
+                        curOffset,
+                        curWidth,
+                        curHeight,
+                        i, 0,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        cmdBuffer
+                    );
+
+                    curOffset += ComputeTextureSize(m_Info.Format, curWidth, curHeight);
+                    curWidth /= 2;
+                    curHeight /= 2;
+                }
+
                 TransitionImageLayout(
-                    imageData.Image,
-                    currentLayout,
+                    m_Image.Image,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     finalLayout,
                     aspect,
                     0, m_MipLevels,
@@ -284,6 +258,20 @@ namespace Flourish::Vulkan
                     cmdBuffer
                 );
             }
+        }
+        else
+        {
+            TransitionImageLayout(
+                m_Image.Image,
+                currentLayout,
+                finalLayout,
+                aspect,
+                0, m_MipLevels,
+                0, m_Info.ArrayCount,
+                0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                cmdBuffer
+            );
         }
 
         if (!FL_VK_CHECK_RESULT(vkEndCommandBuffer(cmdBuffer), "Texture init command buffer end"))
@@ -332,12 +320,9 @@ namespace Flourish::Vulkan
         PopulateFeatures();
 
         m_MipLevels = 1;
-        m_ImageCount = 1;
-        
-        ImageData& imageData = m_Images[0];
-        imageData = ImageData{};
-        imageData.ImageView = imageView;
-        imageData.SliceViews.push_back(imageView);
+
+        m_Image.ImageView = imageView;
+        m_Image.SliceViews.push_back(imageView);
 
         m_Initialized = true;
     }
@@ -348,11 +333,10 @@ namespace Flourish::Vulkan
 
         Flourish::Texture::operator=(std::move(other));
 
-        m_Images = std::move(other.m_Images);
+        m_Image = std::move(other.m_Image);
         m_Format = other.m_Format;
         m_FeatureFlags = other.m_FeatureFlags;
         m_Sampler = other.m_Sampler;
-        m_ImageCount = other.m_ImageCount;
         m_IsDepthImage = other.m_IsDepthImage;
         m_IsStorageImage = other.m_IsStorageImage;
         m_IsReady = other.m_IsReady;
@@ -374,46 +358,38 @@ namespace Flourish::Vulkan
     #ifdef FL_USE_IMGUI
     void* Texture::GetImGuiHandle(u32 layerIndex, u32 mipLevel) const
     {
-        if (m_ImageCount == 1)
-            return m_Images[0].ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
-        return m_Images[Flourish::Context::FrameIndex()].ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
+        return m_Image.ImGuiHandles[layerIndex * m_MipLevels + mipLevel];
     }
     #endif
 
     VkImage Texture::GetImage() const
     {
-        if (m_ImageCount == 1) return m_Images[0].Image;
-        return m_Images[Flourish::Context::FrameIndex()].Image;
+        return m_Image.Image;
     }
 
     VkImage Texture::GetImage(u32 frameIndex) const
     {
-        if (m_ImageCount == 1) return m_Images[0].Image;
-        return m_Images[frameIndex].Image;
+        return m_Image.Image;
     }
 
     VkImageView Texture::GetImageView() const
     {
-        if (m_ImageCount == 1) return m_Images[0].ImageView;
-        return m_Images[Flourish::Context::FrameIndex()].ImageView;
+        return m_Image.ImageView;
     }
 
     VkImageView Texture::GetImageView(u32 frameIndex) const
     {
-        if (m_ImageCount == 1) return m_Images[0].ImageView;
-        return m_Images[frameIndex].ImageView;
+        return m_Image.ImageView;
     }
 
     VkImageView Texture::GetLayerImageView(u32 layerIndex, u32 mipLevel) const
     {
-        if (m_ImageCount == 1) return m_Images[0].SliceViews[layerIndex * m_MipLevels + mipLevel];
-        return m_Images[Flourish::Context::FrameIndex()].SliceViews[layerIndex * m_MipLevels + mipLevel];
+        return m_Image.SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
     VkImageView Texture::GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const
     {
-        if (m_ImageCount == 1) return m_Images[0].SliceViews[layerIndex * m_MipLevels + mipLevel];
-        return m_Images[frameIndex].SliceViews[layerIndex * m_MipLevels + mipLevel];
+        return m_Image.SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
 
     void Texture::Blit(
@@ -794,11 +770,6 @@ namespace Flourish::Vulkan
         return view;
     }
 
-    const Texture::ImageData& Texture::GetImageData() const
-    {
-        return m_ImageCount == 1 ? m_Images[0] : m_Images[Flourish::Context::FrameIndex()];
-    }
-
     void Texture::PopulateFeatures()
     {
         VkFormatProperties props;
@@ -856,33 +827,30 @@ namespace Flourish::Vulkan
         if (!m_Initialized) return;
         m_Initialized = false;
 
-        auto imageCount = m_ImageCount;
         auto sampler = m_Sampler;
-        auto images = m_Images;
+        auto image = m_Image;
         Context::FinalizerQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
-            for (u32 frame = 0; frame < imageCount; frame++)
+            
+            #ifdef FL_USE_IMGUI
+            s_ImGuiMutex.lock();
+            for (auto handle : image.ImGuiHandles)
+                if (handle)
+                    ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
+            s_ImGuiMutex.unlock();
+            #endif
+            
+            // Texture objects wrapping preexisting textures will not have an allocation
+            // so there will be nothing to free
+            if (image.Allocation)
             {
-                auto& imageData = images[frame];
-                
-                #ifdef FL_USE_IMGUI
-                s_ImGuiMutex.lock();
-                for (auto handle : imageData.ImGuiHandles)
-                    if (handle)
-                        ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)handle);
-                s_ImGuiMutex.unlock();
-                #endif
-                
-                // Texture objects wrapping preexisting textures will not have an allocation
-                // so there will be nothing to free
-                if (!imageData.Allocation) continue;
-
-                for (auto view : imageData.SliceViews)
+                for (auto view : image.SliceViews)
                     vkDestroyImageView(device, view, nullptr);
-                vkDestroyImageView(device, imageData.ImageView, nullptr);
-                vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
+                vkDestroyImageView(device, image.ImageView, nullptr);
+                vmaDestroyImage(Context::Allocator(), image.Image, image.Allocation);
             }
+
             if (sampler) 
                 vkDestroySampler(device, sampler, nullptr);
         }, "Texture free");

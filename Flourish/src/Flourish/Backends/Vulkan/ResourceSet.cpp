@@ -200,12 +200,6 @@ namespace Flourish::Vulkan
             "Attempting to bind a texture to a storage image binding that does not have the compute flag set"
         );
 
-        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_DynamicData)) && texture->GetWritability() == TextureWritability::PerFrame)
-        {
-            FL_LOG_ERROR("Cannot bind a dynamic texture to a resource set with static writability");
-            throw std::exception();
-        }
-
         UpdateBinding(
             bindingIndex, 
             texType, 

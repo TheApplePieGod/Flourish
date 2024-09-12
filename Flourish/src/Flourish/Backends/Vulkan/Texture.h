@@ -110,17 +110,15 @@ namespace Flourish::Vulkan
         };
 
     private:
-        const ImageData& GetImageData() const;
         void PopulateFeatures();
         void CreateSampler();
         void Cleanup();
 
     private:
-        std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
+        ImageData m_Image;
         VkFormat m_Format;
         VkFormatFeatureFlags m_FeatureFlags;
         VkSampler m_Sampler = VK_NULL_HANDLE;
-        u32 m_ImageCount = 0;
         bool m_IsDepthImage = false;
         bool m_IsStorageImage = false;
         bool m_Initialized = false;
