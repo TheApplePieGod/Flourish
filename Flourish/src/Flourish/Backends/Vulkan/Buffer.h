@@ -8,20 +8,11 @@ namespace Flourish::Vulkan
     class Buffer : public Flourish::Buffer
     {
     public:
-        enum class MemoryDirection
-        {
-            CPUToGPU = 0,
-            GPUToCPU
-        };
-
-    public:
         Buffer(const BufferCreateInfo& createInfo);
         Buffer(
             const BufferCreateInfo& createInfo,
             VkBufferUsageFlags usageFlags,
-            MemoryDirection memoryDirection,
-            VkCommandBuffer uploadBuffer = VK_NULL_HANDLE,
-            bool forceDeviceMemory = false
+            VkCommandBuffer uploadBuffer = VK_NULL_HANDLE
         );
         ~Buffer() override;
 
@@ -33,10 +24,10 @@ namespace Flourish::Vulkan
         void FlushInternal(VkCommandBuffer buffer, bool execute = false);
 
         // TS
-        VkBuffer GetBuffer() const;
-        VkBuffer GetBuffer(u32 frameIndex) const;
-        VkBuffer GetStagingBuffer() const;
-        VkBuffer GetStagingBuffer(u32 frameIndex) const;
+        VkBuffer GetGPUBuffer(u32 frameIndex) const;
+        VkBuffer GetGPUBuffer() const;
+        VkBuffer GetWriteBuffer() const;
+        VkBuffer GetFlushBuffer() const;
 
     public:
         static void CopyBufferToBuffer(
@@ -97,28 +88,27 @@ namespace Flourish::Vulkan
             VkDeviceAddress DeviceAddress = 0;
             VmaAllocation Allocation;
             VmaAllocationInfo AllocationInfo;
-            bool HasComplement = false;
         };
 
     private:
+        const BufferData& GetGPUBufferData(u32 frameIndex) const;
+        const BufferData& GetWriteBufferData() const;
+        const BufferData& GetFlushBufferData() const;
+        const BufferData& GetWriteBufferData(u32 frameIndex) const;
+        const BufferData& GetFlushBufferData(u32 frameIndex) const;
         void CreateInternal(
             VkBufferUsageFlags usage,
-            MemoryDirection memDirection,
-            VkCommandBuffer uploadBuffer,
-            bool forceDeviceMemory
+            VkCommandBuffer uploadBuffer
         );
-        const BufferData& GetBufferData() const;
-        const BufferData& GetStagingBufferData() const;
         void CreateBuffers(
             VkBufferCreateInfo bufCreateInfo,
-            VkCommandBuffer uploadBuffer,
-            bool forceDeviceMemory
+            VkCommandBuffer uploadBuffer
         );
 
     private:
         u32 m_BufferCount = 1;
-        MemoryDirection m_MemoryDirection;
-        std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_Buffers;
-        std::array<BufferData, Flourish::Context::MaxFrameBufferCount> m_StagingBuffers;
+        std::vector<BufferData> m_BufferAllocations;
+        std::array<u32, Flourish::Context::MaxFrameBufferCount> m_WriteBuffers;
+        std::array<u32, Flourish::Context::MaxFrameBufferCount> m_FlushBuffers;
     };
 }

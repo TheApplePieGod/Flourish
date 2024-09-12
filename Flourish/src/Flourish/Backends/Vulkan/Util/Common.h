@@ -18,6 +18,7 @@ namespace Flourish::Vulkan
         static bool SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension);
         static void** IterateAndWriteNextChain(void** base, const void* pNext);
         static void** IterateAndWriteNextChain(const void** base, const void* pNext);
+        static VkBufferUsageFlags ConvertBufferUsage(BufferUsage usage);
         static VkFormat ConvertColorFormat(ColorFormat format);
         static ColorFormat RevertColorFormat(VkFormat format);
         static bool IsColorFormatCompressed(ColorFormat format);

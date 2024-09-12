@@ -54,15 +54,16 @@ namespace Flourish::Vulkan
                 "Acceleration structure rebuild cannot include both vertex/index buffers and AABB buffer"
             );
             FL_ASSERT(
-                buildInfo.AABBBuffer->CanCreateAccelerationStructure(),
-                "AABB buffer must be created with CanCreateAccelerationStructure"
+                buildInfo.AABBBuffer->GetUsage() & BufferUsageFlags::AccelerationStructureBuild,
+                "AABB buffer must be created with 'AccelerationStructureBuild' usage"
             );
         }
         else
         {
             FL_ASSERT(
-                buildInfo.VertexBuffer->CanCreateAccelerationStructure() && buildInfo.IndexBuffer->CanCreateAccelerationStructure(),
-                "Vertex and index buffers must be created with CanCreateAccelerationStructure"
+                (buildInfo.VertexBuffer->GetUsage() & BufferUsageFlags::AccelerationStructureBuild) &&
+                (buildInfo.IndexBuffer->GetUsage() & BufferUsageFlags::AccelerationStructureBuild),
+                "Vertex and index buffers must be created with 'AccelerationStructureBuild' usage"
             );
         }
 
@@ -181,31 +182,28 @@ namespace Flourish::Vulkan
         }
 
 
-        auto& instanceBuffer = m_InstanceBuffers[m_WriteIndex];
         if (buildInfo.InstanceCount > 0)
         {
-            m_WriteIndex = (m_WriteIndex + 1) % Flourish::Context::FrameBufferCount();
-            if (!instanceBuffer || instanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
+            // This is not super great b/c of fragmentation. We might want to preallocate the whole buffer
+            if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
             {
                 BufferCreateInfo ibCreateInfo;
-                ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
+                ibCreateInfo.MemoryType = BufferMemoryType::CPUWriteFrame;
                 ibCreateInfo.ElementCount = buildInfo.InstanceCount;
                 ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
                 ibCreateInfo.InitialData = m_Instances.data();
                 ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
                 ibCreateInfo.ExposeGPUAddress = true;
-                instanceBuffer = std::make_shared<Buffer>(
+                m_InstanceBuffer = std::make_shared<Buffer>(
                     ibCreateInfo,
                     VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                    Buffer::MemoryDirection::CPUToGPU,
-                    cmdBuf,
-                    true
+                    cmdBuf
                 );
             }
             else
             {
-                instanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
-                instanceBuffer->FlushInternal(cmdBuf, false);
+                m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
+                m_InstanceBuffer->FlushInternal(cmdBuf, false);
             }
 
             // Ensure data is uploaded before performing build
@@ -242,7 +240,7 @@ namespace Flourish::Vulkan
         topGeom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         topGeom.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
         if (buildInfo.InstanceCount > 0)
-            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)instanceBuffer->GetBufferGPUAddress();
+            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
         buildInfoVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -259,7 +257,7 @@ namespace Flourish::Vulkan
         BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
 
         if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
-            instanceBuffer.reset();
+            m_InstanceBuffer.reset();
     }
 
     void AccelerationStructure::BuildInternal(
@@ -315,14 +313,13 @@ namespace Flourish::Vulkan
         if (!m_ScratchBuffer || m_ScratchBuffer->GetAllocatedSize() < scratchSize)
         {
             BufferCreateInfo scratchCreateInfo;
-            scratchCreateInfo.Usage = BufferUsageType::Static;
+            scratchCreateInfo.MemoryType = BufferMemoryType::GPUOnly;
             scratchCreateInfo.ElementCount = 1;
             scratchCreateInfo.Stride = scratchSize;
             scratchCreateInfo.ExposeGPUAddress = true;
             m_ScratchBuffer = std::make_shared<Buffer>(
                 scratchCreateInfo,
-                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ,
-                Buffer::MemoryDirection::CPUToGPU
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             );
         }
         VkDeviceAddress scratchAddress = FL_ALIGN_UP(
@@ -337,7 +334,7 @@ namespace Flourish::Vulkan
 
         // Allocate buffer to store acceleration structure
         BufferCreateInfo abCreateInfo;
-        abCreateInfo.Usage = BufferUsageType::Static;
+        abCreateInfo.MemoryType = BufferMemoryType::GPUOnly;
         abCreateInfo.ElementCount = 1;
         abCreateInfo.Stride = buildSize.accelerationStructureSize;
 
@@ -351,11 +348,10 @@ namespace Flourish::Vulkan
 
             m_AccelBuffer = std::make_shared<Buffer>(
                 abCreateInfo,
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                Buffer::MemoryDirection::CPUToGPU
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
             );
 
-            accCreateInfo.buffer = m_AccelBuffer->GetBuffer();
+            accCreateInfo.buffer = m_AccelBuffer->GetGPUBuffer();
             vkCreateAccelerationStructureKHR(Context::Devices().Device(), &accCreateInfo, nullptr, &m_AccelStructure);
         }
 

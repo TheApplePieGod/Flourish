@@ -18,18 +18,6 @@ namespace Flourish
     };
 
     /**
-     * @brief The usage types for buffers.
-     *
-     * Static should be used for anything that has completely unchanging data and
-     * dynamic should be used otherwise.
-     */
-    enum class BufferUsageType
-    {
-        None = 0,
-        Static, Dynamic, DynamicOneFrame
-    };
-
-    /**
      * @brief Get the size of a buffer data type.
      *
      * @param type The buffer data type.
@@ -129,23 +117,40 @@ namespace Flourish
         std::vector<BufferLayoutElement> m_Elements;
     };
 
-    enum class BufferType
+    namespace BufferUsageEnum
     {
-        None = 0,
-        Uniform, Storage, Vertex, Index, Pixel, Indirect
+        enum Value : u8
+        {
+            Generic = 0,
+            Uniform = (1 << 0),
+            Storage = (1 << 1),
+            Vertex = (1 << 2),
+            Index = (1 << 3),
+            Indirect = (1 << 4),
+            AccelerationStructureBuild = (1 << 5)
+        };
+    }
+    typedef BufferUsageEnum::Value BufferUsageFlags;
+    typedef u8 BufferUsage;
+
+    enum class BufferMemoryType
+    {
+        GPUOnly = 0,
+        CPURead,
+        CPUWrite,
+        CPUWriteFrame // Writing to the CPU in a per-frame context
     };
 
     class TransferCommandEncoder;
     struct BufferCreateInfo
     {
-        BufferType Type;
-        BufferUsageType Usage;
+        BufferUsage Usage;
+        BufferMemoryType MemoryType;
         BufferLayout Layout;
         u32 Stride = 0; // If zero, layout must be defined. Otherwise, the size specified in stride will be used.
         u32 ElementCount = 0;
         void* InitialData = nullptr;
         u32 InitialDataSize = 0; // Bytes
-        bool CanCreateAccelerationStructure = false;
         bool ExposeGPUAddress = false;
 
         // Only used when populating initial data
@@ -169,13 +174,12 @@ namespace Flourish
 
         // TS
         inline u64 GetId() const { return m_Id; }
-        inline BufferType GetType() const { return m_Info.Type; }
-        inline BufferUsageType GetUsage() const { return m_Info.Usage; }
+        inline BufferUsage GetUsage() const { return m_Info.Usage; }
+        inline BufferMemoryType GetMemoryType() const { return m_Info.MemoryType; }
         inline const BufferLayout& GetLayout() const { return m_Info.Layout; }
         inline u32 GetStride() const { return m_Stride; }
         inline u32 GetAllocatedSize() const { return m_Info.ElementCount * GetStride(); }
         inline u32 GetAllocatedCount() const { return m_Info.ElementCount; }
-        inline bool CanCreateAccelerationStructure() const { return m_Info.CanCreateAccelerationStructure; }
 
     public:
         // TS

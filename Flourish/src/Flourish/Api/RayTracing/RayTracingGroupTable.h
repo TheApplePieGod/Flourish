@@ -8,7 +8,6 @@ namespace Flourish
     struct RayTracingGroupTableCreateInfo
     {
         std::shared_ptr<RayTracingPipeline> Pipeline;
-        BufferUsageType Usage;
         u32 MaxHitEntries = 10;
         u32 MaxMissEntries = 10;
         u32 MaxCallableEntries = 10;

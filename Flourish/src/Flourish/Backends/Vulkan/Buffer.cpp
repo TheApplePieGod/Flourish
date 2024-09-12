@@ -10,66 +10,23 @@ namespace Flourish::Vulkan
         : Flourish::Buffer(createInfo)
     {
         #if defined(FL_DEBUG) && defined(FL_LOGGING) 
-        if (m_Info.Usage == BufferUsageType::Static && !m_Info.InitialData)
-            FL_LOG_WARN("Creating a static buffer with no initial data");
-        if (m_Info.Usage == BufferUsageType::Static && GetAllocatedSize() != m_Info.InitialDataSize)
-            FL_LOG_WARN("Creating a static buffer with initial data of a different size");
         if (m_Info.Stride != 0 && m_Info.Stride % 4 != 0)
             FL_LOG_WARN("Buffer has explicit stride %d that is not four byte aligned", m_Info.Stride);
         #endif
 
-        VkBufferUsageFlags usage = 0;
-        MemoryDirection memDirection;
-        switch (m_Info.Type)
-        {
-            default: { FL_CRASH_ASSERT(false, "Failed to create VulkanBuffer of unsupported type") } break;
-            case BufferType::Uniform:
-            {
-                usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-                memDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Storage:
-            {
-                usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-                memDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Pixel:
-            {
-                memDirection = MemoryDirection::GPUToCPU;
-            } break;
-
-            case BufferType::Indirect:
-            {
-                usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-                memDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Vertex:
-            {
-                usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-                memDirection = MemoryDirection::CPUToGPU;
-            } break;
-
-            case BufferType::Index:
-            {
-                usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-                memDirection = MemoryDirection::CPUToGPU;
-            } break;
-        }
+        VkBufferUsageFlags usage = Common::ConvertBufferUsage(m_Info.Usage);
 
         // TODO: this probably isn't great but we have no good way of specifying this in the api
         usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-        if (m_Info.CanCreateAccelerationStructure)
+        if (m_Info.Usage & BufferUsageFlags::AccelerationStructureBuild)
         {
             FL_ASSERT(
                 Flourish::Context::FeatureTable().RayTracing,
-                "RayTracing feature must be enabled to create a buffer with acceleration structure support"
+                "RayTracing feature must be enabled to create a buffer with acceleration structure build support"
             );
 
-            usage |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+            // Force expose GPU address
             m_Info.ExposeGPUAddress = true;
         }
 
@@ -86,45 +43,31 @@ namespace Flourish::Vulkan
             uploadBuffer = encoder->GetCommandBuffer();
         }
         
-        CreateInternal(usage, memDirection, uploadBuffer, false);
+        CreateInternal(usage, uploadBuffer);
     }
 
     Buffer::Buffer(
         const BufferCreateInfo& createInfo,
         VkBufferUsageFlags usageFlags,
-        MemoryDirection memoryDirection,
-        VkCommandBuffer uploadBuffer,
-        bool forceDeviceMemory
+        VkCommandBuffer uploadBuffer
     ) : Flourish::Buffer(createInfo)
     {
-        CreateInternal(usageFlags, memoryDirection, uploadBuffer, forceDeviceMemory);
+        CreateInternal(usageFlags, uploadBuffer);
     }
 
     Buffer::~Buffer()
     {
-        auto buffers = m_Buffers;
-        auto stagingBuffers = m_StagingBuffers;
-        auto bufferCount = m_BufferCount;
+        auto buffers = m_BufferAllocations;
         Context::FinalizerQueue().Push([=]()
         {
-            for (u32 i = 0; i < bufferCount; i++)
-            {
-                if (buffers[i].HasComplement && stagingBuffers[i].Buffer)
-                    vmaDestroyBuffer(Context::Allocator(), stagingBuffers[i].Buffer, stagingBuffers[i].Allocation);
+            for (u32 i = 0; i < buffers.size(); i++)
                 if (buffers[i].Buffer)
                     vmaDestroyBuffer(Context::Allocator(), buffers[i].Buffer, buffers[i].Allocation);
-            }
         }, "Buffer free");
     }
 
-    void Buffer::CreateInternal(VkBufferUsageFlags usage, MemoryDirection memDirection, VkCommandBuffer uploadBuffer, bool forceDeviceMemory)
+    void Buffer::CreateInternal(VkBufferUsageFlags usage, VkCommandBuffer uploadBuffer)
     {
-        m_MemoryDirection = memDirection;
-
-        // Dynamic buffers need a separate buffer for each frame buffer
-        if (m_Info.Usage == BufferUsageType::Dynamic)
-            m_BufferCount = Flourish::Context::FrameBufferCount();
-
         if (GetAllocatedSize() == 0)
         {
             FL_LOG_ERROR("Cannot create a buffer with zero size");
@@ -149,35 +92,29 @@ namespace Flourish::Vulkan
             bufCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         }
 
-        #if defined(FL_DEBUG) && defined(FL_LOGGING) 
-        if (m_MemoryDirection == MemoryDirection::GPUToCPU && m_Info.InitialData)
-            FL_LOG_WARN("Creating a GPU source buffer that was passed initial data but should not have");
-        #endif
-
-        CreateBuffers(bufCreateInfo, uploadBuffer, forceDeviceMemory);
+        CreateBuffers(bufCreateInfo, uploadBuffer);
     }
 
     void Buffer::SetBytes(const void* data, u32 byteCount, u32 byteOffset)
     {
-        FL_ASSERT(m_Info.Usage != BufferUsageType::Static, "Attempting to update buffer that is marked as static");
+        FL_ASSERT(
+            m_Info.MemoryType == BufferMemoryType::CPUWrite ||
+            m_Info.MemoryType == BufferMemoryType::CPUWriteFrame,
+            "Attempting to update buffer that does not have the CPUWrite memory type"
+        );
         FL_CRASH_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to write buffer data that exceeds buffer size");
 
-        auto& bufferData = GetBufferData();
-        if (bufferData.HasComplement)
-            memcpy((char*)GetStagingBufferData().AllocationInfo.pMappedData + byteOffset, data, byteCount);
-        else
-            memcpy((char*)bufferData.AllocationInfo.pMappedData + byteOffset, data, byteCount);
+        auto& bufferData = GetWriteBufferData();
+        memcpy((char*)bufferData.AllocationInfo.pMappedData + byteOffset, data, byteCount);
     }
 
     void Buffer::ReadBytes(void* outData, u32 byteCount, u32 byteOffset) const
     {
+        FL_ASSERT(m_Info.MemoryType == BufferMemoryType::CPURead, "Attempting to read buffer that does not have the CPURead memory type");
         FL_CRASH_ASSERT(byteCount + byteOffset <= GetAllocatedSize(), "Attempting to read buffer data that exceeds buffer size");
 
-        auto& bufferData = GetBufferData();
-        if (bufferData.HasComplement)
-            memcpy(outData, (char*)GetStagingBufferData().AllocationInfo.pMappedData + byteOffset, byteCount);
-        else
-            memcpy(outData, (char*)bufferData.AllocationInfo.pMappedData + byteOffset, byteCount);
+        auto& bufferData = GetFlushBufferData();
+        memcpy(outData, (char*)bufferData.AllocationInfo.pMappedData + byteOffset, byteCount);
     }
 
     void Buffer::Flush(bool immediate)
@@ -187,45 +124,75 @@ namespace Flourish::Vulkan
 
     void Buffer::FlushInternal(VkCommandBuffer buffer, bool execute)
     {
-        // We don't need to transfer if there is no staging buffer
-        auto& bufferData = GetBufferData();
-        if (!bufferData.HasComplement) return;
+        auto& write = GetWriteBufferData();
+        auto& flush = GetFlushBufferData();
 
-        // GPU -> CPU will transfer Regular -> Staging while CPU -> GPU will do the reverse
-        if (m_MemoryDirection == MemoryDirection::GPUToCPU)
-            CopyBufferToBuffer(GetBuffer(), GetStagingBuffer(), 0, 0, GetAllocatedSize(), buffer, execute);
-        else
-            CopyBufferToBuffer(GetStagingBuffer(), GetBuffer(), 0, 0, GetAllocatedSize(), buffer, execute);
+        // We don't need to do anything if flushBuf == writeBuf
+        if (write.Buffer == flush.Buffer) return;
+
+        CopyBufferToBuffer(write.Buffer, flush.Buffer, 0, 0, GetAllocatedSize(), buffer, execute);
     }
 
-    VkBuffer Buffer::GetBuffer() const
+    const Buffer::BufferData& Buffer::GetGPUBufferData(u32 frameIndex) const
     {
-        return GetBuffer(Flourish::Context::FrameIndex());
+        switch (m_Info.MemoryType)
+        {
+            case BufferMemoryType::GPUOnly:
+            case BufferMemoryType::CPURead:
+                return GetWriteBufferData(frameIndex);
+            case BufferMemoryType::CPUWrite:
+            case BufferMemoryType::CPUWriteFrame:
+                return GetFlushBufferData(frameIndex);
+        }
     }
 
-    VkBuffer Buffer::GetBuffer(u32 frameIndex) const
+    const Buffer::BufferData& Buffer::GetWriteBufferData() const
     {
-        if (m_BufferCount == 1) return m_Buffers[0].Buffer;
-        return m_Buffers[frameIndex].Buffer;
+        return GetWriteBufferData(Flourish::Context::FrameIndex());
     }
 
-    VkBuffer Buffer::GetStagingBuffer() const
+    const Buffer::BufferData& Buffer::GetFlushBufferData() const
     {
-        return GetStagingBuffer(Flourish::Context::FrameIndex());
+        return GetFlushBufferData(Flourish::Context::FrameIndex());
     }
 
-    VkBuffer Buffer::GetStagingBuffer(u32 frameIndex) const
+    const Buffer::BufferData& Buffer::GetWriteBufferData(u32 frameIndex) const
     {
-        if (m_BufferCount == 1) return m_StagingBuffers[0].Buffer;
-        return m_StagingBuffers[frameIndex].Buffer;
+        if (m_BufferCount == 1) return m_BufferAllocations[m_WriteBuffers[0]];
+        return m_BufferAllocations[m_WriteBuffers[frameIndex]];
+    }
+
+    const Buffer::BufferData& Buffer::GetFlushBufferData(u32 frameIndex) const
+    {
+        if (m_BufferCount == 1) return m_BufferAllocations[m_FlushBuffers[0]];
+        return m_BufferAllocations[m_FlushBuffers[frameIndex]];
+    }
+
+    VkBuffer Buffer::GetGPUBuffer() const
+    {
+        return GetGPUBuffer(Flourish::Context::FrameIndex());
+    }
+
+    VkBuffer Buffer::GetGPUBuffer(u32 frameIndex) const
+    {
+        return GetGPUBufferData(frameIndex).Buffer;
+    }
+
+    VkBuffer Buffer::GetWriteBuffer() const
+    {
+        return GetWriteBufferData().Buffer;
+    }
+
+    VkBuffer Buffer::GetFlushBuffer() const
+    {
+        return GetFlushBufferData().Buffer;
     }
 
     void* Buffer::GetBufferGPUAddress() const
     {
         FL_ASSERT(m_Info.ExposeGPUAddress, "Buffer must be created with ExposeGPUAddress to query buffer address");
 
-        if (m_BufferCount == 1) return (void*)m_Buffers[0].DeviceAddress;
-        return (void*)m_Buffers[Flourish::Context::FrameIndex()].DeviceAddress;
+        return (void*)GetGPUBufferData(Flourish::Context::FrameIndex()).DeviceAddress;
     }
 
     void Buffer::CopyBufferToBuffer(
@@ -389,20 +356,9 @@ namespace Flourish::Vulkan
         }
     }
 
-    const Buffer::BufferData& Buffer::GetBufferData() const
-    {
-        return m_BufferCount == 1 ? m_Buffers[0] : m_Buffers[Flourish::Context::FrameIndex()];
-    }
-
-    const Buffer::BufferData& Buffer::GetStagingBufferData() const
-    {
-        return m_BufferCount == 1 ? m_StagingBuffers[0] : m_StagingBuffers[Flourish::Context::FrameIndex()];
-    }
-
     void Buffer::CreateBuffers(
         VkBufferCreateInfo bufCreateInfo,
-        VkCommandBuffer uploadBuffer,
-        bool forceDeviceMemory
+        VkCommandBuffer uploadBuffer
     )
     {
         // Default allocation is device local
@@ -410,28 +366,25 @@ namespace Flourish::Vulkan
         VmaAllocationCreateInfo allocCreateInfo{};
         allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-        // Assumes that we want cpu visible memory if we have a dyanmic cpu -> gpu buffer
-        // TODO: add granularity for this
-        bool dynamicHostBuffer = m_MemoryDirection == MemoryDirection::CPUToGPU && (m_Info.Usage == BufferUsageType::Dynamic || m_Info.Usage == BufferUsageType::DynamicOneFrame);
-        if (dynamicHostBuffer && !forceDeviceMemory)
+        if (m_Info.MemoryType == BufferMemoryType::CPUWrite || m_Info.MemoryType == BufferMemoryType::CPUWriteFrame)
         {
             allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
             allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                                     VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
                                     VMA_ALLOCATION_CREATE_MAPPED_BIT;
         }
-        
-        // Allocate buffers and determine & allocate any staging buffers
-        // TODO: handle edge case when some parts of the buffer may be staging and others are dynamic host
-        for (u32 i = 0; i < m_BufferCount; i++)
+
+        const auto AllocateBuffer = [&]()
         {
+            u32 allocId = m_BufferAllocations.size();
+            BufferData& data = m_BufferAllocations.emplace_back();
             if (!FL_VK_CHECK_RESULT(vmaCreateBuffer(
                 Context::Allocator(),
                 &bufCreateInfo,
                 &allocCreateInfo,
-                &m_Buffers[i].Buffer,
-                &m_Buffers[i].Allocation,
-                &m_Buffers[i].AllocationInfo
+                &data.Buffer,
+                &data.Allocation,
+                &data.AllocationInfo
             ), "Buffer create buffer"))
                 throw std::exception();
 
@@ -439,50 +392,95 @@ namespace Flourish::Vulkan
             {
                 VkBufferDeviceAddressInfo addInfo{};
                 addInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-                addInfo.buffer = m_Buffers[i].Buffer;
-                m_Buffers[i].DeviceAddress = vkGetBufferDeviceAddressKHR(Context::Devices().Device(), &addInfo);
+                addInfo.buffer = data.Buffer;
+                data.DeviceAddress = vkGetBufferDeviceAddressKHR(Context::Devices().Device(), &addInfo);
             }
+            return allocId;
+        };
 
-            if (dynamicHostBuffer)
+        const auto AllocateStaging = [&]()
+        {
+            u32 allocId = m_BufferAllocations.size();
+            BufferData& data = m_BufferAllocations.emplace_back();
+            AllocateStagingBuffer(
+                data.Buffer,
+                data.Allocation,
+                data.AllocationInfo,
+                bufCreateInfo.size
+            );
+            return allocId;
+        };
+        
+        switch (m_Info.MemoryType)
+        {
+            case BufferMemoryType::GPUOnly:
             {
-                VkMemoryPropertyFlags memPropFlags;
-                vmaGetAllocationMemoryProperties(Context::Allocator(), m_Buffers[i].Allocation, &memPropFlags);
-                if (!(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
-                    m_Buffers[i].HasComplement = true;
-            }
-            else if (m_MemoryDirection == MemoryDirection::GPUToCPU)
-                // All gpu->cpu buffers will have a complement
-                m_Buffers[i].HasComplement = true;
+                u32 allocId = AllocateBuffer();
+                m_WriteBuffers[0] = allocId;
+                m_FlushBuffers[0] = allocId;
+            } break;
+            case BufferMemoryType::CPURead:
+            {
+                m_WriteBuffers[0] = AllocateBuffer();
+                m_FlushBuffers[0] = AllocateStaging();
+            } break;
+            case BufferMemoryType::CPUWrite:
+            case BufferMemoryType::CPUWriteFrame:
+            {
+                if (m_Info.MemoryType == BufferMemoryType::CPUWriteFrame)
+                    m_BufferCount = Flourish::Context::FrameBufferCount();
 
-            if (m_Buffers[i].HasComplement)
-            {
-                AllocateStagingBuffer(
-                    m_StagingBuffers[i].Buffer,
-                    m_StagingBuffers[i].Allocation,
-                    m_StagingBuffers[i].AllocationInfo,
-                    bufCreateInfo.size
-                );
-            }
+                u32 gpuOnlyAllocId = std::numeric_limits<u32>::max();
+                for (u32 i = 0; i < m_BufferCount; i++)
+                {
+                    // Attempt to allocate a host coherent buffer. If it fails, we only
+                    // need at most one GPU only buffer, so use that if it was already
+                    // allocated
+
+                    u32 allocId;
+                    if (gpuOnlyAllocId != std::numeric_limits<u32>::max())
+                        allocId = gpuOnlyAllocId;
+                    else
+                        allocId = AllocateBuffer();
+
+                    BufferData& data = m_BufferAllocations[allocId];
+
+                    VkMemoryPropertyFlags memPropFlags;
+                    vmaGetAllocationMemoryProperties(Context::Allocator(), data.Allocation, &memPropFlags);
+                    if (!(memPropFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
+                    {
+                        m_WriteBuffers[i] = AllocateStaging();
+                        gpuOnlyAllocId = allocId;
+                    }
+                    else
+                        m_WriteBuffers[i] = allocId;
+                    m_FlushBuffers[i] = allocId;
+                }
+            } break;
         }
         
-        // Initial data transfers only apply when buffer is cpu->gpu
-        bool gpuCopy = false;
         BufferData initialDataStagingBuf;
-        if (m_MemoryDirection == MemoryDirection::CPUToGPU && m_Info.InitialData && m_Info.InitialDataSize > 0)
+        if (m_Info.InitialData && m_Info.InitialDataSize > 0)
         {
             for (u32 i = 0; i < m_BufferCount; i++)
             {
-                // Static buffers always need to have initial data transferred into them and any cpu->gpu
-                // dynamic buffers will also need to have data transferred
-                if (m_Info.Usage == BufferUsageType::Static || m_Buffers[i].HasComplement)
+                BufferData srcData;
+                VkBuffer dstBuffer = m_BufferAllocations[m_FlushBuffers[i]].Buffer;
+
+                switch (m_Info.MemoryType)
                 {
-                    VkBuffer srcBuffer;
-                    if (m_Buffers[i].HasComplement)
+                    case BufferMemoryType::CPUWrite:
+                    case BufferMemoryType::CPUWriteFrame:
                     {
-                        srcBuffer = m_StagingBuffers[i].Buffer;
-                        memcpy(m_StagingBuffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
-                    }
-                    else
+                        // CPU writes already have a staging buffer allocated
+                        srcData = m_BufferAllocations[m_WriteBuffers[i]];
+                    } break;
+                    case BufferMemoryType::CPURead:
+                    {
+                        // CPU read can be written to directly
+                        srcData = m_BufferAllocations[m_FlushBuffers[i]];
+                    } break;
+                    case BufferMemoryType::GPUOnly:
                     {
                         if (!initialDataStagingBuf.Buffer)
                         {
@@ -492,26 +490,25 @@ namespace Flourish::Vulkan
                                 initialDataStagingBuf.AllocationInfo,
                                 bufCreateInfo.size
                             );
-
-                            memcpy(initialDataStagingBuf.AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
                         }
-                        srcBuffer = initialDataStagingBuf.Buffer;
-                    }
-                    
-                    CopyBufferToBuffer(
-                        srcBuffer,
-                        m_Buffers[i].Buffer,
-                        0, 0,
-                        m_Info.InitialDataSize,
-                        uploadBuffer,
-                        true,
-                        nullptr
-                    );
-                    gpuCopy = true;
+                        srcData = initialDataStagingBuf;
+                    } break;
                 }
-                else
-                    // Otherwise this is a dynamic host buffer that we can directly write to
-                    memcpy(m_Buffers[i].AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+
+                // TODO: don't need to recopy if buffer was already written to
+                memcpy(srcData.AllocationInfo.pMappedData, m_Info.InitialData, m_Info.InitialDataSize);
+
+                if (srcData.Buffer == dstBuffer) continue;
+
+                CopyBufferToBuffer(
+                    srcData.Buffer,
+                    dstBuffer,
+                    0, 0,
+                    m_Info.InitialDataSize,
+                    uploadBuffer,
+                    true,
+                    nullptr
+                );
             }
         }
         
