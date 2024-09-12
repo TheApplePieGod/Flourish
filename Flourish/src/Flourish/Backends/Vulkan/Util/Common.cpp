@@ -34,6 +34,18 @@ namespace Flourish::Vulkan
         return (void**)&(*next)->pNext;
     }
 
+    VkBufferUsageFlags Common::ConvertBufferUsage(BufferUsage usage)
+    {
+        VkBufferUsageFlags result = 0;
+        result |= ((usage & BufferUsageFlags::Uniform) > 0) * VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Storage) > 0) * VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Vertex) > 0) * VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Index) > 0) * VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Indirect) > 0) * VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::AccelerationStructureBuild) > 0) * VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        return result;
+    }
+
     VkFormat Common::ConvertColorFormat(ColorFormat format)
     {
         switch (format)

@@ -88,8 +88,9 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DispatchIndirect after encoding has ended");
         FL_CRASH_ASSERT(m_BoundComputePipeline, "Must bind compute pipeline before dispatching");
+        FL_CRASH_ASSERT(_buffer->GetUsage() & BufferUsageFlags::Indirect, "DispatchIndirect buffer must be created with 'Indirect' usage");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetGPUBuffer();
 
         vkCmdDispatchIndirect(
             m_CommandBuffer,

@@ -156,19 +156,17 @@ namespace Flourish::Vulkan
 
         FL_CRASH_ASSERT(elementCount + bufferOffset <= buffer->GetAllocatedCount(), "ElementCount + BufferOffset must be <= buffer allocated count");
         FL_CRASH_ASSERT(
-            buffer->GetType() == BufferType::Uniform ||
-            buffer->GetType() == BufferType::Storage ||
-            buffer->GetType() == BufferType::Indirect,
-            "Buffer bind must be either a uniform, storage, or indirect buffer"
+            buffer->GetUsage() & (BufferUsageFlags::Uniform | BufferUsageFlags::Storage),
+            "Buffer bind must have either 'uniform' or 'storage' usage"
         );
 
-        ShaderResourceType bufferType = buffer->GetType() == BufferType::Uniform ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
+        ShaderResourceType bufferType = (buffer->GetUsage() & BufferUsageFlags::Uniform) ? ShaderResourceType::UniformBuffer : ShaderResourceType::StorageBuffer;
         if (!ValidateBinding(bindingIndex, bufferType, buffer, 0))
             return;
 
-        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_DynamicData)) && buffer->GetUsage() == BufferUsageType::Dynamic)
+        if (!(static_cast<u8>(m_Info.Writability) & static_cast<u8>(ResourceSetWritability::_DynamicData)) && buffer->GetMemoryType() == BufferMemoryType::CPUWriteFrame)
         {
-            FL_LOG_ERROR("Cannot bind a dynamic buffer to a resource set with static writability");
+            FL_LOG_ERROR("Cannot bind a frame-writable buffer to a resource set with static writability");
             throw std::exception();
         }
 
@@ -402,7 +400,7 @@ namespace Flourish::Vulkan
                 {
                     const Buffer* buffer = static_cast<const Buffer*>(resource);
 
-                    bufferInfos[bufferInfoBaseIndex + arrayIndex].buffer = buffer->GetBuffer(frameIndex);
+                    bufferInfos[bufferInfoBaseIndex + arrayIndex].buffer = buffer->GetGPUBuffer(frameIndex);
                     bufferInfos[bufferInfoBaseIndex + arrayIndex].offset = offset;
                     bufferInfos[bufferInfoBaseIndex + arrayIndex].range = size;
                 } break;

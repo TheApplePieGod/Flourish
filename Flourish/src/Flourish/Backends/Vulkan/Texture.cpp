@@ -484,21 +484,19 @@ namespace Flourish::Vulkan
             // Create a temporary buffer which will deallocate out of scope
             // TODO: this is not great, we really should have a temporary allocation for transient buffers
             BufferCreateInfo ibCreateInfo;
-            ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
+            ibCreateInfo.MemoryType = BufferMemoryType::GPUOnly;
             ibCreateInfo.ElementCount = 1;
             ibCreateInfo.Stride = bufferSize;
             Buffer tempBuffer(
                 ibCreateInfo,
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                Buffer::MemoryDirection::CPUToGPU,
-                nullptr,
-                true
+                nullptr
             );
 
             Buffer::CopyImageToBuffer(
                 srcImage,
                 srcAspect,
-                tempBuffer.GetBuffer(),
+                tempBuffer.GetGPUBuffer(),
                 0,
                 width, height,
                 srcMip, srcLayer,
@@ -508,7 +506,7 @@ namespace Flourish::Vulkan
 
             VkBufferMemoryBarrier bufBarrier{};
             bufBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-            bufBarrier.buffer = tempBuffer.GetBuffer();
+            bufBarrier.buffer = tempBuffer.GetGPUBuffer();
             bufBarrier.size = bufferSize;
             bufBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
             bufBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -525,7 +523,7 @@ namespace Flourish::Vulkan
             );
 
             Buffer::CopyBufferToImage(
-                tempBuffer.GetBuffer(),
+                tempBuffer.GetGPUBuffer(),
                 dstImage,
                 dstAspect,
                 0,
