@@ -35,7 +35,6 @@ namespace Flourish
         createInfo.Height = 1;
         createInfo.Format = ColorFormat::R32_FLOAT;
         createInfo.Usage = TextureUsageFlags::Readonly;
-        createInfo.Writability = TextureWritability::None;
 
         return Create(createInfo);
     }
