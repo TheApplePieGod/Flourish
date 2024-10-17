@@ -138,6 +138,7 @@ namespace Flourish::Vulkan
             const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[finalIteration ? 0 : orderIndex]);
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
             auto& submissions = buffer->GetEncoderSubmissions();
+            bool resetQueryPool = false;
             FL_ASSERT(
                 finalIteration || submissions.size() == node.EncoderNodes.size(),
                 "Command buffer submission count (%d) differs from specified size in render graph (%d)",
@@ -223,6 +224,15 @@ namespace Flourish::Vulkan
                     submission.AllocInfo.WorkloadType == node.EncoderNodes[subIndex].WorkloadType,
                     "Command buffer submission type is different than specified in the graph"
                 );
+
+                // Reset the command buffer's query pool before executing any of its commands. This
+                // will noop if the buffer has no pools allocated. Query pool ops are not supported
+                // on the transfer queue
+                if (!resetQueryPool && submission.AllocInfo.WorkloadType != GPUWorkloadType::Transfer)
+                {
+                    buffer->ResetQueryPool(primaryBuf);
+                    resetQueryPool = true;
+                }
 
                 if (syncInfo.Barrier.ShouldBarrier)
                 {

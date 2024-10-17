@@ -163,4 +163,19 @@ namespace Flourish::Vulkan
 
         m_AnyCommandRecorded = true;
     }
+
+    void GraphicsCommandEncoder::WriteTimestamp(u32 timestampId)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode WriteTimestamp after encoding has ended");
+        FL_CRASH_ASSERT(timestampId < m_ParentBuffer->GetMaxTimestamps(), "WriteTimestamp timestampId larger than command buffer max timestamps");
+
+        vkCmdWriteTimestamp(
+            m_CommandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            m_ParentBuffer->GetQueryPool(),
+            timestampId
+        );
+
+        m_AnyCommandRecorded = true;
+    }
 }

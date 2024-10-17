@@ -88,6 +88,11 @@ namespace Flourish::Vulkan
             const CommandBufferAllocInfo& allocInfo,
             VkCommandBuffer buffer
         );
+        void SubmitSingleTimeCommands(
+            GPUWorkloadType workloadType,
+            bool async,
+            std::function<void(VkCommandBuffer)>&& recordFn
+        );
 
     private:
         void PopulateCommandPools(CommandPools* pools, bool allowReset);

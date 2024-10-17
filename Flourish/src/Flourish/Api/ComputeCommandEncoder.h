@@ -34,5 +34,7 @@ namespace Flourish
         virtual void BindResourceSet(const ResourceSet* set, u32 setIndex) = 0;
         virtual void FlushResourceSet(u32 setIndex) = 0;
         virtual void PushConstants(u32 offset, u32 size, const void* data) = 0;
+
+        virtual void WriteTimestamp(u32 timestampId) = 0;
     };
 }

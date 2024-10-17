@@ -38,6 +38,8 @@ namespace Flourish::Vulkan
         void UpdateDynamicOffset(u32 setIndex, u32 bindingIndex, u32 offset) override;
         void FlushResourceSet(u32 setIndex) override;
         void PushConstants(u32 offset, u32 size, const void* data) override;
+
+        void WriteTimestamp(u32 timestampId) override;
         
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CurrentCommandBuffer; }

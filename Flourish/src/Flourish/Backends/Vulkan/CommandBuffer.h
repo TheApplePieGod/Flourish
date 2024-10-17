@@ -21,8 +21,14 @@ namespace Flourish::Vulkan
         [[nodiscard]] Flourish::ComputeCommandEncoder* EncodeComputeCommands() override;
         [[nodiscard]] Flourish::TransferCommandEncoder* EncodeTransferCommands() override;
 
+        d64 GetTimestampValue(u32 timestampId) override;
+
         inline void SetLastSubmitFrame(u64 frame) { m_LastSubmitFrame = frame; }
         inline void ClearSubmissions() { m_EncoderSubmissions.clear(); }
+
+        // TS
+        VkQueryPool GetQueryPool() const;
+        void ResetQueryPool(VkCommandBuffer buffer);
 
         // TS
         inline const auto& GetEncoderSubmissions() { CheckFrameUpdate(); return m_EncoderSubmissions; }
@@ -39,5 +45,8 @@ namespace Flourish::Vulkan
         ComputeCommandEncoder m_ComputeCommandEncoder;
         TransferCommandEncoder m_TransferCommandEncoder;
         std::vector<CommandBufferEncoderSubmission> m_EncoderSubmissions;
+
+        u32 m_QueryPoolCount = 0;
+        std::array<VkQueryPool, Flourish::Context::MaxFrameBufferCount> m_QueryPools{};
     };
 }
