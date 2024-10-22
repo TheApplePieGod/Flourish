@@ -46,10 +46,13 @@ namespace Flourish::Vulkan
     RenderGraph::~RenderGraph()
     {
         auto semaphores = m_AllSemaphores;
+        auto fences = m_AllFences;
         Context::FinalizerQueue().Push([=]()
         {
             for (VkSemaphore sem : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), sem, nullptr);
+            for (VkFence fence : fences)
+                vkDestroyFence(Context::Devices().Device(), fence, nullptr);
         }, "RenderGraph free");
     }
 
