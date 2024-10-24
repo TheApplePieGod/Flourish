@@ -22,12 +22,10 @@ namespace Flourish
         None = 0,
 
         // Uncompressed formats
-        RGBA8_UNORM, RGBA8_SRGB,
-        BGRA8_UNORM, 
-        RGB8_UNORM,
-        BGR8_UNORM,
-        R16_FLOAT, RGBA16_FLOAT,
-        R32_FLOAT, RGBA32_FLOAT,
+        R8_UNORM, RG8_UNORM, RGBA8_UNORM, RGBA8_SRGB,
+        BGRA8_UNORM, BGRA8_SRGB,
+        R16_FLOAT, RG16_FLOAT, RGBA16_FLOAT,
+        R32_FLOAT, RG32_FLOAT, RGBA32_FLOAT,
         Depth,
 
         // Compressed formats
@@ -121,6 +119,7 @@ namespace Flourish
         static u32 ComputeTextureSize(ColorFormat format, u32 width, u32 height);
         static u32 ColorFormatComponentCount(ColorFormat format);
         static BufferDataType ColorFormatBufferDataType(ColorFormat format);
+        static bool IsColorFormatCompressed(ColorFormat format);
 
     protected:
         TextureCreateInfo m_Info;

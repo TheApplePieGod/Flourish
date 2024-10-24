@@ -22,6 +22,7 @@ namespace Flourish::Vulkan
 
     void AccelerationStructure::RebuildNode(const AccelerationStructureNodeBuildInfo& buildInfo)
     {
+        // TODO: refactor with Commands.SubmitSingleTimeCommands
         VkCommandBuffer cmdBuf;
         auto cmdAlloc = BeginCommands(&cmdBuf);
 
@@ -32,6 +33,7 @@ namespace Flourish::Vulkan
 
     void AccelerationStructure::RebuildScene(const AccelerationStructureSceneBuildInfo& buildInfo)
     {
+        // TODO: refactor with Commands.SubmitSingleTimeCommands
         VkCommandBuffer cmdBuf;
         auto cmdAlloc = BeginCommands(&cmdBuf);
 

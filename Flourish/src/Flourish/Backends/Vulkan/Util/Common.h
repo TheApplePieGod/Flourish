@@ -21,7 +21,6 @@ namespace Flourish::Vulkan
         static VkBufferUsageFlags ConvertBufferUsage(BufferUsage usage);
         static VkFormat ConvertColorFormat(ColorFormat format);
         static ColorFormat RevertColorFormat(VkFormat format);
-        static bool IsColorFormatCompressed(ColorFormat format);
         static VkAttachmentLoadOp ConvertAttachmentInitialization(AttachmentInitialization init);
         static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
         static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);

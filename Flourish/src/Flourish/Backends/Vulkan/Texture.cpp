@@ -203,7 +203,7 @@ namespace Flourish::Vulkan
                 cmdBuffer
             );
             
-            if (!Common::IsColorFormatCompressed(m_Info.Format))
+            if (!IsColorFormatCompressed(m_Info.Format))
             {
                 GenerateMipmaps(
                     m_Image.Image,

@@ -52,14 +52,17 @@ namespace Flourish::Vulkan
         {
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ColorFormat"); } break;
+            case ColorFormat::R8_UNORM: return VK_FORMAT_R8_UNORM;
+            case ColorFormat::RG8_UNORM: return VK_FORMAT_R8G8_UNORM;
             case ColorFormat::RGBA8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
             case ColorFormat::RGBA8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
             case ColorFormat::BGRA8_UNORM: return VK_FORMAT_B8G8R8A8_UNORM;
-            case ColorFormat::RGB8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
-            case ColorFormat::BGR8_UNORM: return VK_FORMAT_B8G8R8_UNORM;
+            case ColorFormat::BGRA8_SRGB: return VK_FORMAT_B8G8R8A8_SRGB;
             case ColorFormat::R16_FLOAT: return VK_FORMAT_R16_SFLOAT;
+            case ColorFormat::RG16_FLOAT: return VK_FORMAT_R16G16_SFLOAT;
             case ColorFormat::RGBA16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
             case ColorFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
+            case ColorFormat::RG32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
             case ColorFormat::RGBA32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
             case ColorFormat::Depth: return VK_FORMAT_D32_SFLOAT;
 
@@ -84,14 +87,17 @@ namespace Flourish::Vulkan
         {
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ColorFormat"); } break;
+            case VK_FORMAT_R8_UNORM: return ColorFormat::R8_UNORM;
+            case VK_FORMAT_R8G8_UNORM: return ColorFormat::RG8_UNORM;
             case VK_FORMAT_R8G8B8A8_UNORM: return ColorFormat::RGBA8_UNORM;
             case VK_FORMAT_R8G8B8A8_SRGB: return ColorFormat::RGBA8_SRGB;
             case VK_FORMAT_B8G8R8A8_UNORM: return ColorFormat::BGRA8_UNORM;
-            case VK_FORMAT_R8G8B8_UNORM: return ColorFormat::RGB8_UNORM;
-            case VK_FORMAT_B8G8R8_UNORM: return ColorFormat::BGR8_UNORM;
+            case VK_FORMAT_B8G8R8A8_SRGB: return ColorFormat::BGRA8_SRGB;
             case VK_FORMAT_R16_SFLOAT: return ColorFormat::R16_FLOAT;
+            case VK_FORMAT_R16G16_SFLOAT: return ColorFormat::RG16_FLOAT;
             case VK_FORMAT_R16G16B16A16_SFLOAT: return ColorFormat::RGBA16_FLOAT;
             case VK_FORMAT_R32_SFLOAT: return ColorFormat::R32_FLOAT;
+            case VK_FORMAT_R32G32_SFLOAT: return ColorFormat::RG32_FLOAT;
             case VK_FORMAT_R32G32B32A32_SFLOAT: return ColorFormat::RGBA32_FLOAT;
             case VK_FORMAT_D32_SFLOAT: return ColorFormat::Depth;
 
@@ -108,25 +114,6 @@ namespace Flourish::Vulkan
         }
 
         return ColorFormat::None;
-    }
-
-    bool Common::IsColorFormatCompressed(ColorFormat format)
-    {
-        switch (format)
-        {
-            default: return false;
-            case ColorFormat::BC1:
-            case ColorFormat::BC2:
-            case ColorFormat::BC3:
-            case ColorFormat::BC4:
-            case ColorFormat::BC4_SIGNED:
-            case ColorFormat::BC5:
-            case ColorFormat::BC5_SIGNED:
-            case ColorFormat::BC6H:
-            case ColorFormat::BC6H_SIGNED:
-            case ColorFormat::BC7:
-                return true;
-        }
     }
 
     VkAttachmentLoadOp Common::ConvertAttachmentInitialization(AttachmentInitialization init)

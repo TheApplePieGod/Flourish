@@ -64,24 +64,11 @@ namespace Flourish
 
     u32 Texture::ComputeTextureSize(ColorFormat format, u32 width, u32 height)
     {
-        switch (format)
+        if (!IsColorFormatCompressed(format))
         {
-            default: break;
-            case ColorFormat::RGBA8_UNORM:
-            case ColorFormat::RGBA8_SRGB:
-            case ColorFormat::BGRA8_UNORM:
-            case ColorFormat::RGB8_UNORM:
-            case ColorFormat::BGR8_UNORM:
-            case ColorFormat::R16_FLOAT:
-            case ColorFormat::RGBA16_FLOAT:
-            case ColorFormat::R32_FLOAT:
-            case ColorFormat::RGBA32_FLOAT:
-            case ColorFormat::Depth:
-            {
-                u32 components = ColorFormatComponentCount(format);
-                u32 size = BufferDataTypeSize(ColorFormatBufferDataType(format));
-                return components * size * width * height;
-            }
+            u32 components = ColorFormatComponentCount(format);
+            u32 size = BufferDataTypeSize(ColorFormatBufferDataType(format));
+            return components * size * width * height;
         }
 
         // Compressed formats
@@ -128,15 +115,19 @@ namespace Flourish
     {
         switch (format)
         {
-            default: break;
+            case ColorFormat::None: return 0;
+
+            case ColorFormat::R8_UNORM: return 1;
+            case ColorFormat::RG8_UNORM: return 2;
             case ColorFormat::RGBA8_UNORM: return 4;
             case ColorFormat::RGBA8_SRGB: return 4;
             case ColorFormat::BGRA8_UNORM: return 4;
-            case ColorFormat::RGB8_UNORM: return 3;
-            case ColorFormat::BGR8_UNORM: return 3;
+            case ColorFormat::BGRA8_SRGB: return 4;
             case ColorFormat::R16_FLOAT: return 1;
+            case ColorFormat::RG16_FLOAT: return 2;
             case ColorFormat::RGBA16_FLOAT: return 4;
             case ColorFormat::R32_FLOAT: return 1;
+            case ColorFormat::RG32_FLOAT: return 2;
             case ColorFormat::RGBA32_FLOAT: return 4;
             case ColorFormat::Depth: return 4;
 
@@ -151,24 +142,25 @@ namespace Flourish
             case ColorFormat::BC6H_SIGNED: return 3;
             case ColorFormat::BC7: return 4;
         }
-
-        FL_ASSERT(false, "ColorFormatComponentCount unsupported ColorFormat");
-        return 0;
     }
     
     BufferDataType Texture::ColorFormatBufferDataType(ColorFormat format)
     {
         switch (format)
         {
-            default: break;
+            case ColorFormat::None: return BufferDataType::None;
+
+            case ColorFormat::R8_UNORM: return BufferDataType::UInt8;
+            case ColorFormat::RG8_UNORM: return BufferDataType::UInt8;
             case ColorFormat::RGBA8_UNORM: return BufferDataType::UInt8;
             case ColorFormat::RGBA8_SRGB: return BufferDataType::UInt8;
             case ColorFormat::BGRA8_UNORM: return BufferDataType::UInt8;
-            case ColorFormat::RGB8_UNORM: return BufferDataType::UInt8;
-            case ColorFormat::BGR8_UNORM: return BufferDataType::UInt8;
+            case ColorFormat::BGRA8_SRGB: return BufferDataType::UInt8;
             case ColorFormat::R16_FLOAT: return BufferDataType::HalfFloat;
+            case ColorFormat::RG16_FLOAT: return BufferDataType::HalfFloat;
             case ColorFormat::RGBA16_FLOAT: return BufferDataType::HalfFloat;
             case ColorFormat::R32_FLOAT: return BufferDataType::Float;
+            case ColorFormat::RG32_FLOAT: return BufferDataType::Float;
             case ColorFormat::RGBA32_FLOAT: return BufferDataType::Float;
             case ColorFormat::Depth: return BufferDataType::Float;
 
@@ -183,8 +175,24 @@ namespace Flourish
             case ColorFormat::BC6H_SIGNED: return BufferDataType::HalfFloat;
             case ColorFormat::BC7: return BufferDataType::UInt8;
         }
+    }
 
-        FL_ASSERT(false, "ColorFormatBufferDataType unsupported ColorFormat");
-        return BufferDataType::None;
+    bool Texture::IsColorFormatCompressed(ColorFormat format)
+    {
+        switch (format)
+        {
+            default: return false;
+            case ColorFormat::BC1:
+            case ColorFormat::BC2:
+            case ColorFormat::BC3:
+            case ColorFormat::BC4:
+            case ColorFormat::BC4_SIGNED:
+            case ColorFormat::BC5:
+            case ColorFormat::BC5_SIGNED:
+            case ColorFormat::BC6H:
+            case ColorFormat::BC6H_SIGNED:
+            case ColorFormat::BC7:
+                return true;
+        }
     }
 }
