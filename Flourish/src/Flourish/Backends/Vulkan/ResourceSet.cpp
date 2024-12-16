@@ -408,9 +408,9 @@ namespace Flourish::Vulkan
                     imageInfos[imageInfoBaseIndex + arrayIndex].imageLayout = resourceType == ShaderResourceType::Texture ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
                     if (useOffset)
                         // size is the mip level here
-                        imageInfos[imageInfoBaseIndex + arrayIndex].imageView = texture->GetLayerImageView(frameIndex, offset, size); 
+                        imageInfos[imageInfoBaseIndex + arrayIndex].imageView = texture->GetLayerImageView(offset, size); 
                     else
-                        imageInfos[imageInfoBaseIndex + arrayIndex].imageView = texture->GetImageView(frameIndex);
+                        imageInfos[imageInfoBaseIndex + arrayIndex].imageView = texture->GetImageView();
                 } break;
 
                 case ShaderResourceType::SubpassInput:

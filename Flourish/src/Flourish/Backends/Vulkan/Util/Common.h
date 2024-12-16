@@ -33,6 +33,7 @@ namespace Flourish::Vulkan
         static VkShaderStageFlags ConvertShaderAccessType(ShaderType type);
         static VkBlendFactor ConvertBlendFactor(BlendFactor factor);
         static VkBlendOp ConvertBlendOperation(BlendOperation op);
+        static VkComponentSwizzle ConvertChannelRemap(TextureChannelRemap remap);
         static VkFilter ConvertSamplerFilter(SamplerFilter filter);
         static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
         static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);

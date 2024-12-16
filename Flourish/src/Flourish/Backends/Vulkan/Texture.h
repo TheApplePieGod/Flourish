@@ -13,6 +13,10 @@ namespace Flourish::Vulkan
         u32 BaseMip = 0;
         u32 LayerCount = 1;
         u32 BaseArrayLayer = 0;
+        VkComponentSwizzle SwizzleR = VK_COMPONENT_SWIZZLE_IDENTITY;
+        VkComponentSwizzle SwizzleG = VK_COMPONENT_SWIZZLE_IDENTITY;
+        VkComponentSwizzle SwizzleB = VK_COMPONENT_SWIZZLE_IDENTITY;
+        VkComponentSwizzle SwizzleA = VK_COMPONENT_SWIZZLE_IDENTITY;
         VkImageAspectFlags AspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     };
 
@@ -20,6 +24,7 @@ namespace Flourish::Vulkan
     {
     public:
         Texture(const TextureCreateInfo& createInfo);
+        Texture(const TextureViewCreateInfo& createInfo);
         Texture(const TextureCreateInfo& createInfo, VkImageView imageView);
         ~Texture() override;
         void operator=(Texture&& other);
@@ -32,11 +37,8 @@ namespace Flourish::Vulkan
 
         // TS
         VkImage GetImage() const;
-        VkImage GetImage(u32 frameIndex) const;
         VkImageView GetImageView() const;
-        VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
-        VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
 
         // TS
         inline VkSampler GetSampler() const { return m_Sampler; }

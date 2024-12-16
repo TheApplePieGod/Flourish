@@ -61,6 +61,12 @@ namespace Flourish
         Max
     };
 
+    enum class TextureChannelRemap
+    {
+        Identity = 0,
+        R, G, B, A, ZERO, ONE
+    };
+
     struct TextureSamplerState
     {
         SamplerFilter MinFilter = SamplerFilter::Linear;

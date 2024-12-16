@@ -323,6 +323,24 @@ namespace Flourish::Vulkan
         return VK_BLEND_OP_MAX_ENUM;
     }
 
+    VkComponentSwizzle Common::ConvertChannelRemap(TextureChannelRemap remap)
+    {
+        switch (remap)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified ChannelRemap"); } break;
+            case TextureChannelRemap::Identity: return VK_COMPONENT_SWIZZLE_IDENTITY;
+            case TextureChannelRemap::R: return VK_COMPONENT_SWIZZLE_R;
+            case TextureChannelRemap::G: return VK_COMPONENT_SWIZZLE_G;
+            case TextureChannelRemap::B: return VK_COMPONENT_SWIZZLE_B;
+            case TextureChannelRemap::A: return VK_COMPONENT_SWIZZLE_A;
+            case TextureChannelRemap::ZERO: return VK_COMPONENT_SWIZZLE_ZERO;
+            case TextureChannelRemap::ONE: return VK_COMPONENT_SWIZZLE_ONE;
+        }
+
+        return VK_COMPONENT_SWIZZLE_MAX_ENUM;
+    }
+
     VkFilter Common::ConvertSamplerFilter(SamplerFilter filter)
     {
         switch (filter)

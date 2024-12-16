@@ -367,27 +367,12 @@ namespace Flourish::Vulkan
         return m_Image.Image;
     }
 
-    VkImage Texture::GetImage(u32 frameIndex) const
-    {
-        return m_Image.Image;
-    }
-
     VkImageView Texture::GetImageView() const
     {
         return m_Image.ImageView;
     }
 
-    VkImageView Texture::GetImageView(u32 frameIndex) const
-    {
-        return m_Image.ImageView;
-    }
-
     VkImageView Texture::GetLayerImageView(u32 layerIndex, u32 mipLevel) const
-    {
-        return m_Image.SliceViews[layerIndex * m_MipLevels + mipLevel];
-    }
-
-    VkImageView Texture::GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const
     {
         return m_Image.SliceViews[layerIndex * m_MipLevels + mipLevel];
     }
@@ -752,6 +737,10 @@ namespace Flourish::Vulkan
         viewInfo.image = createInfo.Image;
         viewInfo.viewType = viewType;
         viewInfo.format = createInfo.Format;
+        viewInfo.components.r = createInfo.SwizzleR;
+        viewInfo.components.g = createInfo.SwizzleG;
+        viewInfo.components.b = createInfo.SwizzleB;
+        viewInfo.components.a = createInfo.SwizzleA;
         viewInfo.subresourceRange.aspectMask = createInfo.AspectFlags;
         viewInfo.subresourceRange.baseMipLevel = createInfo.BaseMip;
         viewInfo.subresourceRange.levelCount = createInfo.MipLevels;
@@ -841,7 +830,7 @@ namespace Flourish::Vulkan
             s_ImGuiMutex.unlock();
             #endif
             
-            // Texture objects wrapping preexisting textures will not have an allocation
+            // Texture objects wrapping texture views will not have an allocation
             // so there will be nothing to free
             if (image.Allocation)
             {

@@ -26,12 +26,7 @@ namespace Flourish::Vulkan
             newIndex = newIndex * 2 + 1;
         if (attachment.Type == SubpassAttachmentType::Color)
             newIndex += m_Info.DepthAttachments.size() * (m_UseResolve ? 2 : 1);
-        return m_CachedImageViews[Flourish::Context::FrameIndex()][newIndex];
-    }
-
-    VkFramebuffer Framebuffer::GetFramebuffer() const
-    {
-        return m_Framebuffers[Flourish::Context::FrameIndex()];
+        return m_CachedImageViews[newIndex];
     }
 
     void Framebuffer::Create()
@@ -74,41 +69,34 @@ namespace Flourish::Vulkan
             imageInfo.format = Common::ConvertColorFormat(passFormat);
             viewCreateInfo.Format = imageInfo.format;
 
-            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            // Buffer texture before resolve
+            if (m_UseResolve)
             {
-                // Buffer texture before resolve
-                if (m_UseResolve)
-                {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(renderPass->GetSampleCount());
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT, frame);
-                }
-
-                if (attachment.Texture)
-                {
-                    auto texture = static_cast<Texture*>(attachment.Texture.get());
-                    FL_ASSERT(
-                        texture->GetColorFormat() == passFormat,
-                        "RenderPass and Framebuffer depth attachments must have matching color formats"
-                    );
-                    FL_ASSERT(
-                        texture->GetUsageType() & TextureUsageFlags::Graphics,
-                        "Cannot use texture in framebuffer that does not have the graphics usage flag"
-                    );
-                    FL_ASSERT(texture->IsDepthImage(), "Framebuffer depth attachment texture must be a depth texture");
-                    m_CachedImageViews[frame].push_back(
-                        texture->GetLayerImageView(
-                            frame,
-                            attachment.LayerIndex,
-                            attachment.MipLevel
-                        )
-                    );
-                }
-                else
-                {
-                    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT, frame);
-                } 
+                imageInfo.samples = Common::ConvertMsaaSampleCount(renderPass->GetSampleCount());
+                PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT);
             }
+
+            if (attachment.Texture)
+            {
+                auto texture = static_cast<Texture*>(attachment.Texture.get());
+                FL_ASSERT(
+                    texture->GetColorFormat() == passFormat,
+                    "RenderPass and Framebuffer depth attachments must have matching color formats"
+                );
+                FL_ASSERT(
+                    texture->GetUsageType() & TextureUsageFlags::Graphics,
+                    "Cannot use texture in framebuffer that does not have the graphics usage flag"
+                );
+                FL_ASSERT(texture->IsDepthImage(), "Framebuffer depth attachment texture must be a depth texture");
+                m_CachedImageViews.push_back(
+                    texture->GetLayerImageView(attachment.LayerIndex, attachment.MipLevel)
+                );
+            }
+            else
+            {
+                imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+                PushImage(imageInfo, VK_IMAGE_ASPECT_DEPTH_BIT);
+            } 
         }
 
         imageInfo.usage &= ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -134,45 +122,38 @@ namespace Flourish::Vulkan
             imageInfo.format = Common::ConvertColorFormat(passFormat);
             viewCreateInfo.Format = imageInfo.format;
 
-            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+            // Buffer texture before resolve
+            if (m_UseResolve)
             {
-                // Buffer texture before resolve
-                if (m_UseResolve)
-                {
-                    imageInfo.samples = Common::ConvertMsaaSampleCount(renderPass->GetSampleCount());
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
-                }
-
-                if (attachment.Texture)
-                {
-                    auto texture = static_cast<Texture*>(attachment.Texture.get());
-                    FL_ASSERT(
-                        texture->GetColorFormat() == passFormat,
-                        "RenderPass and Framebuffer color attachments must have matching color formats"
-                    );
-                    FL_ASSERT(
-                        texture->GetUsageType() & TextureUsageFlags::Graphics,
-                        "Cannot use texture in framebuffer that does not have the graphics usage flag"
-                    );
-                    FL_ASSERT(
-                        !(texture->GetUsageType() & TextureUsageFlags::Compute) || renderPass->GetColorAttachment(i).SupportComputeImages,
-                        "Cannot use texture in framebuffer that has the compute usage flag unless the RenderPass attachment has SupportComputeImages set"
-                    );
-                    FL_ASSERT(!texture->IsDepthImage(), "Framebuffer color attachment texture must not be a depth texture");
-                    m_CachedImageViews[frame].push_back(
-                        texture->GetLayerImageView(
-                            frame,
-                            attachment.LayerIndex,
-                            attachment.MipLevel
-                        )
-                    );
-                }
-                else
-                {
-                    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-                    PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT, frame);
-                } 
+                imageInfo.samples = Common::ConvertMsaaSampleCount(renderPass->GetSampleCount());
+                PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT);
             }
+
+            if (attachment.Texture)
+            {
+                auto texture = static_cast<Texture*>(attachment.Texture.get());
+                FL_ASSERT(
+                    texture->GetColorFormat() == passFormat,
+                    "RenderPass and Framebuffer color attachments must have matching color formats"
+                );
+                FL_ASSERT(
+                    texture->GetUsageType() & TextureUsageFlags::Graphics,
+                    "Cannot use texture in framebuffer that does not have the graphics usage flag"
+                );
+                FL_ASSERT(
+                    !(texture->GetUsageType() & TextureUsageFlags::Compute) || renderPass->GetColorAttachment(i).SupportComputeImages,
+                    "Cannot use texture in framebuffer that has the compute usage flag unless the RenderPass attachment has SupportComputeImages set"
+                );
+                FL_ASSERT(!texture->IsDepthImage(), "Framebuffer color attachment texture must not be a depth texture");
+                m_CachedImageViews.push_back(
+                    texture->GetLayerImageView(attachment.LayerIndex, attachment.MipLevel)
+                );
+            }
+            else
+            {
+                imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+                PushImage(imageInfo, VK_IMAGE_ASPECT_COLOR_BIT);
+            } 
         }
 
         for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
@@ -180,8 +161,8 @@ namespace Flourish::Vulkan
             VkFramebufferCreateInfo framebufferInfo{};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
             framebufferInfo.renderPass = renderPass->GetRenderPass();
-            framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews[frame].size());
-            framebufferInfo.pAttachments = m_CachedImageViews[frame].data();
+            framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews.size());
+            framebufferInfo.pAttachments = m_CachedImageViews.data();
             framebufferInfo.width = m_Info.Width;
             framebufferInfo.height = m_Info.Height;
             framebufferInfo.layers = 1;
@@ -190,7 +171,7 @@ namespace Flourish::Vulkan
                 Context::Devices().Device(),
                 &framebufferInfo,
                 nullptr,
-                &m_Framebuffers[frame]
+                &m_Framebuffer
             ), "Framebuffer create framebuffer"))
                 throw std::exception();
         }
@@ -198,27 +179,25 @@ namespace Flourish::Vulkan
 
     void Framebuffer::Cleanup()
     {
-        auto framebuffers = m_Framebuffers;
+        auto framebuffer = m_Framebuffer;
         auto images = m_Images;
         Context::FinalizerQueue().Push([=]()
         {
             auto device = Context::Devices().Device();
-            for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
+
+            if (framebuffer)
+                vkDestroyFramebuffer(device, framebuffer, nullptr);
+            
+            for (auto& imageData : images)
             {
-                if (framebuffers[frame])
-                    vkDestroyFramebuffer(device, framebuffers[frame], nullptr);
-                
-                for (auto& imageData : images[frame])
-                {
-                    if (!imageData.Image) continue;
-                    vkDestroyImageView(device, imageData.ImageView, nullptr);
-                    vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
-                }
+                if (!imageData.Image) continue;
+                vkDestroyImageView(device, imageData.ImageView, nullptr);
+                vmaDestroyImage(Context::Allocator(), imageData.Image, imageData.Allocation);
             }
         }, "Framebuffer free");
     }
     
-    void Framebuffer::PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags, u32 frame)
+    void Framebuffer::PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags)
     {
         ImageData imageData;
         VmaAllocationCreateInfo allocCreateInfo{};
@@ -242,7 +221,7 @@ namespace Flourish::Vulkan
         viewCreateInfo.Image = imageData.Image;
         imageData.ImageView = Texture::CreateImageView(viewCreateInfo);
 
-        m_Images[frame].emplace_back(imageData);
-        m_CachedImageViews[frame].push_back(imageData.ImageView);
+        m_Images.emplace_back(imageData);
+        m_CachedImageViews.push_back(imageData.ImageView);
     }
 }
