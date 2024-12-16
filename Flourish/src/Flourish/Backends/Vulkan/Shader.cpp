@@ -89,7 +89,10 @@ namespace Flourish::Vulkan
         // Set target compilation environment depending on which spirv version we support
         options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
         if (Context::Devices().SupportsSpirv14())
+        {
+            options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
             options.SetTargetSpirv(shaderc_spirv_version_1_4);
+        }
 
         std::string baseSource(source);
         if (!path.empty())

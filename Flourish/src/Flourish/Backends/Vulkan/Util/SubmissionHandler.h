@@ -26,7 +26,7 @@ namespace Flourish::Vulkan
         void ProcessGraph(
             RenderGraph* graph,
             bool frameScope,
-            std::function<void(bool, VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback
+            std::function<void(VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback
         );
         void ProcessSubmission(
             Flourish::RenderGraph* const* graphs,

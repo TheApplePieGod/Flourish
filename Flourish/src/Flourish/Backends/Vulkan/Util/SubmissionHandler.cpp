@@ -118,7 +118,7 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessGraph(
         RenderGraph* graph,
         bool frameScope,
-        std::function<void(bool, VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback)
+        std::function<void(VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback)
     {
         auto& executeData = graph->GetExecutionData();
         u32 frameIndex = graph->GetExecutionFrameIndex();
@@ -127,7 +127,6 @@ namespace Flourish::Vulkan
         cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        bool isFirstSubmit = true;
         u32 totalIndex = 0;
         int nextSubmit = -1;
         VkCommandBuffer primaryBuf;
@@ -171,8 +170,7 @@ namespace Flourish::Vulkan
                         // Run the pre-submit callback. This exists due to differing behavior between synchronization modes. Essentially
                         // all of the graph execution logic is identical, but how each mode handles wait and signal semaphores differ,
                         // so we allow that flexibility here
-                        preSubmitCallback(isFirstSubmit, submitInfo, timelineSubmitInfo);
-                        isFirstSubmit = false;
+                        preSubmitCallback(submitInfo, timelineSubmitInfo);
 
                         if (Context::Devices().SupportsTimelines())
                             submitInfo.pNext = &timelineSubmitInfo;
@@ -362,20 +360,19 @@ namespace Flourish::Vulkan
         ProcessGraph(
             graph,
             frameScope,
-            [finalSemaphores, waitFlags](bool isFirstSubmit, VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
-                if (isFirstSubmit)
-                {
-                    // If this is the first submission of this graph, we want to wait on last frame or graph to finish. We do this
-                    // by storing any relevant semaphores inside finalSemaphores, so that we can wait on them here. Inner-graph sync
-                    // is already handled by RenderGraph.
+            [finalSemaphores, waitFlags](VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
+                if (submitInfo.waitSemaphoreCount > 0) return;
 
-                    if (waitFlags->size() < finalSemaphores->size())
-                        waitFlags->resize(finalSemaphores->size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                // If this is the first submission of this graph, we want to wait on last frame or graph to finish. We do this
+                // by storing any relevant semaphores inside finalSemaphores, so that we can wait on them here. Inner-graph sync
+                // is already handled by RenderGraph.
 
-                    submitInfo.waitSemaphoreCount = finalSemaphores->size();
-                    submitInfo.pWaitSemaphores = finalSemaphores->data();
-                    submitInfo.pWaitDstStageMask = waitFlags->data();
-                }
+                if (waitFlags->size() < finalSemaphores->size())
+                    waitFlags->resize(finalSemaphores->size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                submitInfo.waitSemaphoreCount = finalSemaphores->size();
+                submitInfo.pWaitSemaphores = finalSemaphores->data();
+                submitInfo.pWaitDstStageMask = waitFlags->data();
             }
         );
 
@@ -406,25 +403,25 @@ namespace Flourish::Vulkan
             graph,
             frameScope,
             [frameScope, waitFlags, frameSems, frameVals]
-            (bool isFirstSubmit, VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
-                if (isFirstSubmit && frameScope)
-                {
-                    // If this is the first submission of this graph, we want to wait on last frame to finish
+            (VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
+                if (!frameScope || submitInfo.waitSemaphoreCount > 0) return;
 
-                    u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
-                    auto& lastSems = frameSems->at(lastFrameIndex);
-                    auto& lastVals = frameVals->at(lastFrameIndex);
-                    
-                    timelineSubmitInfo.waitSemaphoreValueCount = lastVals.size();
-                    timelineSubmitInfo.pWaitSemaphoreValues = lastVals.data();
+                // If this submission is a root node of the graph (no waiting submissions),
+                // we want to wait on the last frame to finish
 
-                    if (waitFlags->size() < lastSems.size())
-                        waitFlags->resize(lastSems.size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
+                auto& lastSems = frameSems->at(lastFrameIndex);
+                auto& lastVals = frameVals->at(lastFrameIndex);
+                
+                timelineSubmitInfo.waitSemaphoreValueCount = lastVals.size();
+                timelineSubmitInfo.pWaitSemaphoreValues = lastVals.data();
 
-                    submitInfo.waitSemaphoreCount = lastSems.size();
-                    submitInfo.pWaitSemaphores = lastSems.data();
-                    submitInfo.pWaitDstStageMask = waitFlags->data();
-                }
+                if (waitFlags->size() < lastSems.size())
+                    waitFlags->resize(lastSems.size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                submitInfo.waitSemaphoreCount = lastSems.size();
+                submitInfo.pWaitSemaphores = lastSems.data();
+                submitInfo.pWaitDstStageMask = waitFlags->data();
             }
         );
     }
