@@ -80,6 +80,7 @@ namespace Flourish
         inline bool IsBuilt() const { return m_Built; }
         inline const RenderGraphNode& GetNode(u64 id) const { return m_Nodes.at(id); }
         inline const auto& GetNodes() const { return m_Nodes; }
+        inline const auto& GetLeaves() const { return m_Leaves; }
         inline RenderGraphUsageType GetUsage() const { return m_Info.Usage; }
 
     public:
