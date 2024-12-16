@@ -23,6 +23,8 @@ namespace Flourish
 
         // Uncompressed formats
         R8_UNORM, RG8_UNORM, RGBA8_UNORM, RGBA8_SRGB,
+        R8_SINT, RG8_SINT, RGBA8_SINT,
+        R8_UINT, RG8_UINT, RGBA8_UINT,
         BGRA8_UNORM, BGRA8_SRGB,
         R16_FLOAT, RG16_FLOAT, RGBA16_FLOAT,
         R32_FLOAT, RG32_FLOAT, RGBA32_FLOAT,

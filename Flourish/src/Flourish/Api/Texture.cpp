@@ -33,7 +33,7 @@ namespace Flourish
         TextureCreateInfo createInfo;
         createInfo.Width = 1;
         createInfo.Height = 1;
-        createInfo.Format = ColorFormat::R32_FLOAT;
+        createInfo.Format = format;
         createInfo.Usage = TextureUsageFlags::Readonly;
 
         return Create(createInfo);
@@ -121,6 +121,12 @@ namespace Flourish
             case ColorFormat::RG8_UNORM: return 2;
             case ColorFormat::RGBA8_UNORM: return 4;
             case ColorFormat::RGBA8_SRGB: return 4;
+            case ColorFormat::R8_SINT: return 1;
+            case ColorFormat::RG8_SINT: return 2;
+            case ColorFormat::RGBA8_SINT: return 4;
+            case ColorFormat::R8_UINT: return 1;
+            case ColorFormat::RG8_UINT: return 2;
+            case ColorFormat::RGBA8_UINT: return 4;
             case ColorFormat::BGRA8_UNORM: return 4;
             case ColorFormat::BGRA8_SRGB: return 4;
             case ColorFormat::R16_FLOAT: return 1;
@@ -154,6 +160,12 @@ namespace Flourish
             case ColorFormat::RG8_UNORM: return BufferDataType::UInt8;
             case ColorFormat::RGBA8_UNORM: return BufferDataType::UInt8;
             case ColorFormat::RGBA8_SRGB: return BufferDataType::UInt8;
+            case ColorFormat::R8_SINT: return BufferDataType::UInt8;
+            case ColorFormat::RG8_SINT: return BufferDataType::UInt8;
+            case ColorFormat::RGBA8_SINT: return BufferDataType::UInt8;
+            case ColorFormat::R8_UINT: return BufferDataType::UInt8;
+            case ColorFormat::RG8_UINT: return BufferDataType::UInt8;
+            case ColorFormat::RGBA8_UINT: return BufferDataType::UInt8;
             case ColorFormat::BGRA8_UNORM: return BufferDataType::UInt8;
             case ColorFormat::BGRA8_SRGB: return BufferDataType::UInt8;
             case ColorFormat::R16_FLOAT: return BufferDataType::HalfFloat;

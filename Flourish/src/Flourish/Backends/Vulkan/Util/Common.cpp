@@ -56,6 +56,12 @@ namespace Flourish::Vulkan
             case ColorFormat::RG8_UNORM: return VK_FORMAT_R8G8_UNORM;
             case ColorFormat::RGBA8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
             case ColorFormat::RGBA8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+            case ColorFormat::R8_SINT: return VK_FORMAT_R8_SINT;
+            case ColorFormat::RG8_SINT: return VK_FORMAT_R8G8_SINT;
+            case ColorFormat::RGBA8_SINT: return VK_FORMAT_R8G8B8A8_SINT;
+            case ColorFormat::R8_UINT: return VK_FORMAT_R8_UINT;
+            case ColorFormat::RG8_UINT: return VK_FORMAT_R8G8_UINT;
+            case ColorFormat::RGBA8_UINT: return VK_FORMAT_R8G8B8A8_UINT;
             case ColorFormat::BGRA8_UNORM: return VK_FORMAT_B8G8R8A8_UNORM;
             case ColorFormat::BGRA8_SRGB: return VK_FORMAT_B8G8R8A8_SRGB;
             case ColorFormat::R16_FLOAT: return VK_FORMAT_R16_SFLOAT;
@@ -91,6 +97,12 @@ namespace Flourish::Vulkan
             case VK_FORMAT_R8G8_UNORM: return ColorFormat::RG8_UNORM;
             case VK_FORMAT_R8G8B8A8_UNORM: return ColorFormat::RGBA8_UNORM;
             case VK_FORMAT_R8G8B8A8_SRGB: return ColorFormat::RGBA8_SRGB;
+            case VK_FORMAT_R8_SINT: return ColorFormat::R8_SINT;
+            case VK_FORMAT_R8G8_SINT: return ColorFormat::RG8_SINT;
+            case VK_FORMAT_R8G8B8A8_SINT: return ColorFormat::RGBA8_SINT;
+            case VK_FORMAT_R8_UINT: return ColorFormat::R8_UINT;
+            case VK_FORMAT_R8G8_UINT: return ColorFormat::RG8_UINT;
+            case VK_FORMAT_R8G8B8A8_UINT: return ColorFormat::RGBA8_UINT;
             case VK_FORMAT_B8G8R8A8_UNORM: return ColorFormat::BGRA8_UNORM;
             case VK_FORMAT_B8G8R8A8_SRGB: return ColorFormat::BGRA8_SRGB;
             case VK_FORMAT_R16_SFLOAT: return ColorFormat::R16_FLOAT;
