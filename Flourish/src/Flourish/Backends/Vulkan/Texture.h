@@ -101,7 +101,7 @@ namespace Flourish::Vulkan
         {
             VkImage Image = VK_NULL_HANDLE;
             VkImageView ImageView = VK_NULL_HANDLE;
-            VmaAllocation Allocation;
+            VmaAllocation Allocation = VK_NULL_HANDLE;
             VmaAllocationInfo AllocationInfo;
             std::vector<VkImageView> SliceViews = {};
             #ifdef FL_USE_IMGUI

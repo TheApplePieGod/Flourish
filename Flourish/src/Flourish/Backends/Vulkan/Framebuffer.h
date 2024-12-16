@@ -24,8 +24,8 @@ namespace Flourish::Vulkan
         struct ImageData
         {
             VkImage Image = VK_NULL_HANDLE;
-            VkImageView ImageView;
-            VmaAllocation Allocation;
+            VkImageView ImageView = VK_NULL_HANDLE;
+            VmaAllocation Allocation = VK_NULL_HANDLE;
             VmaAllocationInfo AllocationInfo;
         };
 

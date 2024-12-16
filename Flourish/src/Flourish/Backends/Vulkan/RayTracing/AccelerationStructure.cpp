@@ -130,7 +130,7 @@ namespace Flourish::Vulkan
         buildInfoVk.pGeometries = &asGeom;
         buildInfoVk.mode = buildInfo.TryUpdate ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 
-        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
+        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf, false);
     }
 
     void AccelerationStructure::RebuildSceneInternal(const AccelerationStructureSceneBuildInfo& buildInfo, VkCommandBuffer cmdBuf)
@@ -256,7 +256,10 @@ namespace Flourish::Vulkan
         rangeInfo.primitiveOffset = 0;
         rangeInfo.transformOffset = 0;
 
-        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
+        // Create the necessary resources, but do not run the actual build command if the
+        // instance buffer is empty
+        bool skipBuild = buildInfo.InstanceCount == 0;
+        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf, skipBuild);
 
         if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
             m_InstanceBuffer.reset();
@@ -265,7 +268,8 @@ namespace Flourish::Vulkan
     void AccelerationStructure::BuildInternal(
         VkAccelerationStructureBuildGeometryInfoKHR& buildInfo,
         const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo,
-        VkCommandBuffer cmdBuf
+        VkCommandBuffer cmdBuf,
+        bool skipBuild
     )
     {
         FL_ASSERT(
@@ -361,7 +365,8 @@ namespace Flourish::Vulkan
         buildInfo.dstAccelerationStructure = m_AccelStructure;
         buildInfo.scratchData.deviceAddress = scratchAddress;
 
-        vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
+        if (!skipBuild)
+            vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
 
         VkMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;

@@ -86,7 +86,7 @@ namespace Flourish::Vulkan
         {
             VkBuffer Buffer = VK_NULL_HANDLE;
             VkDeviceAddress DeviceAddress = 0;
-            VmaAllocation Allocation;
+            VmaAllocation Allocation = VK_NULL_HANDLE;
             VmaAllocationInfo AllocationInfo;
         };
 
