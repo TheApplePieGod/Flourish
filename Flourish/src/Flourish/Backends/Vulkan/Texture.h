@@ -24,7 +24,6 @@ namespace Flourish::Vulkan
     {
     public:
         Texture(const TextureCreateInfo& createInfo);
-        Texture(const TextureViewCreateInfo& createInfo);
         Texture(const TextureCreateInfo& createInfo, VkImageView imageView);
         ~Texture() override;
         void operator=(Texture&& other);
