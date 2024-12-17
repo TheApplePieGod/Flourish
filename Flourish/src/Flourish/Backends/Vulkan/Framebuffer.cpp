@@ -156,25 +156,22 @@ namespace Flourish::Vulkan
             } 
         }
 
-        for (u32 frame = 0; frame < Flourish::Context::FrameBufferCount(); frame++)
-        {
-            VkFramebufferCreateInfo framebufferInfo{};
-            framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = renderPass->GetRenderPass();
-            framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews.size());
-            framebufferInfo.pAttachments = m_CachedImageViews.data();
-            framebufferInfo.width = m_Info.Width;
-            framebufferInfo.height = m_Info.Height;
-            framebufferInfo.layers = 1;
-            
-            if (!FL_VK_CHECK_RESULT(vkCreateFramebuffer(
-                Context::Devices().Device(),
-                &framebufferInfo,
-                nullptr,
-                &m_Framebuffer
-            ), "Framebuffer create framebuffer"))
-                throw std::exception();
-        }
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass->GetRenderPass();
+        framebufferInfo.attachmentCount = static_cast<u32>(m_CachedImageViews.size());
+        framebufferInfo.pAttachments = m_CachedImageViews.data();
+        framebufferInfo.width = m_Info.Width;
+        framebufferInfo.height = m_Info.Height;
+        framebufferInfo.layers = 1;
+        
+        if (!FL_VK_CHECK_RESULT(vkCreateFramebuffer(
+            Context::Devices().Device(),
+            &framebufferInfo,
+            nullptr,
+            &m_Framebuffer
+        ), "Framebuffer create framebuffer"))
+            throw std::exception();
     }
 
     void Framebuffer::Cleanup()

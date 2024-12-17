@@ -37,7 +37,7 @@ namespace Flourish::Vulkan
     private:
         bool m_UseResolve;
         bool m_RendersToSwapchain = false;
-        VkFramebuffer m_Framebuffer;
+        VkFramebuffer m_Framebuffer = VK_NULL_HANDLE;
         std::vector<ImageData> m_Images;
         std::vector<VkImageView> m_CachedImageViews;
         std::vector<VkClearValue> m_CachedClearValues;
