@@ -60,7 +60,10 @@ namespace Flourish::Vulkan
 
     void Synchronization::WaitForFences(const VkFence* fences, u32 count)
     {
-        vkWaitForFences(Context::Devices().Device(), count, fences, true, UINT64_MAX);
+        FL_VK_ENSURE_RESULT(
+            vkWaitForFences(Context::Devices().Device(), count, fences, true, UINT64_MAX),
+            "WaitForFences"
+        );
     }
 
     void Synchronization::ResetFences(const VkFence* fences, u32 count)
