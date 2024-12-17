@@ -11,7 +11,8 @@ namespace Flourish
             Readonly = 0,
             Graphics = (1 << 0),
             Compute = (1 << 1),
-            Transfer = (1 << 2)
+            Transfer = (1 << 2),
+            All = Graphics | Compute | Transfer
         };
     }
     typedef TextureUsageEnum::Value TextureUsageFlags;

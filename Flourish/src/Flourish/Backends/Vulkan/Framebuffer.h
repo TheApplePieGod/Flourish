@@ -18,7 +18,6 @@ namespace Flourish::Vulkan
         // TS
         inline VkFramebuffer GetFramebuffer() const { return m_Framebuffer; }
         inline const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
-        inline bool RendersToSwapchain() const { return m_RendersToSwapchain; }
 
     private:
         struct ImageData
@@ -36,7 +35,6 @@ namespace Flourish::Vulkan
 
     private:
         bool m_UseResolve;
-        bool m_RendersToSwapchain = false;
         VkFramebuffer m_Framebuffer = VK_NULL_HANDLE;
         std::vector<ImageData> m_Images;
         std::vector<VkImageView> m_CachedImageViews;

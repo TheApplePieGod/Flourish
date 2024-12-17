@@ -453,6 +453,19 @@ namespace Flourish::Vulkan
             submission.Buffers.size()
         );
 
+        // Transition layout for presentation
+        Texture::TransitionImageLayout(
+            context->Swapchain().GetImage(),
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            0, 1,
+            0, 1,
+            0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_ACCESS_MEMORY_READ_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            finalBuf
+        );
+
         vkEndCommandBuffer(finalBuf);
 
         // Temporarily add this since we must wait on it before drawing to the swapchain images

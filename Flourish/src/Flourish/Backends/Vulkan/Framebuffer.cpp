@@ -32,7 +32,6 @@ namespace Flourish::Vulkan
     void Framebuffer::Create()
     {
         RenderPass* renderPass = static_cast<RenderPass*>(m_Info.RenderPass.get());
-        m_RendersToSwapchain = renderPass->RendersToSwapchain();
 
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;

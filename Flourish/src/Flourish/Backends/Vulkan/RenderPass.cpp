@@ -6,8 +6,8 @@
 
 namespace Flourish::Vulkan
 {
-    RenderPass::RenderPass(const RenderPassCreateInfo& createInfo, bool rendersToSwapchain)
-        : Flourish::RenderPass(createInfo), m_RendersToSwapchain(rendersToSwapchain)
+    RenderPass::RenderPass(const RenderPassCreateInfo& createInfo)
+        : Flourish::RenderPass(createInfo)
     {
         std::vector<VkAttachmentDescription2> attachmentDescriptions = {};
 
@@ -85,8 +85,6 @@ namespace Flourish::Vulkan
             colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
             colorAttachment.initialLayout = attachment.Initialization == AttachmentInitialization::Preserve ? initLayout : VK_IMAGE_LAYOUT_UNDEFINED;
             colorAttachment.finalLayout = m_UseResolve ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : initLayout;
-            if (m_RendersToSwapchain)
-                colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             attachmentDescriptions.emplace_back(colorAttachment);
 
             if (m_UseResolve)
@@ -100,7 +98,7 @@ namespace Flourish::Vulkan
                 colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                 colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
                 colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                colorAttachmentResolve.finalLayout = m_RendersToSwapchain ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                 attachmentDescriptions.emplace_back(colorAttachmentResolve);
             }
         }
@@ -272,7 +270,7 @@ namespace Flourish::Vulkan
             if (depthLoad)
                 dependencies[i].dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 
-            dependencies[i].dependencyFlags = m_RendersToSwapchain ? 0 : VK_DEPENDENCY_BY_REGION_BIT;
+            dependencies[i].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
             if (i == 0)
                 dependencies[i].srcSubpass = VK_SUBPASS_EXTERNAL;

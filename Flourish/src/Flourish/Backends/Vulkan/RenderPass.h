@@ -8,12 +8,11 @@ namespace Flourish::Vulkan
     class RenderPass : public Flourish::RenderPass
     {
     public:
-        RenderPass(const RenderPassCreateInfo& createInfo, bool rendersToSwapchain = false);
+        RenderPass(const RenderPassCreateInfo& createInfo);
         ~RenderPass() override;
 
         // TS
         inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
-        inline bool RendersToSwapchain() const { return m_RendersToSwapchain; }
         inline VkSampleCountFlagBits GetConvertedSampleCount() const { return m_SampleCount; }
 
         inline static constexpr VkFormat DepthFormat = VK_FORMAT_D32_SFLOAT;
@@ -24,7 +23,6 @@ namespace Flourish::Vulkan
     private:
         VkSampleCountFlagBits m_SampleCount;
         bool m_UseResolve;
-        bool m_RendersToSwapchain;
         VkRenderPass m_RenderPass = VK_NULL_HANDLE;
     };
 }
