@@ -461,8 +461,8 @@ namespace Flourish::Vulkan
             VK_IMAGE_ASPECT_COLOR_BIT,
             0, 1,
             0, 1,
-            0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_ACCESS_MEMORY_READ_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            VK_ACCESS_MEMORY_WRITE_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+            0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             finalBuf
         );
 
