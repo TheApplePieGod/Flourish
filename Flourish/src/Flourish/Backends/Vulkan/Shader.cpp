@@ -169,26 +169,27 @@ namespace Flourish::Vulkan
         Cleanup();
     }
 
-    void Shader::Reload()
+    bool Shader::Reload()
     {
-        Recreate();
+        return Recreate();
     }
 
-    void Shader::Recreate()
+    // returns true if the recreation was successful
+    bool Shader::Recreate()
     {
         if (m_Revisions)
         {
             // Recreating from source doesnt make sense because the source
             // is immutable
             if (m_Info.Path.empty())
-                return;
+                return true;
             
             FL_LOG_DEBUG("Recompiling shader @ '%s'", m_Info.Path.data());
         }
 
         std::vector<u32> compiled = CompileSpirv(m_Info.Path, m_Info.Source, m_Info.Type);
         if (compiled.empty()) // Compilation failure
-            return;
+            return false;
 
         Cleanup();
 
@@ -205,9 +206,11 @@ namespace Flourish::Vulkan
             nullptr,
             &m_ShaderModule
         ), "Shader create shader module"))
-            throw std::exception();
+            return false;
 
         m_Revisions++;
+
+        return true;
     }
 
     void Shader::Cleanup()

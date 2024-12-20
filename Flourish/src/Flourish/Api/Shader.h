@@ -47,7 +47,7 @@ namespace Flourish
         {}
         virtual ~Shader() = default;
 
-        virtual void Reload() = 0;
+        virtual bool Reload() = 0;
 
         // TS
         inline ShaderType GetType() const { return m_Info.Type; }
