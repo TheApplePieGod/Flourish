@@ -241,7 +241,7 @@ namespace Flourish::Vulkan
         topGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         topGeom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         topGeom.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-        if (buildInfo.InstanceCount > 0)
+        if (m_InstanceBuffer)
             topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
@@ -257,8 +257,8 @@ namespace Flourish::Vulkan
         rangeInfo.transformOffset = 0;
 
         // Create the necessary resources, but do not run the actual build command if the
-        // instance buffer is empty
-        bool skipBuild = buildInfo.InstanceCount == 0;
+        // instance buffer has never been created
+        bool skipBuild = buildInfo.InstanceCount == 0 && !m_InstanceBuffer;
         BuildInternal(buildInfoVk, &rangeInfo, cmdBuf, skipBuild);
 
         if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
