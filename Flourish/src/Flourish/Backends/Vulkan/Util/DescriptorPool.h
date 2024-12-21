@@ -7,7 +7,7 @@ namespace Flourish::Vulkan
 {
     struct DescriptorSetAllocation
     {
-        VkDescriptorSet Set;
+        VkDescriptorSet Set = VK_NULL_HANDLE;
         u32 PoolIndex;
     };
 

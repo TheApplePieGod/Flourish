@@ -29,11 +29,8 @@ namespace Flourish::Vulkan
         void FlushBindings() override;
 
         // TS
-        VkDescriptorSet GetSet() const;
-        VkDescriptorSet GetSet(u32 frameIndex) const;
-        
-        // TS
         inline const DescriptorPool* GetParentPool() const { return m_ParentPool.get(); }
+        inline VkDescriptorSet GetSet() const { return m_CurrentSet; }
 
     private:
         struct StoredReferences
@@ -55,10 +52,10 @@ namespace Flourish::Vulkan
             std::vector<VkWriteDescriptorSetAccelerationStructureKHR> AccelWrites;
         };
 
-        struct SetList
+        struct AllocatedSet
         {
-            u32 FreeIndex = 0;
-            std::vector<DescriptorSetAllocation> Sets;
+            DescriptorSetAllocation Set;
+            u64 WriteFrame;
         };
 
     private:
@@ -80,13 +77,10 @@ namespace Flourish::Vulkan
         );
 
     private:
-        u64 m_LastFrameWrite = 0;
-        u32 m_AllocationCount = 1;
-
-        std::vector<CachedData> m_CachedData;
+        CachedData m_CachedData;
         std::vector<StoredReferences> m_StoredReferences;
         std::shared_ptr<DescriptorPool> m_ParentPool;
-        std::array<DescriptorSetAllocation, Flourish::Context::MaxFrameBufferCount> m_Allocations;
-        std::array<SetList, Flourish::Context::MaxFrameBufferCount> m_SetLists;
+        std::vector<AllocatedSet> m_SetList;
+        VkDescriptorSet m_CurrentSet = VK_NULL_HANDLE;
     };
 }
