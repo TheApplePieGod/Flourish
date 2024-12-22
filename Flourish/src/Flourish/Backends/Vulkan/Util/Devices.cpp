@@ -247,6 +247,8 @@ namespace Flourish::Vulkan
         #ifdef FL_DEBUG
             if (Common::SupportsExtension(m_SupportedExtensions, VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME))
                 extensions.push_back(VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME);
+            if (Common::SupportsExtension(m_SupportedExtensions, VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME))
+                extensions.push_back(VK_NV_DEVICE_DIAGNOSTICS_CONFIG_EXTENSION_NAME);
         #endif
 
         if (Common::SupportsExtension(m_SupportedExtensions, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME))
@@ -277,7 +279,7 @@ namespace Flourish::Vulkan
             Common::SupportsExtension(m_SupportedExtensions, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
         {
             // Do not enable this feature on android. Timeline semaphores seem to cause a lot of stability issues,
-            // at least from my testing on the Adreno GPU.
+            // at least from my testing on the Adreno GPU. (It's probably my fault and might be fixed, todo revisit)
 
             #ifndef FL_PLATFORM_ANDROID
                 m_SupportsTimelines = true;
