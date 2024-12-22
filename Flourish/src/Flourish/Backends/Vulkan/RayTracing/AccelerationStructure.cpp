@@ -130,7 +130,7 @@ namespace Flourish::Vulkan
         buildInfoVk.pGeometries = &asGeom;
         buildInfoVk.mode = buildInfo.TryUpdate ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 
-        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf, false);
+        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
     }
 
     void AccelerationStructure::RebuildSceneInternal(const AccelerationStructureSceneBuildInfo& buildInfo, VkCommandBuffer cmdBuf)
@@ -184,58 +184,57 @@ namespace Flourish::Vulkan
         }
 
 
-        if (buildInfo.InstanceCount > 0)
+        // This is not super great b/c of fragmentation. We might want to preallocate the whole buffer.
+        // Also, we always allocate a buffer even if we have no instances because we HAVE to build
+        // regardless, so the buffer must at least exist
+        if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
         {
-            // This is not super great b/c of fragmentation. We might want to preallocate the whole buffer
-            if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
-            {
-                BufferCreateInfo ibCreateInfo;
-                ibCreateInfo.MemoryType = BufferMemoryType::CPUWriteFrame;
-                ibCreateInfo.ElementCount = buildInfo.InstanceCount;
-                ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
-                ibCreateInfo.InitialData = m_Instances.data();
-                ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
-                ibCreateInfo.ExposeGPUAddress = true;
-                m_InstanceBuffer = std::make_shared<Buffer>(
-                    ibCreateInfo,
-                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                    cmdBuf
-                );
-            }
-            else
-            {
-                m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
-                m_InstanceBuffer->FlushInternal(cmdBuf, false);
-            }
-
-            // Ensure data is uploaded before performing build
-            VkMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            vkCmdPipelineBarrier(
-                cmdBuf,
-                VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                0,
-                1, &barrier,
-                0, nullptr,
-                0, nullptr
-            );
-
-            // Ensure all instance writes are complete
-            barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            vkCmdPipelineBarrier(
-                cmdBuf,
-                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                0,
-                1, &barrier,
-                0, nullptr,
-                0, nullptr
+            BufferCreateInfo ibCreateInfo;
+            ibCreateInfo.MemoryType = BufferMemoryType::CPUWriteFrame;
+            ibCreateInfo.ElementCount = std::max(buildInfo.InstanceCount, 1U);
+            ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
+            ibCreateInfo.InitialData = m_Instances.data();
+            ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
+            ibCreateInfo.ExposeGPUAddress = true;
+            m_InstanceBuffer = std::make_shared<Buffer>(
+                ibCreateInfo,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                cmdBuf
             );
         }
+        else
+        {
+            m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
+            m_InstanceBuffer->FlushInternal(cmdBuf, false);
+        }
+
+        // Ensure data is uploaded before performing build
+        VkMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        vkCmdPipelineBarrier(
+            cmdBuf,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            0,
+            1, &barrier,
+            0, nullptr,
+            0, nullptr
+        );
+
+        // Ensure all instance writes are complete
+        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        vkCmdPipelineBarrier(
+            cmdBuf,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            0,
+            1, &barrier,
+            0, nullptr,
+            0, nullptr
+        );
 
         VkAccelerationStructureGeometryKHR topGeom{};
         topGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
@@ -256,10 +255,7 @@ namespace Flourish::Vulkan
         rangeInfo.primitiveOffset = 0;
         rangeInfo.transformOffset = 0;
 
-        // Create the necessary resources, but do not run the actual build command if the
-        // instance buffer has never been created
-        bool skipBuild = buildInfo.InstanceCount == 0 && !m_InstanceBuffer;
-        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf, skipBuild);
+        BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
 
         if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
             m_InstanceBuffer.reset();
@@ -268,8 +264,7 @@ namespace Flourish::Vulkan
     void AccelerationStructure::BuildInternal(
         VkAccelerationStructureBuildGeometryInfoKHR& buildInfo,
         const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo,
-        VkCommandBuffer cmdBuf,
-        bool skipBuild
+        VkCommandBuffer cmdBuf
     )
     {
         FL_ASSERT(
@@ -365,8 +360,7 @@ namespace Flourish::Vulkan
         buildInfo.dstAccelerationStructure = m_AccelStructure;
         buildInfo.scratchData.deviceAddress = scratchAddress;
 
-        if (!skipBuild)
-            vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
+        vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &rangeInfo);
 
         VkMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;

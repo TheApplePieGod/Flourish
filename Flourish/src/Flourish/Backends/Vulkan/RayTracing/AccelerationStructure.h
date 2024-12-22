@@ -28,8 +28,7 @@ namespace Flourish::Vulkan
         void BuildInternal(
             VkAccelerationStructureBuildGeometryInfoKHR& buildInfo,
             const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo,
-            VkCommandBuffer cmdBuf,
-            bool skipBuild
+            VkCommandBuffer cmdBuf
         );
         void CleanupAccel();
         CommandBufferAllocInfo BeginCommands(VkCommandBuffer* cmdBuf);
