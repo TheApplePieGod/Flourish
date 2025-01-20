@@ -62,22 +62,37 @@ namespace Flourish::Vulkan
         vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
         FL_CRASH_ASSERT(deviceCount > 0, "No graphics devices were found while initializing");
 
-        // Find first compatible device
+        // Find a good compatible device
+        std::vector<VkPhysicalDevice> compatible;
         for (auto device : devices)
         {
-            if (CheckDeviceCompatability(device, deviceExtensions))
-            {
-                m_PhysicalDevice = device;
+            if (!CheckDeviceCompatability(device, deviceExtensions))
+                continue;
 
-                vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_PhysicalDeviceProperties);
-                m_DeviceMaxSampleCount = GetMaxSampleCount();
+            FL_LOG_DEBUG("Compatible - yes. Considering this device");
 
-                FL_LOG_DEBUG("Compatible - yes. Using this device");
-                FL_LOG_INFO("Found a compatible graphics device");
-                
+            compatible.push_back(device);
+
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(device, &props);
+
+            // Stop immediately if we've hit a non-integrated GPU
+            if (props.deviceType != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
                 break;
-            }
         }
+
+        if (compatible.size() > 0) {
+            m_PhysicalDevice = compatible.back();
+
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(m_PhysicalDevice, &props);
+
+            vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_PhysicalDeviceProperties);
+            m_DeviceMaxSampleCount = GetMaxSampleCount();
+
+            FL_LOG_INFO("Using a compatible graphics device: %s", props.deviceName);
+        }
+        
         FL_CRASH_ASSERT(m_PhysicalDevice, "Unable to find a compatible graphics device while initializing");
 
         // TODO: clean this up / don't enable everything
