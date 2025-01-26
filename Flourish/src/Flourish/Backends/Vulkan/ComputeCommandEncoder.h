@@ -34,6 +34,8 @@ namespace Flourish::Vulkan
         void FlushResourceSet(u32 setIndex) override;
         void PushConstants(u32 offset, u32 size, const void* data) override;
 
+        void WriteTimestamp(u32 timestampId) override;
+
         // TS
         inline VkCommandBuffer GetCommandBuffer() const { return m_CommandBuffer; }
         inline void MarkManuallyRecorded() { m_AnyCommandRecorded = true; }

@@ -89,7 +89,10 @@ namespace Flourish::Vulkan
         // Set target compilation environment depending on which spirv version we support
         options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_1);
         if (Context::Devices().SupportsSpirv14())
+        {
+            options.SetTargetEnvironment(shaderc_target_env::shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
             options.SetTargetSpirv(shaderc_spirv_version_1_4);
+        }
 
         std::string baseSource(source);
         if (!path.empty())
@@ -166,26 +169,27 @@ namespace Flourish::Vulkan
         Cleanup();
     }
 
-    void Shader::Reload()
+    bool Shader::Reload()
     {
-        Recreate();
+        return Recreate();
     }
 
-    void Shader::Recreate()
+    // returns true if the recreation was successful
+    bool Shader::Recreate()
     {
         if (m_Revisions)
         {
             // Recreating from source doesnt make sense because the source
             // is immutable
             if (m_Info.Path.empty())
-                return;
+                return true;
             
             FL_LOG_DEBUG("Recompiling shader @ '%s'", m_Info.Path.data());
         }
 
         std::vector<u32> compiled = CompileSpirv(m_Info.Path, m_Info.Source, m_Info.Type);
         if (compiled.empty()) // Compilation failure
-            return;
+            return false;
 
         Cleanup();
 
@@ -202,9 +206,11 @@ namespace Flourish::Vulkan
             nullptr,
             &m_ShaderModule
         ), "Shader create shader module"))
-            throw std::exception();
+            return false;
 
         m_Revisions++;
+
+        return true;
     }
 
     void Shader::Cleanup()

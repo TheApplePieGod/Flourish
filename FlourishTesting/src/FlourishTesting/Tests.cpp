@@ -373,21 +373,18 @@ namespace FlourishTesting
         auto objectPipeline = m_SimplePassNoDepth->CreatePipeline("object_image", gpCreateInfo);
 
         Flourish::ResourceSetCreateInfo descCreateInfo;
-        descCreateInfo.Writability = Flourish::ResourceSetWritability::OnceStaticData;
         m_DogDescriptorSet = mainPipeline->CreateResourceSet(0, descCreateInfo);
         m_DogDescriptorSet->BindTexture(0, m_DogTexture);
         m_DogDescriptorSet->FlushBindings();
         m_CatDescriptorSet = mainPipeline->CreateResourceSet(0, descCreateInfo);
         m_CatDescriptorSet->BindTexture(0, m_CatTexture);
         m_CatDescriptorSet->FlushBindings();
-        descCreateInfo.Writability = Flourish::ResourceSetWritability::OnceDynamicData;
         m_ObjectDescriptorSet = m_ComputePipeline->CreateResourceSet(0, descCreateInfo);
         m_ObjectDescriptorSet->BindBuffer(0, m_ObjectData, 0, m_ObjectData->GetAllocatedCount());
         m_ObjectDescriptorSet->FlushBindings();
         m_ObjectDescriptorSetDynamic = objectPipeline->CreateResourceSet(1, descCreateInfo);
         m_ObjectDescriptorSetDynamic->BindBuffer(0, m_ObjectData, 0, 1);
         m_ObjectDescriptorSetDynamic->FlushBindings();
-        descCreateInfo.Writability = Flourish::ResourceSetWritability::MultiPerFrame;
         m_FrameDescriptorSet = mainPipeline->CreateResourceSet(0, descCreateInfo);
     }
     
@@ -402,8 +399,8 @@ namespace FlourishTesting
                 { { 3.f, -1.f, 0.f }, { 2.f, 0.f } },
                 { { -1.f, 3.f, 0.f }, { 0.f, 2.f } }
             };
-            bufCreateInfo.Type = Flourish::BufferType::Vertex;
-            bufCreateInfo.Usage = Flourish::BufferUsageType::Static;
+            bufCreateInfo.Usage = Flourish::BufferUsageFlags::Vertex;
+            bufCreateInfo.MemoryType = Flourish::BufferMemoryType::GPUOnly;
             bufCreateInfo.Layout = m_VertexLayout;
             bufCreateInfo.ElementCount = 3;
             bufCreateInfo.InitialData = vertices;
@@ -422,16 +419,16 @@ namespace FlourishTesting
             u32 indices[6] = {
                 0, 1, 3, 1, 2, 3
             };
-            bufCreateInfo.Type = Flourish::BufferType::Vertex;
-            bufCreateInfo.Usage = Flourish::BufferUsageType::Static;
+            bufCreateInfo.Usage = Flourish::BufferUsageFlags::Vertex;
+            bufCreateInfo.MemoryType = Flourish::BufferMemoryType::GPUOnly;
             bufCreateInfo.Layout = m_VertexLayout;
             bufCreateInfo.ElementCount = 4;
             bufCreateInfo.InitialData = vertices;
             bufCreateInfo.InitialDataSize = sizeof(vertices);
             m_QuadVertices = Flourish::Buffer::Create(bufCreateInfo);
 
-            bufCreateInfo.Type = Flourish::BufferType::Index;
-            bufCreateInfo.Usage = Flourish::BufferUsageType::Static;
+            bufCreateInfo.Usage = Flourish::BufferUsageFlags::Index;
+            bufCreateInfo.MemoryType = Flourish::BufferMemoryType::GPUOnly;
             bufCreateInfo.Layout = { { Flourish::BufferDataType::UInt } };
             bufCreateInfo.ElementCount = 6;
             bufCreateInfo.InitialData = indices;
@@ -441,8 +438,8 @@ namespace FlourishTesting
         
         // Object data
         {
-            bufCreateInfo.Type = Flourish::BufferType::Storage;
-            bufCreateInfo.Usage = Flourish::BufferUsageType::Dynamic;
+            bufCreateInfo.Usage = Flourish::BufferUsageFlags::Storage;
+            bufCreateInfo.MemoryType = Flourish::BufferMemoryType::CPUWriteFrame;
             bufCreateInfo.Layout = {
                 { Flourish::BufferDataType::Float2 },
                 { Flourish::BufferDataType::Float2 }
@@ -498,7 +495,6 @@ namespace FlourishTesting
         texCreateInfo.MipCount = 1;
         texCreateInfo.Format = Flourish::ColorFormat::RGBA8_UNORM;
         texCreateInfo.Usage = Flourish::TextureUsageFlags::Graphics;
-        texCreateInfo.Writability = Flourish::TextureWritability::PerFrame;
         texCreateInfo.SamplerState.AnisotropyEnable = false;
         texCreateInfo.InitialData = nullptr;
         texCreateInfo.AsyncCreation = false;

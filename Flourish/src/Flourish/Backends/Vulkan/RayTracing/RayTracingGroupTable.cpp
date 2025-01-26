@@ -17,23 +17,22 @@ namespace Flourish::Vulkan
         );
 
         VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-        Buffer::MemoryDirection memDir = Buffer::MemoryDirection::CPUToGPU;
         BufferCreateInfo bufCreateInfo;
-        bufCreateInfo.Usage = m_Info.Usage;
+        bufCreateInfo.MemoryType = BufferMemoryType::CPUWrite;
         bufCreateInfo.Stride = 1;
         bufCreateInfo.ExposeGPUAddress = true;
 
         bufCreateInfo.ElementCount = m_AlignedHandleSize + m_BaseAlignment;
-        m_Buffers[(u32)RayTracingShaderGroupType::RayGen] = std::make_shared<Buffer>(bufCreateInfo, usageFlags, memDir);
+        m_Buffers[(u32)RayTracingShaderGroupType::RayGen] = std::make_shared<Buffer>(bufCreateInfo, usageFlags);
 
         bufCreateInfo.ElementCount = (createInfo.MaxHitEntries * m_AlignedHandleSize) + m_BaseAlignment;
-        m_Buffers[(u32)RayTracingShaderGroupType::Hit] = std::make_shared<Buffer>(bufCreateInfo, usageFlags, memDir);
+        m_Buffers[(u32)RayTracingShaderGroupType::Hit] = std::make_shared<Buffer>(bufCreateInfo, usageFlags);
 
         bufCreateInfo.ElementCount = (createInfo.MaxMissEntries * m_AlignedHandleSize) + m_BaseAlignment;
-        m_Buffers[(u32)RayTracingShaderGroupType::Miss] = std::make_shared<Buffer>(bufCreateInfo, usageFlags, memDir);
+        m_Buffers[(u32)RayTracingShaderGroupType::Miss] = std::make_shared<Buffer>(bufCreateInfo, usageFlags);
 
         bufCreateInfo.ElementCount = (createInfo.MaxCallableEntries * m_AlignedHandleSize) + m_BaseAlignment;
-        m_Buffers[(u32)RayTracingShaderGroupType::Callable] = std::make_shared<Buffer>(bufCreateInfo, usageFlags, memDir);
+        m_Buffers[(u32)RayTracingShaderGroupType::Callable] = std::make_shared<Buffer>(bufCreateInfo, usageFlags);
     }
 
     RayTracingGroupTable::~RayTracingGroupTable()

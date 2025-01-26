@@ -34,20 +34,41 @@ namespace Flourish::Vulkan
         return (void**)&(*next)->pNext;
     }
 
+    VkBufferUsageFlags Common::ConvertBufferUsage(BufferUsage usage)
+    {
+        VkBufferUsageFlags result = 0;
+        result |= ((usage & BufferUsageFlags::Uniform) > 0) * VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Storage) > 0) * VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Vertex) > 0) * VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Index) > 0) * VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::Indirect) > 0) * VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+        result |= ((usage & BufferUsageFlags::AccelerationStructureBuild) > 0) * VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        return result;
+    }
+
     VkFormat Common::ConvertColorFormat(ColorFormat format)
     {
         switch (format)
         {
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ColorFormat"); } break;
+            case ColorFormat::R8_UNORM: return VK_FORMAT_R8_UNORM;
+            case ColorFormat::RG8_UNORM: return VK_FORMAT_R8G8_UNORM;
             case ColorFormat::RGBA8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
             case ColorFormat::RGBA8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+            case ColorFormat::R8_SINT: return VK_FORMAT_R8_SINT;
+            case ColorFormat::RG8_SINT: return VK_FORMAT_R8G8_SINT;
+            case ColorFormat::RGBA8_SINT: return VK_FORMAT_R8G8B8A8_SINT;
+            case ColorFormat::R8_UINT: return VK_FORMAT_R8_UINT;
+            case ColorFormat::RG8_UINT: return VK_FORMAT_R8G8_UINT;
+            case ColorFormat::RGBA8_UINT: return VK_FORMAT_R8G8B8A8_UINT;
             case ColorFormat::BGRA8_UNORM: return VK_FORMAT_B8G8R8A8_UNORM;
-            case ColorFormat::RGB8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
-            case ColorFormat::BGR8_UNORM: return VK_FORMAT_B8G8R8_UNORM;
+            case ColorFormat::BGRA8_SRGB: return VK_FORMAT_B8G8R8A8_SRGB;
             case ColorFormat::R16_FLOAT: return VK_FORMAT_R16_SFLOAT;
+            case ColorFormat::RG16_FLOAT: return VK_FORMAT_R16G16_SFLOAT;
             case ColorFormat::RGBA16_FLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
             case ColorFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
+            case ColorFormat::RG32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
             case ColorFormat::RGBA32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
             case ColorFormat::Depth: return VK_FORMAT_D32_SFLOAT;
 
@@ -72,14 +93,23 @@ namespace Flourish::Vulkan
         {
             default:
             { FL_ASSERT(false, "Vulkan does not support specified ColorFormat"); } break;
+            case VK_FORMAT_R8_UNORM: return ColorFormat::R8_UNORM;
+            case VK_FORMAT_R8G8_UNORM: return ColorFormat::RG8_UNORM;
             case VK_FORMAT_R8G8B8A8_UNORM: return ColorFormat::RGBA8_UNORM;
             case VK_FORMAT_R8G8B8A8_SRGB: return ColorFormat::RGBA8_SRGB;
+            case VK_FORMAT_R8_SINT: return ColorFormat::R8_SINT;
+            case VK_FORMAT_R8G8_SINT: return ColorFormat::RG8_SINT;
+            case VK_FORMAT_R8G8B8A8_SINT: return ColorFormat::RGBA8_SINT;
+            case VK_FORMAT_R8_UINT: return ColorFormat::R8_UINT;
+            case VK_FORMAT_R8G8_UINT: return ColorFormat::RG8_UINT;
+            case VK_FORMAT_R8G8B8A8_UINT: return ColorFormat::RGBA8_UINT;
             case VK_FORMAT_B8G8R8A8_UNORM: return ColorFormat::BGRA8_UNORM;
-            case VK_FORMAT_R8G8B8_UNORM: return ColorFormat::RGB8_UNORM;
-            case VK_FORMAT_B8G8R8_UNORM: return ColorFormat::BGR8_UNORM;
+            case VK_FORMAT_B8G8R8A8_SRGB: return ColorFormat::BGRA8_SRGB;
             case VK_FORMAT_R16_SFLOAT: return ColorFormat::R16_FLOAT;
+            case VK_FORMAT_R16G16_SFLOAT: return ColorFormat::RG16_FLOAT;
             case VK_FORMAT_R16G16B16A16_SFLOAT: return ColorFormat::RGBA16_FLOAT;
             case VK_FORMAT_R32_SFLOAT: return ColorFormat::R32_FLOAT;
+            case VK_FORMAT_R32G32_SFLOAT: return ColorFormat::RG32_FLOAT;
             case VK_FORMAT_R32G32B32A32_SFLOAT: return ColorFormat::RGBA32_FLOAT;
             case VK_FORMAT_D32_SFLOAT: return ColorFormat::Depth;
 
@@ -96,25 +126,6 @@ namespace Flourish::Vulkan
         }
 
         return ColorFormat::None;
-    }
-
-    bool Common::IsColorFormatCompressed(ColorFormat format)
-    {
-        switch (format)
-        {
-            default: return false;
-            case ColorFormat::BC1:
-            case ColorFormat::BC2:
-            case ColorFormat::BC3:
-            case ColorFormat::BC4:
-            case ColorFormat::BC4_SIGNED:
-            case ColorFormat::BC5:
-            case ColorFormat::BC5_SIGNED:
-            case ColorFormat::BC6H:
-            case ColorFormat::BC6H_SIGNED:
-            case ColorFormat::BC7:
-                return true;
-        }
     }
 
     VkAttachmentLoadOp Common::ConvertAttachmentInitialization(AttachmentInitialization init)
@@ -322,6 +333,24 @@ namespace Flourish::Vulkan
         }
 
         return VK_BLEND_OP_MAX_ENUM;
+    }
+
+    VkComponentSwizzle Common::ConvertChannelRemap(TextureChannelRemap remap)
+    {
+        switch (remap)
+        {
+            default:
+            { FL_ASSERT(false, "Vulkan does not support specified ChannelRemap"); } break;
+            case TextureChannelRemap::Identity: return VK_COMPONENT_SWIZZLE_IDENTITY;
+            case TextureChannelRemap::R: return VK_COMPONENT_SWIZZLE_R;
+            case TextureChannelRemap::G: return VK_COMPONENT_SWIZZLE_G;
+            case TextureChannelRemap::B: return VK_COMPONENT_SWIZZLE_B;
+            case TextureChannelRemap::A: return VK_COMPONENT_SWIZZLE_A;
+            case TextureChannelRemap::ZERO: return VK_COMPONENT_SWIZZLE_ZERO;
+            case TextureChannelRemap::ONE: return VK_COMPONENT_SWIZZLE_ONE;
+        }
+
+        return VK_COMPONENT_SWIZZLE_MAX_ENUM;
     }
 
     VkFilter Common::ConvertSamplerFilter(SamplerFilter filter)

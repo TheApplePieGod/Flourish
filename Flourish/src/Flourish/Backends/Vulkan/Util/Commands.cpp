@@ -229,6 +229,41 @@ namespace Flourish::Vulkan
         FreeBuffers(allocInfo, &buffer, 1);
     }
 
+    void Commands::SubmitSingleTimeCommands(
+        GPUWorkloadType workloadType,
+        bool async,
+        std::function<void(VkCommandBuffer)>&& recordFn)
+    {
+        VkCommandBuffer cmdBuf;
+        auto allocInfo = Context::Commands().AllocateBuffers(
+            workloadType, false, &cmdBuf, 1, true
+        );   
+        
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.pInheritanceInfo = nullptr;
+
+        FL_VK_ENSURE_RESULT(vkBeginCommandBuffer(cmdBuf, &beginInfo), "SubmitSingleTimeCommands command buffer begin");
+        
+        recordFn(cmdBuf);
+
+        FL_VK_ENSURE_RESULT(vkEndCommandBuffer(cmdBuf), "SubmitSingleTimeCommands command buffer end");
+
+        if (async)
+        {
+            Context::Queues().PushCommand(workloadType, cmdBuf, [cmdBuf, allocInfo]()
+            {
+                Context::Commands().FreeBuffer(allocInfo, cmdBuf);
+            });
+        }
+        else
+        {
+            Context::Queues().ExecuteCommand(workloadType, cmdBuf, "SubmitSingleTimeCommands execute");
+            Context::Commands().FreeBuffer(allocInfo, cmdBuf);
+        }
+    }
+
     void Commands::PopulateCommandPools(CommandPools* pools, bool allowReset)
     {
         auto device = Context::Devices().Device();

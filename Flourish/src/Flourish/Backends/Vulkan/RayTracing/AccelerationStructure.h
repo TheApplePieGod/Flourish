@@ -46,7 +46,6 @@ namespace Flourish::Vulkan
         std::shared_ptr<Buffer> m_ScratchBuffer;
         std::vector<VkAccelerationStructureInstanceKHR> m_Instances;
 
-        // Written by the CPU so we may need one per frame
-        std::array<std::shared_ptr<Buffer>, Flourish::Context::MaxFrameBufferCount> m_InstanceBuffers;
+        std::shared_ptr<Buffer> m_InstanceBuffer;
     };
 }

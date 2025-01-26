@@ -18,21 +18,8 @@ namespace Flourish
     typedef ResourceSetPipelineCompatabilityEnum::Value ResourceSetPipelineCompatabilityFlags;
     typedef u8 ResourceSetPipelineCompatability;
 
-    enum class ResourceSetWritability : u8
-    {
-        _DynamicData = (1 << 0),
-        _FrameWrite = (1 << 1),
-        _MultiWrite = (1 << 2),
-
-        OnceStaticData = 0,
-        OnceDynamicData = _DynamicData,
-        PerFrame = _DynamicData | _FrameWrite,
-        MultiPerFrame = _DynamicData | _FrameWrite | _MultiWrite,
-    };
-
     struct ResourceSetCreateInfo
     {
-        ResourceSetWritability Writability;
         bool StoreBindingReferences = false;
     };
 

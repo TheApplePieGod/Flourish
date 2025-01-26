@@ -128,8 +128,9 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindVertexBuffer after encoding has ended");
+        FL_CRASH_ASSERT(_buffer->GetUsage() & BufferUsageFlags::Vertex, "BindVertexBuffer buffer must be created with 'Vertex' usage");
 
-        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetGPUBuffer();
 
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(m_CurrentCommandBuffer, 0, 1, &buffer, offsets);
@@ -140,8 +141,9 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode BindIndexBuffer after encoding has ended");
+        FL_CRASH_ASSERT(_buffer->GetUsage() & BufferUsageFlags::Index, "BindIndexBuffer buffer must be created with 'Index' usage");
 
-        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetGPUBuffer();
         
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindIndexBuffer(m_CurrentCommandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -172,8 +174,9 @@ namespace Flourish::Vulkan
         FL_PROFILE_FUNCTION();
 
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DrawIndexedIndirect after encoding has ended");
+        FL_CRASH_ASSERT(_buffer->GetUsage() & BufferUsageFlags::Indirect, "DrawIndexedIndirect buffer must be created with 'Indirect' usage");
 
-        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<const Buffer*>(_buffer)->GetGPUBuffer();
 
         u32 stride = _buffer->GetStride();
         vkCmdDrawIndexedIndirect(
@@ -314,6 +317,21 @@ namespace Flourish::Vulkan
         );
     }
 
+    void RenderCommandEncoder::WriteTimestamp(u32 timestampId)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode WriteTimestamp after encoding has ended");
+        FL_CRASH_ASSERT(timestampId < m_ParentBuffer->GetMaxTimestamps(), "WriteTimestamp timestampId larger than command buffer max timestamps");
+
+        vkCmdWriteTimestamp(
+            m_CurrentCommandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            m_ParentBuffer->GetQueryPool(),
+            timestampId
+        );
+
+        m_AnyCommandRecorded = true;
+    }
+    
     void RenderCommandEncoder::InitializeSubpass()
     {
         m_CurrentCommandBuffer = m_Submission.Buffers[m_SubpassIndex];

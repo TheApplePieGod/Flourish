@@ -11,7 +11,8 @@ namespace Flourish
             Readonly = 0,
             Graphics = (1 << 0),
             Compute = (1 << 1),
-            Transfer = (1 << 2)
+            Transfer = (1 << 2),
+            All = Graphics | Compute | Transfer
         };
     }
     typedef TextureUsageEnum::Value TextureUsageFlags;
@@ -22,12 +23,12 @@ namespace Flourish
         None = 0,
 
         // Uncompressed formats
-        RGBA8_UNORM, RGBA8_SRGB,
-        BGRA8_UNORM, 
-        RGB8_UNORM,
-        BGR8_UNORM,
-        R16_FLOAT, RGBA16_FLOAT,
-        R32_FLOAT, RGBA32_FLOAT,
+        R8_UNORM, RG8_UNORM, RGBA8_UNORM, RGBA8_SRGB,
+        R8_SINT, RG8_SINT, RGBA8_SINT,
+        R8_UINT, RG8_UINT, RGBA8_UINT,
+        BGRA8_UNORM, BGRA8_SRGB,
+        R16_FLOAT, RG16_FLOAT, RGBA16_FLOAT,
+        R32_FLOAT, RG32_FLOAT, RGBA32_FLOAT,
         Depth,
 
         // Compressed formats
@@ -40,13 +41,6 @@ namespace Flourish
         BC7,
     };
     
-    enum class TextureWritability
-    {
-        None = 0,
-        Once,
-        PerFrame
-    };
-
     enum class SamplerFilter
     {
         None = 0,
@@ -70,6 +64,12 @@ namespace Flourish
         Max
     };
 
+    enum class TextureChannelRemap
+    {
+        Identity = 0,
+        R, G, B, A, ZERO, ONE
+    };
+
     struct TextureSamplerState
     {
         SamplerFilter MinFilter = SamplerFilter::Linear;
@@ -85,7 +85,6 @@ namespace Flourish
         u32 Width, Height;
         ColorFormat Format;
         TextureUsage Usage = TextureUsageFlags::Readonly;
-        TextureWritability Writability = TextureWritability::None;
         u32 ArrayCount = 1;
         u32 MipCount = 0; // Set to zero to automatically deduce mip count
         TextureSamplerState SamplerState;
@@ -118,7 +117,6 @@ namespace Flourish
         inline u32 GetMipHeight(u32 mipLevel) const { return std::max(static_cast<u32>(m_Info.Height * pow(0.5f, mipLevel)), 0U); }
         inline u32 GetChannels() const { return m_Channels; }
         inline TextureUsage GetUsageType() const { return m_Info.Usage; }
-        inline TextureWritability GetWritability() const { return m_Info.Writability; }
         inline const TextureSamplerState& GetSamplerState() const { return m_Info.SamplerState; }
         inline ColorFormat GetColorFormat() const { return m_Info.Format; }
 
@@ -130,6 +128,7 @@ namespace Flourish
         static u32 ComputeTextureSize(ColorFormat format, u32 width, u32 height);
         static u32 ColorFormatComponentCount(ColorFormat format);
         static BufferDataType ColorFormatBufferDataType(ColorFormat format);
+        static bool IsColorFormatCompressed(ColorFormat format);
 
     protected:
         TextureCreateInfo m_Info;

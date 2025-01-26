@@ -88,8 +88,9 @@ namespace Flourish::Vulkan
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode DispatchIndirect after encoding has ended");
         FL_CRASH_ASSERT(m_BoundComputePipeline, "Must bind compute pipeline before dispatching");
+        FL_CRASH_ASSERT(_buffer->GetUsage() & BufferUsageFlags::Indirect, "DispatchIndirect buffer must be created with 'Indirect' usage");
 
-        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetBuffer();
+        VkBuffer buffer = static_cast<Buffer*>(_buffer)->GetGPUBuffer();
 
         vkCmdDispatchIndirect(
             m_CommandBuffer,
@@ -220,5 +221,20 @@ namespace Flourish::Vulkan
             size,
             data
         );
+    }
+
+    void ComputeCommandEncoder::WriteTimestamp(u32 timestampId)
+    {
+        FL_CRASH_ASSERT(m_Encoding, "Cannot encode WriteTimestamp after encoding has ended");
+        FL_CRASH_ASSERT(timestampId < m_ParentBuffer->GetMaxTimestamps(), "WriteTimestamp timestampId larger than command buffer max timestamps");
+
+        vkCmdWriteTimestamp(
+            m_CommandBuffer,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            m_ParentBuffer->GetQueryPool(),
+            timestampId
+        );
+
+        m_AnyCommandRecorded = true;
     }
 }

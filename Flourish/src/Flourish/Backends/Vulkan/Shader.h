@@ -28,7 +28,7 @@ namespace Flourish::Vulkan
         Shader(const ShaderCreateInfo& createInfo);
         ~Shader() override;
 
-        void Reload() override;
+        bool Reload() override;
 
         // TS
         VkPipelineShaderStageCreateInfo DefineShaderStage(const char* entrypoint = "main");
@@ -42,7 +42,7 @@ namespace Flourish::Vulkan
         inline u32 GetRevisionCount() const { return m_Revisions; }
 
     private:
-        void Recreate();
+        bool Recreate();
         void Cleanup();
         void Reflect(const std::vector<u32>& compiledData);
 

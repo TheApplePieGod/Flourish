@@ -18,9 +18,9 @@ namespace Flourish::Vulkan
         static bool SupportsExtension(const std::vector<VkExtensionProperties>& extensions, const char* extension);
         static void** IterateAndWriteNextChain(void** base, const void* pNext);
         static void** IterateAndWriteNextChain(const void** base, const void* pNext);
+        static VkBufferUsageFlags ConvertBufferUsage(BufferUsage usage);
         static VkFormat ConvertColorFormat(ColorFormat format);
         static ColorFormat RevertColorFormat(VkFormat format);
-        static bool IsColorFormatCompressed(ColorFormat format);
         static VkAttachmentLoadOp ConvertAttachmentInitialization(AttachmentInitialization init);
         static VkSampleCountFlagBits ConvertMsaaSampleCount(MsaaSampleCount sampleCount);
         static VkPrimitiveTopology ConvertVertexTopology(VertexTopology topology);
@@ -33,6 +33,7 @@ namespace Flourish::Vulkan
         static VkShaderStageFlags ConvertShaderAccessType(ShaderType type);
         static VkBlendFactor ConvertBlendFactor(BlendFactor factor);
         static VkBlendOp ConvertBlendOperation(BlendOperation op);
+        static VkComponentSwizzle ConvertChannelRemap(TextureChannelRemap remap);
         static VkFilter ConvertSamplerFilter(SamplerFilter filter);
         static VkSamplerAddressMode ConvertSamplerWrapMode(SamplerWrapMode mode);
         static VkSamplerReductionMode ConvertSamplerReductionMode(SamplerReductionMode mode);

@@ -13,33 +13,31 @@ namespace Flourish::Vulkan
         ~Framebuffer() override;
 
         // TS
-        VkFramebuffer GetFramebuffer() const;
         VkImageView GetAttachmentImageView(SubpassAttachment attachment) const;
 
         // TS
+        inline VkFramebuffer GetFramebuffer() const { return m_Framebuffer; }
         inline const std::vector<VkClearValue>& GetClearValues() const { return m_CachedClearValues; }
-        inline bool RendersToSwapchain() const { return m_RendersToSwapchain; }
 
     private:
         struct ImageData
         {
             VkImage Image = VK_NULL_HANDLE;
-            VkImageView ImageView;
-            VmaAllocation Allocation;
+            VkImageView ImageView = VK_NULL_HANDLE;
+            VmaAllocation Allocation = VK_NULL_HANDLE;
             VmaAllocationInfo AllocationInfo;
         };
 
     private:
         void Create();
         void Cleanup();
-        void PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags, u32 frame);
+        void PushImage(const VkImageCreateInfo& imgInfo, VkImageAspectFlagBits aspectFlags);
 
     private:
         bool m_UseResolve;
-        bool m_RendersToSwapchain = false;
-        std::array<VkFramebuffer, Flourish::Context::MaxFrameBufferCount> m_Framebuffers;
-        std::array<std::vector<ImageData>, Flourish::Context::MaxFrameBufferCount> m_Images;
-        std::array<std::vector<VkImageView>, Flourish::Context::MaxFrameBufferCount> m_CachedImageViews;
+        VkFramebuffer m_Framebuffer = VK_NULL_HANDLE;
+        std::vector<ImageData> m_Images;
+        std::vector<VkImageView> m_CachedImageViews;
         std::vector<VkClearValue> m_CachedClearValues;
     };
 }

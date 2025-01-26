@@ -13,6 +13,10 @@ namespace Flourish::Vulkan
         u32 BaseMip = 0;
         u32 LayerCount = 1;
         u32 BaseArrayLayer = 0;
+        VkComponentSwizzle SwizzleR = VK_COMPONENT_SWIZZLE_IDENTITY;
+        VkComponentSwizzle SwizzleG = VK_COMPONENT_SWIZZLE_IDENTITY;
+        VkComponentSwizzle SwizzleB = VK_COMPONENT_SWIZZLE_IDENTITY;
+        VkComponentSwizzle SwizzleA = VK_COMPONENT_SWIZZLE_IDENTITY;
         VkImageAspectFlags AspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     };
 
@@ -32,11 +36,8 @@ namespace Flourish::Vulkan
 
         // TS
         VkImage GetImage() const;
-        VkImage GetImage(u32 frameIndex) const;
         VkImageView GetImageView() const;
-        VkImageView GetImageView(u32 frameIndex) const;
         VkImageView GetLayerImageView(u32 layerIndex, u32 mipLevel) const;
-        VkImageView GetLayerImageView(u32 frameIndex, u32 layerIndex, u32 mipLevel) const;
 
         // TS
         inline VkSampler GetSampler() const { return m_Sampler; }
@@ -101,7 +102,7 @@ namespace Flourish::Vulkan
         {
             VkImage Image = VK_NULL_HANDLE;
             VkImageView ImageView = VK_NULL_HANDLE;
-            VmaAllocation Allocation;
+            VmaAllocation Allocation = VK_NULL_HANDLE;
             VmaAllocationInfo AllocationInfo;
             std::vector<VkImageView> SliceViews = {};
             #ifdef FL_USE_IMGUI
@@ -110,17 +111,15 @@ namespace Flourish::Vulkan
         };
 
     private:
-        const ImageData& GetImageData() const;
         void PopulateFeatures();
         void CreateSampler();
         void Cleanup();
 
     private:
-        std::array<ImageData, Flourish::Context::MaxFrameBufferCount> m_Images;
+        ImageData m_Image;
         VkFormat m_Format;
         VkFormatFeatureFlags m_FeatureFlags;
         VkSampler m_Sampler = VK_NULL_HANDLE;
-        u32 m_ImageCount = 0;
         bool m_IsDepthImage = false;
         bool m_IsStorageImage = false;
         bool m_Initialized = false;

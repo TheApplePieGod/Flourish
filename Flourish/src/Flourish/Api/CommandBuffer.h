@@ -13,6 +13,7 @@ namespace Flourish
     {
         bool FrameRestricted = true;
         std::string DebugName;
+        u32 MaxTimestamps = 0;
     };
 
     class Framebuffer;
@@ -32,10 +33,18 @@ namespace Flourish
         [[nodiscard]] virtual TransferCommandEncoder* EncodeTransferCommands() = 0;
 
         // TS
+        // In nanoseconds. For frame-restricted buffers, this will return the timestamp from
+        // FrameBufferCount frames ago. Otherwise, will return 0 unless the commands have completed
+        // execution.
+        virtual d64 GetTimestampValue(u32 timestampId) = 0;
+        d64 ComputeTimestampDifference(u32 timestampIdFirst, u32 timestampIdLast);
+
+        // TS
         inline u64 GetId() const { return m_Id; }
         inline bool IsEncoding() const { return m_Encoding; }
         inline bool IsFrameRestricted() const { return m_Info.FrameRestricted; }
         inline std::string_view GetDebugName() const { return m_Info.DebugName; }
+        inline u32 GetMaxTimestamps() const { return m_Info.MaxTimestamps; }
 
     public:
         // TS

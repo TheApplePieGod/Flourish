@@ -75,7 +75,8 @@ namespace Flourish::Vulkan
         void ResetBuildVariables();
         void PopulateSubmissionOrder();
         VkPipelineStageFlags GetWorkloadStageFlags(GPUWorkloadType type);
-        void PopulateSubmisssionBarrier(SubmissionBarrier& barrier, GPUWorkloadType srcWorkload, GPUWorkloadType dstWorkload);
+        void PopulateSubmissionBarrier(SubmissionBarrier& barrier, GPUWorkloadType srcWorkload, GPUWorkloadType dstWorkload);
+        void AddSubmissionDependency(int fromSubmitIndex, int toSubmitIndex);
         VkSemaphore GetSemaphore();
         VkFence GetFence();
 

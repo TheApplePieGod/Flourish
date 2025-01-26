@@ -22,6 +22,7 @@ namespace Flourish::Vulkan
 
     void AccelerationStructure::RebuildNode(const AccelerationStructureNodeBuildInfo& buildInfo)
     {
+        // TODO: refactor with Commands.SubmitSingleTimeCommands
         VkCommandBuffer cmdBuf;
         auto cmdAlloc = BeginCommands(&cmdBuf);
 
@@ -32,6 +33,7 @@ namespace Flourish::Vulkan
 
     void AccelerationStructure::RebuildScene(const AccelerationStructureSceneBuildInfo& buildInfo)
     {
+        // TODO: refactor with Commands.SubmitSingleTimeCommands
         VkCommandBuffer cmdBuf;
         auto cmdAlloc = BeginCommands(&cmdBuf);
 
@@ -54,15 +56,16 @@ namespace Flourish::Vulkan
                 "Acceleration structure rebuild cannot include both vertex/index buffers and AABB buffer"
             );
             FL_ASSERT(
-                buildInfo.AABBBuffer->CanCreateAccelerationStructure(),
-                "AABB buffer must be created with CanCreateAccelerationStructure"
+                buildInfo.AABBBuffer->GetUsage() & BufferUsageFlags::AccelerationStructureBuild,
+                "AABB buffer must be created with 'AccelerationStructureBuild' usage"
             );
         }
         else
         {
             FL_ASSERT(
-                buildInfo.VertexBuffer->CanCreateAccelerationStructure() && buildInfo.IndexBuffer->CanCreateAccelerationStructure(),
-                "Vertex and index buffers must be created with CanCreateAccelerationStructure"
+                (buildInfo.VertexBuffer->GetUsage() & BufferUsageFlags::AccelerationStructureBuild) &&
+                (buildInfo.IndexBuffer->GetUsage() & BufferUsageFlags::AccelerationStructureBuild),
+                "Vertex and index buffers must be created with 'AccelerationStructureBuild' usage"
             );
         }
 
@@ -181,68 +184,64 @@ namespace Flourish::Vulkan
         }
 
 
-        auto& instanceBuffer = m_InstanceBuffers[m_WriteIndex];
-        if (buildInfo.InstanceCount > 0)
+        // This is not super great b/c of fragmentation. We might want to preallocate the whole buffer.
+        // Also, we always allocate a buffer even if we have no instances because we HAVE to build
+        // regardless, so the buffer must at least exist
+        if (!m_InstanceBuffer || m_InstanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
         {
-            m_WriteIndex = (m_WriteIndex + 1) % Flourish::Context::FrameBufferCount();
-            if (!instanceBuffer || instanceBuffer->GetAllocatedCount() < buildInfo.InstanceCount)
-            {
-                BufferCreateInfo ibCreateInfo;
-                ibCreateInfo.Usage = BufferUsageType::DynamicOneFrame;
-                ibCreateInfo.ElementCount = buildInfo.InstanceCount;
-                ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
-                ibCreateInfo.InitialData = m_Instances.data();
-                ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
-                ibCreateInfo.ExposeGPUAddress = true;
-                instanceBuffer = std::make_shared<Buffer>(
-                    ibCreateInfo,
-                    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                    Buffer::MemoryDirection::CPUToGPU,
-                    cmdBuf,
-                    true
-                );
-            }
-            else
-            {
-                instanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
-                instanceBuffer->FlushInternal(cmdBuf, false);
-            }
-
-            // Ensure data is uploaded before performing build
-            VkMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            vkCmdPipelineBarrier(
-                cmdBuf,
-                VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                0,
-                1, &barrier,
-                0, nullptr,
-                0, nullptr
-            );
-
-            // Ensure all instance writes are complete
-            barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-            vkCmdPipelineBarrier(
-                cmdBuf,
-                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
-                0,
-                1, &barrier,
-                0, nullptr,
-                0, nullptr
+            BufferCreateInfo ibCreateInfo;
+            ibCreateInfo.MemoryType = BufferMemoryType::CPUWriteFrame;
+            ibCreateInfo.ElementCount = std::max(buildInfo.InstanceCount, 1U);
+            ibCreateInfo.Stride = sizeof(VkAccelerationStructureInstanceKHR);
+            ibCreateInfo.InitialData = m_Instances.data();
+            ibCreateInfo.InitialDataSize = sizeof(VkAccelerationStructureInstanceKHR) * buildInfo.InstanceCount;
+            ibCreateInfo.ExposeGPUAddress = true;
+            m_InstanceBuffer = std::make_shared<Buffer>(
+                ibCreateInfo,
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                cmdBuf
             );
         }
+        else
+        {
+            m_InstanceBuffer->SetElements(m_Instances.data(), m_Instances.size(), 0);
+            m_InstanceBuffer->FlushInternal(cmdBuf, false);
+        }
+
+        // Ensure data is uploaded before performing build
+        VkMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        vkCmdPipelineBarrier(
+            cmdBuf,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            0,
+            1, &barrier,
+            0, nullptr,
+            0, nullptr
+        );
+
+        // Ensure all instance writes are complete
+        barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+        vkCmdPipelineBarrier(
+            cmdBuf,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+            0,
+            1, &barrier,
+            0, nullptr,
+            0, nullptr
+        );
 
         VkAccelerationStructureGeometryKHR topGeom{};
         topGeom.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         topGeom.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         topGeom.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
-        if (buildInfo.InstanceCount > 0)
-            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)instanceBuffer->GetBufferGPUAddress();
+        if (m_InstanceBuffer)
+            topGeom.geometry.instances.data.deviceAddress = (VkDeviceAddress)m_InstanceBuffer->GetBufferGPUAddress();
 
         VkAccelerationStructureBuildGeometryInfoKHR buildInfoVk{};
         buildInfoVk.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -259,7 +258,7 @@ namespace Flourish::Vulkan
         BuildInternal(buildInfoVk, &rangeInfo, cmdBuf);
 
         if (m_Info.BuildFrequency != AccelerationStructureBuildFrequency::Often)
-            instanceBuffer.reset();
+            m_InstanceBuffer.reset();
     }
 
     void AccelerationStructure::BuildInternal(
@@ -315,14 +314,13 @@ namespace Flourish::Vulkan
         if (!m_ScratchBuffer || m_ScratchBuffer->GetAllocatedSize() < scratchSize)
         {
             BufferCreateInfo scratchCreateInfo;
-            scratchCreateInfo.Usage = BufferUsageType::Static;
+            scratchCreateInfo.MemoryType = BufferMemoryType::GPUOnly;
             scratchCreateInfo.ElementCount = 1;
             scratchCreateInfo.Stride = scratchSize;
             scratchCreateInfo.ExposeGPUAddress = true;
             m_ScratchBuffer = std::make_shared<Buffer>(
                 scratchCreateInfo,
-                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ,
-                Buffer::MemoryDirection::CPUToGPU
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             );
         }
         VkDeviceAddress scratchAddress = FL_ALIGN_UP(
@@ -337,7 +335,7 @@ namespace Flourish::Vulkan
 
         // Allocate buffer to store acceleration structure
         BufferCreateInfo abCreateInfo;
-        abCreateInfo.Usage = BufferUsageType::Static;
+        abCreateInfo.MemoryType = BufferMemoryType::GPUOnly;
         abCreateInfo.ElementCount = 1;
         abCreateInfo.Stride = buildSize.accelerationStructureSize;
 
@@ -351,11 +349,10 @@ namespace Flourish::Vulkan
 
             m_AccelBuffer = std::make_shared<Buffer>(
                 abCreateInfo,
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                Buffer::MemoryDirection::CPUToGPU
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
             );
 
-            accCreateInfo.buffer = m_AccelBuffer->GetBuffer();
+            accCreateInfo.buffer = m_AccelBuffer->GetGPUBuffer();
             vkCreateAccelerationStructureKHR(Context::Devices().Device(), &accCreateInfo, nullptr, &m_AccelStructure);
         }
 

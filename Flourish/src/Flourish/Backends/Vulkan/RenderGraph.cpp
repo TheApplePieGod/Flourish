@@ -46,11 +46,40 @@ namespace Flourish::Vulkan
     RenderGraph::~RenderGraph()
     {
         auto semaphores = m_AllSemaphores;
+        auto fences = m_AllFences;
         Context::FinalizerQueue().Push([=]()
         {
             for (VkSemaphore sem : semaphores)
                 vkDestroySemaphore(Context::Devices().Device(), sem, nullptr);
+            for (VkFence fence : fences)
+                vkDestroyFence(Context::Devices().Device(), fence, nullptr);
         }, "RenderGraph free");
+    }
+
+    void RenderGraph::AddSubmissionDependency(int fromSubmitIndex, int toSubmitIndex)
+    {
+        auto& toSubmit = m_ExecuteData.SubmitData[toSubmitIndex];
+        if (std::find(toSubmit.WaitingWorkloads.begin(), toSubmit.WaitingWorkloads.end(), fromSubmitIndex) == toSubmit.WaitingWorkloads.end())
+        {
+            // Only insert a dependency if we are not already waiting on this workload for another resource
+
+            auto& fromSubmit = m_ExecuteData.SubmitData[fromSubmitIndex];
+
+            // Since we depend on this, we can remove the submission's completion flag
+            fromSubmit.IsCompletion = false;
+
+            // Populate sync objects from the waiting workload
+            toSubmit.WaitingWorkloads.emplace_back(fromSubmitIndex);
+            toSubmit.WaitStageFlags.emplace_back(GetWorkloadStageFlags(toSubmit.Workload));
+            toSubmit.TimelineSubmitInfo.waitSemaphoreValueCount++;
+            for (u32 i = 0; i < m_SyncObjectCount; i++)
+            {
+                toSubmit.WaitSemaphores[i].emplace_back(fromSubmit.SignalSemaphores[i]);
+                toSubmit.SubmitInfos[i].waitSemaphoreCount++;
+            }
+            if (toSubmit.WaitSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
+                m_ExecuteData.WaitSemaphoreValues.emplace_back();
+        }
     }
 
     void RenderGraph::Build()
@@ -156,7 +185,7 @@ namespace Flourish::Vulkan
                         bool wroteAfterLastBarrier = resourceInfo.LastWriteIndex > m_LastWaitWrites[queueIndex];
                         if (wroteAfterLastBarrier)
                         {
-                            PopulateSubmisssionBarrier(currentSync.Barrier, resourceInfo.LastWriteWorkload, submission.WorkloadType);
+                            PopulateSubmissionBarrier(currentSync.Barrier, resourceInfo.LastWriteWorkload, submission.WorkloadType);
                             m_LastWaitWrites[queueIndex] = resourceInfo.LastWriteIndex;
                         }
                     }
@@ -168,28 +197,7 @@ namespace Flourish::Vulkan
                         // This also implies that currentWorkloadIndex != lastWorkloadIndex != -1
 
                         int fromSubmitIndex = m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex;
-                        auto& toSubmit = m_ExecuteData.SubmitData[workloadSync.SubmitDataIndex];
-                        if (std::find(toSubmit.WaitingWorkloads.begin(), toSubmit.WaitingWorkloads.end(), fromSubmitIndex) == toSubmit.WaitingWorkloads.end())
-                        {
-                            // Only insert a dependency if we are not already waiting on this workload for another resource
-
-                            auto& fromSubmit = m_ExecuteData.SubmitData[fromSubmitIndex];
-
-                            // Since we depend on this, we can remove the submission's completion flag
-                            fromSubmit.IsCompletion = false;
-
-                            // Populate sync objects from the waiting workload
-                            toSubmit.WaitingWorkloads.emplace_back(fromSubmitIndex);
-                            toSubmit.WaitStageFlags.emplace_back(GetWorkloadStageFlags(submission.WorkloadType));
-                            toSubmit.TimelineSubmitInfo.waitSemaphoreValueCount++;
-                            for (u32 i = 0; i < m_SyncObjectCount; i++)
-                            {
-                                toSubmit.WaitSemaphores[i].emplace_back(fromSubmit.SignalSemaphores[i]);
-                                toSubmit.SubmitInfos[i].waitSemaphoreCount++;
-                            }
-                            if (toSubmit.WaitSemaphores[0].size() > m_ExecuteData.WaitSemaphoreValues.size())
-                                m_ExecuteData.WaitSemaphoreValues.emplace_back();
-                        }
+                        AddSubmissionDependency(fromSubmitIndex, workloadSync.SubmitDataIndex);
                     }
                 }
 
@@ -200,15 +208,30 @@ namespace Flourish::Vulkan
 
                     u32 lastWriteQueue = Context::Queues().QueueIndex(resourceInfo.LastWriteWorkload);
                     bool wasWritten = resourceInfo.LastWriteIndex != -1;
-                    bool wroteAfterLastBarrier = resourceInfo.LastWriteIndex > m_LastWaitWrites[queueIndex];
-                    if (wasWritten && wroteAfterLastBarrier && lastWriteQueue == queueIndex)
+                    if (wasWritten && lastWriteQueue == queueIndex)
                     {
                         // If the queues between write -> write match, we must sync via a memory barrier in order to prevent
                         // a write-after-write hazard. Similar to reads, we don't need to insert another barrier if we've already waited
                         // in this queue
 
-                        PopulateSubmisssionBarrier(currentSync.Barrier, resourceInfo.LastWriteWorkload, submission.WorkloadType);
-                        m_LastWaitWrites[queueIndex] = totalIndex;
+                        bool wroteAfterLastBarrier = resourceInfo.LastWriteIndex > m_LastWaitWrites[queueIndex];
+                        if (wroteAfterLastBarrier)
+                        {
+                            PopulateSubmissionBarrier(currentSync.Barrier, resourceInfo.LastWriteWorkload, submission.WorkloadType);
+                            m_LastWaitWrites[queueIndex] = totalIndex;
+                        }
+                    }
+                    else if (wasWritten && !synchronous)
+                    {
+                        // If the queues between write -> write differ, we need to ensure this command buffer waits
+                        // on the one where the write occured. We only need to do this if the graph is not synchronous, since
+                        // synchronous graphs already have explicit dependencies between each submission.
+                        // This also implies that currentWorkloadIndex != lastWorkloadIndex != -1.
+                        // We could change this behavior to only apply if there is an explicit dependency between these workloads.
+                        // However, to guarantee consistency, this is the best option.
+
+                        int fromSubmitIndex = m_ExecuteData.SubmissionSyncs[resourceInfo.LastWriteWorkloadIndex].SubmitDataIndex;
+                        AddSubmissionDependency(fromSubmitIndex, workloadSync.SubmitDataIndex);
                     }
 
                     resourceInfo.LastWriteIndex = totalIndex;
@@ -349,7 +372,7 @@ namespace Flourish::Vulkan
         }
     }
 
-    void RenderGraph::PopulateSubmisssionBarrier(SubmissionBarrier& barrier, GPUWorkloadType srcWorkload, GPUWorkloadType dstWorkload)
+    void RenderGraph::PopulateSubmissionBarrier(SubmissionBarrier& barrier, GPUWorkloadType srcWorkload, GPUWorkloadType dstWorkload)
     {
         const SubmissionBarrier& computeBarrier = Flourish::Context::FeatureTable().RayTracing
             ? COMPUTE_BARRIER_RT

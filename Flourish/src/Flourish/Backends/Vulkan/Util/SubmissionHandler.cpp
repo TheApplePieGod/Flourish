@@ -118,7 +118,7 @@ namespace Flourish::Vulkan
     void SubmissionHandler::ProcessGraph(
         RenderGraph* graph,
         bool frameScope,
-        std::function<void(bool, VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback)
+        std::function<void(VkSubmitInfo&, VkTimelineSemaphoreSubmitInfo&)>&& preSubmitCallback)
     {
         auto& executeData = graph->GetExecutionData();
         u32 frameIndex = graph->GetExecutionFrameIndex();
@@ -127,7 +127,6 @@ namespace Flourish::Vulkan
         cmdBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         cmdBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        bool isFirstSubmit = true;
         u32 totalIndex = 0;
         int nextSubmit = -1;
         VkCommandBuffer primaryBuf;
@@ -138,6 +137,7 @@ namespace Flourish::Vulkan
             const RenderGraphNode& node = graph->GetNode(executeData.SubmissionOrder[finalIteration ? 0 : orderIndex]);
             CommandBuffer* buffer = static_cast<CommandBuffer*>(node.Buffer);
             auto& submissions = buffer->GetEncoderSubmissions();
+            bool resetQueryPool = false;
             FL_ASSERT(
                 finalIteration || submissions.size() == node.EncoderNodes.size(),
                 "Command buffer submission count (%d) differs from specified size in render graph (%d)",
@@ -170,8 +170,7 @@ namespace Flourish::Vulkan
                         // Run the pre-submit callback. This exists due to differing behavior between synchronization modes. Essentially
                         // all of the graph execution logic is identical, but how each mode handles wait and signal semaphores differ,
                         // so we allow that flexibility here
-                        preSubmitCallback(isFirstSubmit, submitInfo, timelineSubmitInfo);
-                        isFirstSubmit = false;
+                        preSubmitCallback(submitInfo, timelineSubmitInfo);
 
                         if (Context::Devices().SupportsTimelines())
                             submitInfo.pNext = &timelineSubmitInfo;
@@ -224,6 +223,15 @@ namespace Flourish::Vulkan
                     "Command buffer submission type is different than specified in the graph"
                 );
 
+                // Reset the command buffer's query pool before executing any of its commands. This
+                // will noop if the buffer has no pools allocated. Query pool ops are not supported
+                // on the transfer queue
+                if (!resetQueryPool && submission.AllocInfo.WorkloadType != GPUWorkloadType::Transfer)
+                {
+                    buffer->ResetQueryPool(primaryBuf);
+                    resetQueryPool = true;
+                }
+
                 if (syncInfo.Barrier.ShouldBarrier)
                 {
                     // If we've determined a barrier should be here during the graph build process, insert it
@@ -238,6 +246,23 @@ namespace Flourish::Vulkan
                         0, nullptr
                     );
                 }
+
+                 // For debugging
+                /*
+                VkMemoryBarrier barrier{};
+                barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+                barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+                vkCmdPipelineBarrier(
+                    primaryBuf,
+                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                    0,
+                    1, &barrier,
+                    0, nullptr,
+                    0, nullptr
+                );
+                */
 
                 if (!submission.Buffers.empty())
                 {
@@ -352,20 +377,19 @@ namespace Flourish::Vulkan
         ProcessGraph(
             graph,
             frameScope,
-            [finalSemaphores, waitFlags](bool isFirstSubmit, VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
-                if (isFirstSubmit)
-                {
-                    // If this is the first submission of this graph, we want to wait on last frame or graph to finish. We do this
-                    // by storing any relevant semaphores inside finalSemaphores, so that we can wait on them here. Inner-graph sync
-                    // is already handled by RenderGraph.
+            [finalSemaphores, waitFlags](VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
+                if (submitInfo.waitSemaphoreCount > 0) return;
 
-                    if (waitFlags->size() < finalSemaphores->size())
-                        waitFlags->resize(finalSemaphores->size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                // If this is the first submission of this graph, we want to wait on last frame or graph to finish. We do this
+                // by storing any relevant semaphores inside finalSemaphores, so that we can wait on them here. Inner-graph sync
+                // is already handled by RenderGraph.
 
-                    submitInfo.waitSemaphoreCount = finalSemaphores->size();
-                    submitInfo.pWaitSemaphores = finalSemaphores->data();
-                    submitInfo.pWaitDstStageMask = waitFlags->data();
-                }
+                if (waitFlags->size() < finalSemaphores->size())
+                    waitFlags->resize(finalSemaphores->size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                submitInfo.waitSemaphoreCount = finalSemaphores->size();
+                submitInfo.pWaitSemaphores = finalSemaphores->data();
+                submitInfo.pWaitDstStageMask = waitFlags->data();
             }
         );
 
@@ -396,25 +420,25 @@ namespace Flourish::Vulkan
             graph,
             frameScope,
             [frameScope, waitFlags, frameSems, frameVals]
-            (bool isFirstSubmit, VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
-                if (isFirstSubmit && frameScope)
-                {
-                    // If this is the first submission of this graph, we want to wait on last frame to finish
+            (VkSubmitInfo& submitInfo, VkTimelineSemaphoreSubmitInfo& timelineSubmitInfo) {
+                if (!frameScope || submitInfo.waitSemaphoreCount > 0) return;
 
-                    u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
-                    auto& lastSems = frameSems->at(lastFrameIndex);
-                    auto& lastVals = frameVals->at(lastFrameIndex);
-                    
-                    timelineSubmitInfo.waitSemaphoreValueCount = lastVals.size();
-                    timelineSubmitInfo.pWaitSemaphoreValues = lastVals.data();
+                // If this submission is a root node of the graph (no waiting submissions),
+                // we want to wait on the last frame to finish
 
-                    if (waitFlags->size() < lastSems.size())
-                        waitFlags->resize(lastSems.size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+                u32 lastFrameIndex = Flourish::Context::LastFrameIndex();
+                auto& lastSems = frameSems->at(lastFrameIndex);
+                auto& lastVals = frameVals->at(lastFrameIndex);
+                
+                timelineSubmitInfo.waitSemaphoreValueCount = lastVals.size();
+                timelineSubmitInfo.pWaitSemaphoreValues = lastVals.data();
 
-                    submitInfo.waitSemaphoreCount = lastSems.size();
-                    submitInfo.pWaitSemaphores = lastSems.data();
-                    submitInfo.pWaitDstStageMask = waitFlags->data();
-                }
+                if (waitFlags->size() < lastSems.size())
+                    waitFlags->resize(lastSems.size(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+
+                submitInfo.waitSemaphoreCount = lastSems.size();
+                submitInfo.pWaitSemaphores = lastSems.data();
+                submitInfo.pWaitDstStageMask = waitFlags->data();
             }
         );
     }
@@ -424,6 +448,8 @@ namespace Flourish::Vulkan
         auto& frameFences = m_FrameWaitFences[Flourish::Context::FrameIndex()];
         auto& frameSems = m_FrameWaitSemaphores[Flourish::Context::FrameIndex()];
         auto& frameVals = m_FrameWaitSemaphoreValues[Flourish::Context::FrameIndex()];
+        auto& lastFrameSems = m_FrameWaitSemaphores[Flourish::Context::LastFrameIndex()];
+        auto& lastFrameVals = m_FrameWaitSemaphoreValues[Flourish::Context::LastFrameIndex()];
         auto& submissions = context->CommandBuffer().GetEncoderSubmissions();
         if (submissions.empty())
             // TODO: revisit this
@@ -446,7 +472,27 @@ namespace Flourish::Vulkan
             submission.Buffers.size()
         );
 
+        // Transition layout for presentation
+        Texture::TransitionImageLayout(
+            context->Swapchain().GetImage(),
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            0, 1,
+            0, 1,
+            VK_ACCESS_MEMORY_WRITE_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+            0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            finalBuf
+        );
+
         vkEndCommandBuffer(finalBuf);
+
+        // If we have nothing to wait on (no graphs), ensure that we add signals from last frame 
+        if (frameSems.empty())
+        {
+            frameSems = lastFrameSems;
+            frameVals = lastFrameVals;
+        }
 
         // Temporarily add this since we must wait on it before drawing to the swapchain images
         frameSems.push_back(context->GetImageAvailableSemaphore());

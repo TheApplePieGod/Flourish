@@ -65,7 +65,6 @@ namespace Flourish::Vulkan
     void TransferCommandEncoder::CopyTextureToBuffer(Flourish::Texture* _texture, Flourish::Buffer* _buffer, u32 layerIndex, u32 mipLevel)
     {
         FL_CRASH_ASSERT(m_Encoding, "Cannot encode CopyTextureToBuffer after encoding has ended");
-        FL_ASSERT(_buffer->GetType() == BufferType::Pixel, "Only pixel buffers may be the targets of CopyTextureToBuffer");
         FL_ASSERT(_texture->GetUsageType() & TextureUsageFlags::Transfer, "Texture must be created with transfer flag to perform transfers");
         
         Texture* texture = static_cast<Texture*>(_texture);
@@ -89,7 +88,7 @@ namespace Flourish::Vulkan
         Buffer::CopyImageToBuffer(
             texture->GetImage(),
             aspect,
-            buffer->GetBuffer(),
+            buffer->GetGPUBuffer(),
             0, // TODO: parameterize
             texture->GetWidth(),
             texture->GetHeight(),
@@ -109,6 +108,7 @@ namespace Flourish::Vulkan
             0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
             m_CommandBuffer
         );
+
         m_AnyCommandRecorded = true;
     }
 
@@ -136,7 +136,7 @@ namespace Flourish::Vulkan
         );
 
         Buffer::CopyBufferToImage(
-            buffer->GetBuffer(),
+            buffer->GetGPUBuffer(),
             texture->GetImage(),
             aspect,
             0, // TODO: parameterize
@@ -169,8 +169,8 @@ namespace Flourish::Vulkan
         Buffer* dst = static_cast<Buffer*>(_dst);
 
         Buffer::CopyBufferToBuffer(
-            src->GetBuffer(),
-            dst->GetBuffer(),
+            src->GetGPUBuffer(),
+            dst->GetGPUBuffer(),
             srcOffset,
             dstOffset,
             size,

@@ -30,6 +30,7 @@ namespace Flourish::Vulkan
         
         // TS
         inline VkSwapchainKHR GetSwapchain() const { return m_Swapchain; }
+        inline VkImage GetImage() const { return m_ImageData[m_ActiveImageIndex].Image; }
         inline Framebuffer* GetFramebuffer() const { return m_ImageData[m_ActiveImageIndex].Framebuffer.get(); }
         inline RenderPass* GetRenderPass() const { return m_RenderPass.get(); }
         inline u32 GetActiveImageIndex() const { return m_ActiveImageIndex; }

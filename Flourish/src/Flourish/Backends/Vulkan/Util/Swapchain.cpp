@@ -316,12 +316,16 @@ namespace Flourish::Vulkan
         // Create renderpass compatible with all images
         // Does not need to be recreated
         RenderPassCreateInfo rpCreateInfo;
-        rpCreateInfo.ColorAttachments = { { Common::RevertColorFormat(m_Info.SurfaceFormat.format) } };
+        rpCreateInfo.ColorAttachments = {{
+            Common::RevertColorFormat(m_Info.SurfaceFormat.format),
+            AttachmentInitialization::Clear,
+            true
+        }};
         rpCreateInfo.Subpasses = {{
             {}, {{ SubpassAttachmentType::Color, 0 }}
         }};
         if (!m_RenderPass)
-            m_RenderPass = std::make_shared<RenderPass>(rpCreateInfo, true);
+            m_RenderPass = std::make_shared<RenderPass>(rpCreateInfo);
 
         // Populate image data
         m_ImageData.clear();
@@ -329,8 +333,7 @@ namespace Flourish::Vulkan
         texCreateInfo.Width = m_CurrentWidth;
         texCreateInfo.Height = m_CurrentHeight;
         texCreateInfo.Format = rpCreateInfo.ColorAttachments[0].Format;
-        texCreateInfo.Usage = TextureUsageFlags::Graphics;
-        texCreateInfo.Writability = TextureWritability::PerFrame;
+        texCreateInfo.Usage = TextureUsageFlags::All;
         FramebufferCreateInfo fbCreateInfo;
         fbCreateInfo.RenderPass = m_RenderPass;
         fbCreateInfo.Width = m_CurrentWidth;
